@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Device } from "../types/tauri-commands";
+import type { Device } from "../types";
 
 /**
  * Service for device-related operations
