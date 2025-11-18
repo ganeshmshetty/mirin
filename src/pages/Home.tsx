@@ -1,4 +1,6 @@
 import { DeviceList } from "../components/DeviceList";
+import { ActiveSessions } from "../components/ActiveSessions";
+import { ProcessManager } from "../components/ProcessManager";
 
 export function Home() {
   return (
@@ -9,6 +11,17 @@ export function Home() {
           <p className="text-gray-600">Android Device Screen Mirroring</p>
         </div>
         
+        {/* Process Manager */}
+        <div className="mb-6">
+          <ProcessManager />
+        </div>
+
+        {/* Active Sessions */}
+        <div className="mb-6">
+          <ActiveSessions />
+        </div>
+
+        {/* Device List */}
         <DeviceList />
       </div>
     </div>

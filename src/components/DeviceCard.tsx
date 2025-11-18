@@ -1,4 +1,7 @@
+import { useState } from "react";
 import type { Device } from "../types";
+import { MirrorButton } from "./MirrorButton";
+import { MirrorStatus } from "./MirrorStatus";
 
 interface DeviceCardProps {
   device: Device;
@@ -8,6 +11,9 @@ interface DeviceCardProps {
 }
 
 export function DeviceCard({ device, onConnect, onDisconnect, onEnableWireless }: DeviceCardProps) {
+  const [sessionId, setSessionId] = useState<string | undefined>();
+  const [isMirroring, setIsMirroring] = useState(false);
+  
   const isConnected = device.status === "Connected";
   const isWireless = device.connection_type === "Wireless";
   const isUSB = device.connection_type === "USB";
@@ -19,6 +25,24 @@ export function DeviceCard({ device, onConnect, onDisconnect, onEnableWireless }
     Unauthorized: "bg-yellow-100 text-yellow-800 border-yellow-200",
     Offline: "bg-red-100 text-red-800 border-red-200",
   }[device.status];
+
+  const handleSessionStart = (newSessionId: string) => {
+    setSessionId(newSessionId);
+    setIsMirroring(true);
+  };
+
+  const handleSessionEnd = () => {
+    setSessionId(undefined);
+    setIsMirroring(false);
+  };
+
+  const handleCrashDetected = () => {
+    console.warn(`Session crashed for device: ${device.name}`);
+    // Auto-cleanup the UI state when crash is detected
+    setTimeout(() => {
+      handleSessionEnd();
+    }, 3000); // Wait 3 seconds to show the crash message
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4 border border-gray-200 hover:shadow-lg transition-shadow">
@@ -46,33 +70,58 @@ export function DeviceCard({ device, onConnect, onDisconnect, onEnableWireless }
         </div>
       )}
 
-      <div className="flex gap-2 mt-4">
-        {isUSB && isConnected && onEnableWireless && (
-          <button
-            onClick={() => onEnableWireless(device)}
-            className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Enable Wireless
-          </button>
+      {/* Mirroring Status */}
+      {isMirroring && sessionId && (
+        <div className="mb-3">
+          <MirrorStatus 
+            sessionId={sessionId} 
+            deviceName={device.name}
+            onCrashDetected={handleCrashDetected}
+          />
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2 mt-4">
+        {/* Mirror Button */}
+        {isConnected && (
+          <MirrorButton
+            device={device}
+            sessionId={sessionId}
+            isActive={isMirroring}
+            onSessionStart={handleSessionStart}
+            onSessionEnd={handleSessionEnd}
+          />
         )}
-        
-        {isWireless && !isConnected && onConnect && (
-          <button
-            onClick={() => onConnect(device)}
-            className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors"
-          >
-            Connect
-          </button>
-        )}
-        
-        {isWireless && isConnected && onDisconnect && (
-          <button
-            onClick={() => onDisconnect(device)}
-            className="flex-1 px-3 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
-          >
-            Disconnect
-          </button>
-        )}
+
+        {/* Wireless/Connection Controls */}
+        <div className="flex gap-2">
+          {isUSB && isConnected && onEnableWireless && (
+            <button
+              onClick={() => onEnableWireless(device)}
+              className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Enable Wireless
+            </button>
+          )}
+          
+          {isWireless && !isConnected && onConnect && (
+            <button
+              onClick={() => onConnect(device)}
+              className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors"
+            >
+              Connect
+            </button>
+          )}
+          
+          {isWireless && isConnected && onDisconnect && (
+            <button
+              onClick={() => onDisconnect(device)}
+              className="flex-1 px-3 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+            >
+              Disconnect
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

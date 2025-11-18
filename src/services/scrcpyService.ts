@@ -1,5 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { ScrcpyOptions, MirrorSession } from "../types/tauri-commands";
+import type { ScrcpyOptions, MirrorSession, SessionStatus } from "../types/tauri-commands";
+
+export interface ProcessStats {
+  active_sessions: number;
+  total_started: number;
+}
 
 /**
  * Service for scrcpy-related operations
@@ -23,10 +28,31 @@ export const scrcpyService = {
   },
 
   /**
+   * Stop all active mirroring sessions
+   */
+  async stopAllMirroring(): Promise<number> {
+    return await invoke<number>("stop_all_mirroring");
+  },
+
+  /**
+   * Get mirroring status for a specific session
+   */
+  async getMirroringStatus(sessionId: string): Promise<SessionStatus> {
+    return await invoke<SessionStatus>("get_mirroring_status", { sessionId });
+  },
+
+  /**
    * Get all active mirroring sessions
    */
   async getActiveSessions(): Promise<MirrorSession[]> {
     return await invoke<MirrorSession[]>("get_active_sessions");
+  },
+
+  /**
+   * Get process statistics
+   */
+  async getProcessStats(): Promise<ProcessStats> {
+    return await invoke<ProcessStats>("get_process_stats");
   },
 
   /**

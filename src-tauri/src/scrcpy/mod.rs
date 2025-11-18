@@ -1,19 +1,105 @@
 use std::process::{Command, Child, Stdio};
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use serde::{Serialize, Deserialize};
 use crate::utils;
 
 /// Global state to track active scrcpy processes
+#[derive(Clone)]
 pub struct ScrcpyState {
-    pub processes: Mutex<HashMap<String, Child>>,
+    pub processes: Arc<Mutex<HashMap<String, ProcessInfo>>>,
+}
+
+#[derive(Debug)]
+pub struct ProcessInfo {
+    pub child: Child,
+    pub device_id: String,
+    pub started_at: std::time::SystemTime,
 }
 
 impl ScrcpyState {
     pub fn new() -> Self {
         Self {
-            processes: Mutex::new(HashMap::new()),
+            processes: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// Add a process to tracking
+    pub fn add_process(&self, session_id: String, process_info: ProcessInfo) -> Result<(), String> {
+        let mut processes = self.processes.lock()
+            .map_err(|e| format!("Failed to lock processes: {}", e))?;
+        processes.insert(session_id, process_info);
+        Ok(())
+    }
+
+    /// Remove and return a process
+    pub fn remove_process(&self, session_id: &str) -> Result<Option<ProcessInfo>, String> {
+        let mut processes = self.processes.lock()
+            .map_err(|e| format!("Failed to lock processes: {}", e))?;
+        Ok(processes.remove(session_id))
+    }
+
+    /// Check if a session is running
+    pub fn is_running(&self, session_id: &str) -> bool {
+        if let Ok(processes) = self.processes.lock() {
+            processes.contains_key(session_id)
+        } else {
+            false
+        }
+    }
+
+    /// Get all active session IDs
+    pub fn get_active_sessions(&self) -> Result<Vec<String>, String> {
+        let processes = self.processes.lock()
+            .map_err(|e| format!("Failed to lock processes: {}", e))?;
+        Ok(processes.keys().cloned().collect())
+    }
+
+    /// Get process info for a session (for monitoring)
+    pub fn get_process_info(&self, session_id: &str) -> Result<Option<(String, std::time::SystemTime)>, String> {
+        let processes = self.processes.lock()
+            .map_err(|e| format!("Failed to lock processes: {}", e))?;
+        
+        Ok(processes.get(session_id).map(|info| (info.device_id.clone(), info.started_at)))
+    }
+
+    /// Clean up finished processes
+    pub fn cleanup_finished(&self) -> Result<(), String> {
+        let mut processes = self.processes.lock()
+            .map_err(|e| format!("Failed to lock processes: {}", e))?;
+        
+        processes.retain(|_, info| {
+            // Check if process is still running
+            match info.child.try_wait() {
+                Ok(Some(_)) => false, // Process finished, remove it
+                Ok(None) => true,     // Still running, keep it
+                Err(_) => false,      // Error checking, assume dead
+            }
+        });
+        
+        Ok(())
+    }
+
+    /// Stop all processes (for cleanup on app exit)
+    pub fn stop_all(&self) -> Result<(), String> {
+        let mut processes = self.processes.lock()
+            .map_err(|e| format!("Failed to lock processes: {}", e))?;
+        
+        println!("Stopping {} scrcpy process(es)...", processes.len());
+        
+        for (session_id, mut info) in processes.drain() {
+            match info.child.kill() {
+                Ok(_) => println!("Stopped session: {}", session_id),
+                Err(e) => eprintln!("Failed to stop session {}: {}", session_id, e),
+            }
+        }
+        
+        Ok(())
+    }
+
+    /// Get count of active processes
+    pub fn active_count(&self) -> usize {
+        self.processes.lock().map(|p| p.len()).unwrap_or(0)
     }
 }
 
@@ -54,6 +140,13 @@ pub fn execute_scrcpy(
     // Set working directory to scrcpy directory (for DLL dependencies)
     cmd.current_dir(scrcpy_dir);
     
+    // Set ADB path environment variable
+    if let Ok(adb_dir) = utils::get_adb_dir(app) {
+        let path_env = std::env::var("PATH").unwrap_or_default();
+        let new_path = format!("{};{}", adb_dir.to_string_lossy(), path_env);
+        cmd.env("PATH", new_path);
+    }
+    
     // Add device ID if specified
     if let Some(id) = device_id {
         cmd.arg("-s").arg(id);
@@ -89,6 +182,12 @@ pub fn execute_scrcpy(
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to start scrcpy: {}", e))
+}
+
+/// Kill a scrcpy process
+pub fn kill_process(mut child: Child) -> Result<(), String> {
+    child.kill()
+        .map_err(|e| format!("Failed to kill process: {}", e))
 }
 
 /// Get scrcpy version
