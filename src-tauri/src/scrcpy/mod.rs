@@ -126,24 +126,23 @@ impl Default for ScrcpyOptions {
     }
 }
 
-/// Execute scrcpy with the given device ID and options
-pub fn execute_scrcpy(
-    app: &tauri::AppHandle,
+/// Build the scrcpy command without executing it
+pub fn build_scrcpy_command(
+    scrcpy_path: &std::path::Path,
+    scrcpy_dir: &std::path::Path,
+    adb_dir: Option<&std::path::Path>,
     device_id: Option<&str>,
     options: &ScrcpyOptions,
-) -> Result<Child, String> {
-    let scrcpy_path = utils::get_scrcpy_path(app)?;
-    let scrcpy_dir = utils::get_scrcpy_dir(app)?;
-    
+) -> Command {
     let mut cmd = Command::new(scrcpy_path);
     
     // Set working directory to scrcpy directory (for DLL dependencies)
     cmd.current_dir(scrcpy_dir);
     
     // Set ADB path environment variable
-    if let Ok(adb_dir) = utils::get_adb_dir(app) {
+    if let Some(dir) = adb_dir {
         let path_env = std::env::var("PATH").unwrap_or_default();
-        let new_path = format!("{};{}", adb_dir.to_string_lossy(), path_env);
+        let new_path = format!("{};{}", dir.to_string_lossy(), path_env);
         cmd.env("PATH", new_path);
     }
     
@@ -158,7 +157,7 @@ pub fn execute_scrcpy(
     }
     
     if let Some(bit_rate) = options.bit_rate {
-        cmd.arg("--bit-rate").arg(bit_rate.to_string());
+        cmd.arg("--video-bit-rate").arg(bit_rate.to_string());
     }
     
     if let Some(max_fps) = options.max_fps {
@@ -176,6 +175,27 @@ pub fn execute_scrcpy(
     if options.turn_screen_off {
         cmd.arg("--turn-screen-off");
     }
+    
+    cmd
+}
+
+/// Execute scrcpy with the given device ID and options
+pub fn execute_scrcpy(
+    app: &tauri::AppHandle,
+    device_id: Option<&str>,
+    options: &ScrcpyOptions,
+) -> Result<Child, String> {
+    let scrcpy_path = utils::get_scrcpy_path(app)?;
+    let scrcpy_dir = utils::get_scrcpy_dir(app)?;
+    let adb_dir = utils::get_adb_dir(app).ok();
+    
+    let mut cmd = build_scrcpy_command(
+        &scrcpy_path,
+        &scrcpy_dir,
+        adb_dir.as_deref(),
+        device_id,
+        options
+    );
     
     // Spawn the process
     cmd.stdout(Stdio::piped())
@@ -218,6 +238,7 @@ pub fn check_available(app: &tauri::AppHandle) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_default_options() {
@@ -226,5 +247,146 @@ mod tests {
         assert_eq!(options.bit_rate, Some(8000000));
         assert_eq!(options.max_fps, Some(60));
         assert_eq!(options.stay_awake, true);
+    }
+
+    #[test]
+    fn test_command_generation_resolution() {
+        let options = ScrcpyOptions {
+            max_size: Some(1080),
+            ..Default::default()
+        };
+        
+        let cmd = build_scrcpy_command(
+            &PathBuf::from("scrcpy"),
+            &PathBuf::from("."),
+            None,
+            None,
+            &options
+        );
+        
+        let args: Vec<&str> = cmd.get_args().map(|s| s.to_str().unwrap()).collect();
+        assert!(args.contains(&"--max-size"));
+        assert!(args.contains(&"1080"));
+    }
+
+    #[test]
+    fn test_command_generation_bitrate() {
+        let options = ScrcpyOptions {
+            bit_rate: Some(4000000),
+            ..Default::default()
+        };
+        
+        let cmd = build_scrcpy_command(
+            &PathBuf::from("scrcpy"),
+            &PathBuf::from("."),
+            None,
+            None,
+            &options
+        );
+        
+        let args: Vec<&str> = cmd.get_args().map(|s| s.to_str().unwrap()).collect();
+        assert!(args.contains(&"--video-bit-rate"));
+        assert!(args.contains(&"4000000"));
+    }
+
+    #[test]
+    fn test_command_generation_fps() {
+        let options = ScrcpyOptions {
+            max_fps: Some(30),
+            ..Default::default()
+        };
+        
+        let cmd = build_scrcpy_command(
+            &PathBuf::from("scrcpy"),
+            &PathBuf::from("."),
+            None,
+            None,
+            &options
+        );
+        
+        let args: Vec<&str> = cmd.get_args().map(|s| s.to_str().unwrap()).collect();
+        assert!(args.contains(&"--max-fps"));
+        assert!(args.contains(&"30"));
+    }
+
+    #[test]
+    fn test_command_generation_flags() {
+        let options = ScrcpyOptions {
+            always_on_top: true,
+            stay_awake: true,
+            turn_screen_off: true,
+            ..Default::default()
+        };
+        
+        let cmd = build_scrcpy_command(
+            &PathBuf::from("scrcpy"),
+            &PathBuf::from("."),
+            None,
+            None,
+            &options
+        );
+        
+        let args: Vec<&str> = cmd.get_args().map(|s| s.to_str().unwrap()).collect();
+        assert!(args.contains(&"--always-on-top"));
+        assert!(args.contains(&"--stay-awake"));
+        assert!(args.contains(&"--turn-screen-off"));
+    }
+
+    #[test]
+    fn test_command_generation_device_id() {
+        let options = ScrcpyOptions::default();
+        
+        let cmd = build_scrcpy_command(
+            &PathBuf::from("scrcpy"),
+            &PathBuf::from("."),
+            None,
+            Some("device123"),
+            &options
+        );
+        
+        let args: Vec<&str> = cmd.get_args().map(|s| s.to_str().unwrap()).collect();
+        assert!(args.contains(&"-s"));
+        assert!(args.contains(&"device123"));
+    }
+
+    #[test]
+    fn test_scrcpy_state_management() {
+        let state = ScrcpyState::new();
+        
+        // Initially empty
+        assert_eq!(state.active_count(), 0);
+        assert_eq!(state.get_active_sessions().unwrap().len(), 0);
+        
+        // We can't easily create a real Child process in tests without spawning something,
+        // but we can verify the state container logic if we could construct a ProcessInfo.
+        // However, ProcessInfo requires a Child which has no public constructor.
+        // So we'll just test the empty state behavior here.
+        
+        assert!(!state.is_running("session1"));
+        assert!(state.get_process_info("session1").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_state_concurrency() {
+        let state = Arc::new(ScrcpyState::new());
+        let mut handles = vec![];
+
+        // Spawn 10 threads that check state concurrently
+        for _ in 0..10 {
+            let state_clone = state.clone();
+            handles.push(std::thread::spawn(move || {
+                for _ in 0..100 {
+                    let _ = state_clone.active_count();
+                    let _ = state_clone.get_active_sessions();
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+        
+        // Should still be consistent
+        assert_eq!(state.active_count(), 0);
     }
 }

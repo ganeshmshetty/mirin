@@ -151,7 +151,11 @@ impl Adb {
         };
 
         let output = self.execute(&args)?;
-        
+        self.parse_ip_route(&output)
+    }
+
+    /// Parse the output of `ip route` to find the device IP
+    fn parse_ip_route(&self, output: &str) -> Result<String, String> {
         // Parse the IP address from the output
         // Looking for lines like: "192.168.1.0/24 dev wlan0 proto kernel scope link src 192.168.1.100"
         for line in output.lines() {
@@ -232,5 +236,107 @@ emulator-5554          device product:sdk_gphone64_arm64 model:sdk_gphone64_arm6
         assert_eq!(devices[0].serial, "emulator-5554");
         assert_eq!(devices[0].state, "device");
         assert_eq!(devices[1].serial, "192.168.1.100:5555");
+    }
+
+    #[test]
+    fn test_parse_usb_device() {
+        let adb = Adb::new(PathBuf::from("adb.exe"));
+        let output = "List of devices attached\nSERIAL123\tdevice product:P model:Pixel_6 device:D transport_id:1";
+        
+        let devices = adb.parse_devices(output).unwrap();
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].serial, "SERIAL123");
+        assert_eq!(devices[0].state, "device");
+        assert_eq!(devices[0].model, Some("Pixel_6".to_string()));
+    }
+
+    #[test]
+    fn test_parse_wireless_device() {
+        let adb = Adb::new(PathBuf::from("adb.exe"));
+        let output = "List of devices attached\n192.168.1.5:5555\tdevice product:P model:Galaxy_S21 device:D transport_id:2";
+        
+        let devices = adb.parse_devices(output).unwrap();
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].serial, "192.168.1.5:5555");
+        assert_eq!(devices[0].state, "device");
+        assert_eq!(devices[0].model, Some("Galaxy_S21".to_string()));
+    }
+
+    #[test]
+    fn test_parse_multiple_devices() {
+        let adb = Adb::new(PathBuf::from("adb.exe"));
+        let output = r#"List of devices attached
+SERIAL123          device product:P model:Pixel_6 device:D transport_id:1
+192.168.1.5:5555   device product:P model:Galaxy_S21 device:D transport_id:2
+"#;
+        
+        let devices = adb.parse_devices(output).unwrap();
+        assert_eq!(devices.len(), 2);
+        assert_eq!(devices[0].serial, "SERIAL123");
+        assert_eq!(devices[1].serial, "192.168.1.5:5555");
+    }
+
+    #[test]
+    fn test_parse_unauthorized_device() {
+        let adb = Adb::new(PathBuf::from("adb.exe"));
+        let output = "List of devices attached\nSERIAL123\tunauthorized transport_id:1";
+        
+        let devices = adb.parse_devices(output).unwrap();
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].serial, "SERIAL123");
+        assert_eq!(devices[0].state, "unauthorized");
+    }
+
+    #[test]
+    fn test_parse_ip_route() {
+        let adb = Adb::new(PathBuf::from("adb.exe"));
+        
+        // Standard output format
+        let output1 = "192.168.1.0/24 dev wlan0 proto kernel scope link src 192.168.1.100";
+        assert_eq!(adb.parse_ip_route(output1).unwrap(), "192.168.1.100");
+
+        // Output with extra spaces or different order
+        let output2 = "10.0.0.0/8 dev wlan0  src 10.0.0.50  uid 1000";
+        assert_eq!(adb.parse_ip_route(output2).unwrap(), "10.0.0.50");
+
+        // Output at end of line
+        let output3 = "172.16.0.0/16 dev wlan0 scope link src 172.16.0.1";
+        assert_eq!(adb.parse_ip_route(output3).unwrap(), "172.16.0.1");
+
+        // No wlan interface
+        let output4 = "192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.100";
+        assert!(adb.parse_ip_route(output4).is_err());
+
+        // No src field
+        let output5 = "192.168.1.0/24 dev wlan0 proto kernel scope link";
+        assert!(adb.parse_ip_route(output5).is_err());
+    }
+
+    #[test]
+    fn test_execute_failure() {
+        // Point to a non-existent executable
+        let adb = Adb::new(PathBuf::from("non_existent_adb_executable"));
+        let result = adb.execute(&["version"]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Failed to execute ADB command"));
+    }
+
+    #[test]
+    fn test_parse_performance() {
+        let adb = Adb::new(PathBuf::from("adb.exe"));
+        
+        // Generate a large output string simulating 1000 devices
+        let mut output = String::from("List of devices attached\n");
+        for i in 0..1000 {
+            output.push_str(&format!("device-{} device product:p model:m device:d transport_id:{}\n", i, i));
+        }
+        
+        let start = std::time::Instant::now();
+        let devices = adb.parse_devices(&output).unwrap();
+        let duration = start.elapsed();
+        
+        assert_eq!(devices.len(), 1000);
+        // Parsing 1000 devices should be very fast (under 50ms)
+        assert!(duration.as_millis() < 50, "Parsing took too long: {}ms", duration.as_millis());
     }
 }

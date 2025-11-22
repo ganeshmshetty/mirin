@@ -6,9 +6,3 @@
 # will have schema files for capabilities auto-completion
 /gen/schemas
 
-# Bundled resources (binaries)
-# Ignore all files in resources except README.md
-/resources/scrcpy/*
-!/resources/scrcpy/README.md
-/resources/adb/*
-!/resources/adb/README.md

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "scrcpygui",
+  "productName": "Scrcpy GUI",
   "version": "0.1.0",
   "identifier": "com.lolakshi-m.scrcpygui",
   "build": {
