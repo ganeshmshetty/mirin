@@ -1,6 +1,7 @@
 import "./App.css";
 import { Home } from "./pages/Home.tsx";
 import { ToastProvider } from "./components/ToastProvider";
+import { HelpButton } from "./components/HelpButton";
 
 function App() {
   return (
@@ -21,6 +22,11 @@ function App() {
                   <h1 className="text-xl font-bold text-gray-900">Scrcpy GUI</h1>
                   <p className="text-xs text-gray-500">Screen Mirroring Tool</p>
                 </div>
+              </div>
+              
+              {/* Actions */}
+              <div className="flex items-center gap-2">
+                <HelpButton />
               </div>
             </div>
           </div>

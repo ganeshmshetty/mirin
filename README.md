@@ -2,38 +2,64 @@
 
 A modern, intuitive graphical interface for [scrcpy](https://github.com/Genymobile/scrcpy) - the powerful Android screen mirroring tool.
 
+![App Screenshot](docs/screenshots/app-preview.png)
+*(Screenshot placeholder)*
+
 ## Features
 
-- **Device Management** - Automatic USB device detection and wireless connection support
-- **Mirror Control** - One-click screen mirroring with customizable settings
-- **Session Management** - Track and control active mirroring sessions
-- **Wireless Setup** - Simplified wireless connection wizard
-- **Settings** - Persistent configuration for resolution, bitrate, FPS, and display options
+- 📱 **Device Management** - Automatic USB device detection and wireless connection support
+- 🖥️ **Mirror Control** - One-click screen mirroring with customizable settings
+- 📡 **Wireless Setup** - Simplified wizard to switch from USB to Wireless (TCP/IP) mode
+- ⚙️ **Advanced Settings** - Persistent configuration for resolution, bitrate, FPS, and display options
+- 🔄 **Session Management** - Track and control multiple active mirroring sessions
+- 🎨 **Modern UI** - Clean, responsive interface built with React and Tailwind CSS
 
 ## Requirements
 
 - Windows 10/11
-- Android device with USB debugging enabled
+- Android device (5.0+) with USB debugging enabled
 
 ## Installation
 
-1. Download the latest release
-2. Extract and run `scrcpygui.exe`
-3. Connect your Android device via USB
+1. Download the latest installer (`.msi` or `.exe`) from the [Releases](https://github.com/ganeshmshetty/scrcpygui/releases) page.
+2. Run the installer and follow the on-screen instructions.
+3. Launch **Scrcpy GUI** from your Start Menu.
 
-## Usage
+## Documentation
 
-1. **Connect Device** - Plug in your Android device or use wireless setup
-2. **Configure Settings** - Adjust resolution, bitrate, and display options
-3. **Start Mirroring** - Click the mirror button to begin
+For detailed instructions, please refer to the [User Guide](docs/USER_GUIDE.md).
 
-## Technology
+## Development
 
-Built with:
-- [Tauri](https://tauri.app/) - Rust-based desktop framework
-- [React](https://react.dev/) - UI components
-- [TypeScript](https://www.typescriptlang.org/) - Type-safe development
-- [Tailwind CSS](https://tailwindcss.com/) - Modern styling
+### Prerequisites
+
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Node.js](https://nodejs.org/)
+- [pnpm](https://pnpm.io/) (or npm/yarn)
+
+### Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/ganeshmshetty/scrcpygui.git
+   cd scrcpygui
+   ```
+
+2. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+
+3. Run in development mode:
+   ```bash
+   pnpm tauri dev
+   ```
+
+## Technology Stack
+
+- **Frontend**: React, TypeScript, Tailwind CSS, Vite
+- **Backend**: Rust, Tauri
+- **Core**: Scrcpy, ADB
 
 ## License
 
@@ -41,5 +67,6 @@ MIT License - See LICENSE file for details
 
 ## Acknowledgments
 
-Powered by [scrcpy](https://github.com/Genymobile/scrcpy) by Genymobile
+- Powered by [scrcpy](https://github.com/Genymobile/scrcpy) by Genymobile
+- Built with [Tauri](https://tauri.app/)
 
