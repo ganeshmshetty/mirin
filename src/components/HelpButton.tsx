@@ -3,9 +3,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 export const HelpButton: React.FC = () => {
   const openDocs = async () => {
     try {
-      // Open the GitHub repo docs or a local file if possible
-      // For now, we'll point to the GitHub repo as it's the most reliable online source
-      await openUrl('https://github.com/ganeshmshetty/scrcpygui/blob/main/docs/USER_GUIDE.md');
+      await openUrl('https://github.com/ganeshmshetty/scrcpygui');
     } catch (error) {
       console.error('Failed to open documentation:', error);
     }
