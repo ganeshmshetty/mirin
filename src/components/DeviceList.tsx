@@ -1,37 +1,50 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { DeviceCard } from "./DeviceCard";
 import { deviceService } from "../services";
 import type { Device } from "../types";
 
-export function DeviceList() {
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [loading, setLoading] = useState(false);
+interface DeviceListProps {
+  devices?: Device[];
+  onRefresh?: () => void;
+  isLoading?: boolean;
+}
+
+export function DeviceList({ devices: propDevices, onRefresh, isLoading: propLoading }: DeviceListProps) {
+  const [internalDevices, setInternalDevices] = useState<Device[]>([]);
+  const [internalLoading, setInternalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Use props if provided, otherwise use internal state
+  const devices = propDevices ?? internalDevices;
+  const loading = propLoading ?? internalLoading;
+
   const loadDevices = async () => {
-    setLoading(true);
+    if (onRefresh) {
+      // If parent provided onRefresh, use that
+      onRefresh();
+      return;
+    }
+    
+    // Otherwise, load internally
+    setInternalLoading(true);
     setError(null);
     try {
       const deviceList = await deviceService.getConnectedDevices();
-      setDevices(deviceList);
+      setInternalDevices(deviceList);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load devices");
       console.error("Error loading devices:", err);
     } finally {
-      setLoading(false);
+      setInternalLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadDevices();
-  }, []);
 
   const handleConnect = async (device: Device) => {
     if (!device.ip_address) return;
     
     try {
       await deviceService.connectWireless(device.ip_address);
-      await loadDevices(); // Refresh list
+      loadDevices(); // Refresh list
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect");
     }
@@ -40,7 +53,7 @@ export function DeviceList() {
   const handleDisconnect = async (device: Device) => {
     try {
       await deviceService.disconnect(device.id);
-      await loadDevices(); // Refresh list
+      loadDevices(); // Refresh list
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to disconnect");
     }
@@ -52,7 +65,7 @@ export function DeviceList() {
       setError(null);
       // Show success message with IP
       alert(`Wireless mode enabled! Device IP: ${ip}\n\nYou can now disconnect the USB cable and connect wirelessly.`);
-      await loadDevices(); // Refresh list
+      loadDevices(); // Refresh list
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to enable wireless mode");
     }

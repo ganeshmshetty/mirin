@@ -174,7 +174,7 @@ export function Home() {
             <LoadingSpinner size="lg" text="Loading devices..." />
           </div>
         ) : (
-          <DeviceList />
+          <DeviceList devices={devices} onRefresh={loadDevices} isLoading={isLoading} />
         )}
       </div>
 
