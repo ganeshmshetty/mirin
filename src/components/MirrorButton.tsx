@@ -1,86 +1,39 @@
-import { useState } from "react";
-import type { Device, ScrcpyOptions, Settings } from "../types";
-import { scrcpyService, settingsService } from "../services";
+import type { Device } from "../types";
 
 interface MirrorButtonProps {
   device: Device;
-  sessionId?: string;
   isActive: boolean;
-  onSessionStart?: (sessionId: string) => void;
-  onSessionEnd?: () => void;
+  isLoading: boolean;
+  onStart: () => void;
+  onStop: () => void;
+  error?: string | null;
 }
 
-export function MirrorButton({ 
-  device, 
-  sessionId, 
-  isActive, 
-  onSessionStart, 
-  onSessionEnd 
+export function MirrorButton({
+  device,
+  isActive,
+  isLoading,
+  onStart,
+  onStop,
+  error,
 }: MirrorButtonProps) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleStartMirroring = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Load user settings
-      const settings: Settings = await settingsService.loadSettings();
-
-      // Convert settings to scrcpy options
-      const options: Partial<ScrcpyOptions> = {
-        max_size: settings.resolution === 'default' ? undefined : parseInt(settings.resolution),
-        bit_rate: settings.bitrate,
-        max_fps: settings.maxFps,
-        always_on_top: settings.alwaysOnTop,
-        stay_awake: settings.stayAwake,
-        turn_screen_off: settings.turnScreenOff,
-      };
-
-      const newSessionId = await scrcpyService.startMirroring(device.id, options);
-      onSessionStart?.(newSessionId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      console.error("Failed to start mirroring:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStopMirroring = async () => {
-    if (!sessionId) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-      await scrcpyService.stopMirroring(sessionId);
-      onSessionEnd?.();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      console.error("Failed to stop mirroring:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-2">
       {!isActive ? (
         <button
-          onClick={handleStartMirroring}
-          disabled={loading || device.status !== "Connected"}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
+          onClick={onStart}
+          disabled={isLoading || device.status !== "Connected"}
+          className="btn-primary"
         >
-          {loading ? "Starting..." : "Start Mirroring"}
+          {isLoading ? "Starting..." : "Start Mirroring"}
         </button>
       ) : (
         <button
-          onClick={handleStopMirroring}
-          disabled={loading}
-          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
+          onClick={onStop}
+          disabled={isLoading}
+          className="btn-danger"
         >
-          {loading ? "Stopping..." : "Stop Mirroring"}
+          {isLoading ? "Stopping..." : "Stop Mirroring"}
         </button>
       )}
 

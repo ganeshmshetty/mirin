@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, ReactNode, useMemo } from "react";
 import { Toast, ToastType } from "./Toast";
 
 interface ToastMessage {
@@ -34,8 +34,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const warning = useCallback((message: string) => showToast(message, "warning"), [showToast]);
   const info = useCallback((message: string) => showToast(message, "info"), [showToast]);
 
+  const memoizedValue = useMemo(() => ({
+    showToast,
+    success,
+    error,
+    warning,
+    info,
+  }), [showToast, success, error, warning, info]);
+
   return (
-    <ToastContext.Provider value={{ showToast, success, error, warning, info }}>
+    <ToastContext.Provider value={memoizedValue}>
       {children}
       
       {/* Toast Container */}

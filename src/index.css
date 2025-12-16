@@ -1,155 +1,58 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
-
-  --animate-spin-slow: spin 1.5s linear infinite;
-  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  --animate-fade-in: fade-in 0.3s ease-in-out;
-  --animate-slide-up: slide-up 0.3s ease-out;
-  --animate-slide-down: slide-down 0.3s ease-out;
-
-  @keyframes fade-in {
-    0% { opacity: 0; }
-    100% { opacity: 1; }
-  }
-
-  @keyframes slide-up {
-    0% { transform: translateY(10px); opacity: 0; }
-    100% { transform: translateY(0); opacity: 1; }
-  }
-
-  @keyframes slide-down {
-    0% { transform: translateY(-10px); opacity: 0; }
-    100% { transform: translateY(0); opacity: 1; }
+@layer base {
+  body {
+    @apply bg-gray-100 text-gray-800 antialiased;
   }
 }
 
-body {
-  background-color: white;
-  color: rgb(17 24 39);
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-primary-600 text-white rounded-md font-medium transition-colors;
+    @apply hover:bg-primary-700;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500;
+    @apply disabled:bg-gray-400 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md font-medium transition-colors;
+    @apply hover:bg-gray-50;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500;
+    @apply disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 bg-transparent text-gray-600 rounded-md font-medium transition-colors;
+    @apply hover:bg-gray-200 hover:text-gray-800;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500;
+    @apply disabled:text-gray-400 disabled:cursor-not-allowed;
+  }
+  
+  .btn-danger {
+    @apply px-4 py-2 bg-red-600 text-white rounded-md font-medium transition-colors;
+    @apply hover:bg-red-700;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500;
+  }
+
+  .btn-success {
+    @apply px-4 py-2 bg-green-600 text-white rounded-md font-medium transition-colors;
+    @apply hover:bg-green-700;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500;
+  }
+
+  .card {
+    @apply bg-white rounded-lg shadow-sm;
+  }
+
+  .badge {
+    @apply px-2.5 py-0.5 rounded-full text-xs font-medium border;
+  }
+
+  .badge-info {
+    @apply bg-blue-100 text-blue-800 border-blue-200;
+  }
 }
 
-.btn-primary {
-  padding: 0.5rem 1rem;
-  background-color: var(--color-primary-600);
-  color: white;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: colors 200ms;
-}
-
-.btn-primary:hover {
-  background-color: var(--color-primary-700);
-}
-
-.btn-primary:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px white, 0 0 0 4px var(--color-primary-500);
-}
-
-.btn-secondary {
-  padding: 0.5rem 1rem;
-  background-color: white;
-  color: var(--color-primary-600);
-  border: 2px solid var(--color-primary-600);
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: colors 200ms;
-}
-
-.btn-secondary:hover {
-  background-color: var(--color-primary-50);
-}
-
-.btn-secondary:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px white, 0 0 0 4px var(--color-primary-500);
-}
-
-.btn-ghost {
-  padding: 0.5rem 1rem;
-  background-color: white;
-  color: rgb(55 65 81);
-  border: 1px solid rgb(209 213 219);
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: colors 200ms;
-}
-
-.btn-ghost:hover {
-  background-color: rgb(249 250 251);
-}
-
-.btn-ghost:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px white, 0 0 0 4px var(--color-primary-500);
-}
-
-.card {
-  background-color: white;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  border: 1px solid rgb(229 231 235);
-  transition: box-shadow 200ms;
-}
-
-.card:hover {
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-}
-
-.input {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid rgb(209 213 219);
-  border-radius: 0.5rem;
-  transition: all 200ms;
-}
-
-.input:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-primary-500);
-  border-color: transparent;
-}
-
-.badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  border: 1px solid;
-}
-
-.badge-success {
-  background-color: rgb(220 252 231);
-  color: rgb(22 101 52);
-  border-color: rgb(187 247 208);
-}
-
-.badge-error {
-  background-color: rgb(254 226 226);
-  color: rgb(153 27 27);
-  border-color: rgb(252 165 165);
-}
-
-.badge-warning {
-  background-color: rgb(254 249 195);
-  color: rgb(133 77 14);
-  border-color: rgb(253 224 71);
-}
-
-.badge-info {
-  background-color: rgb(219 234 254);
-  color: rgb(30 64 175);
-  border-color: rgb(191 219 254);
-}
 

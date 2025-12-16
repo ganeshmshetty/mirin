@@ -65,13 +65,43 @@ pub async fn stop_mirroring(
     state: State<'_, ScrcpyState>,
     session_id: String,
 ) -> Result<bool, String> {
-    // Remove and terminate the process
-    if let Some(info) = state.remove_process(&session_id)? {
+    // We need to own the ProcessInfo to kill it, so we must remove it from the map first.
+    let process_info = {
+        let mut processes = state.processes.lock().map_err(|e| format!("Failed to lock processes mutex: {}", e))?;
+        processes.remove(&session_id)
+    };
+
+    if let Some(mut info) = process_info {
         println!("Stopping mirroring session: {}", session_id);
-        scrcpy::kill_process(info.child)?;
-        Ok(true)
+        match info.child.kill() {
+            Ok(_) => {
+                println!("Successfully stopped session: {}", session_id);
+                Ok(true)
+            }
+            Err(e) => {
+                // If killing fails, check if the process is already dead.
+                // An `InvalidInput` error means the process has already exited.
+                if e.kind() == std::io::ErrorKind::InvalidInput {
+                    println!("Session {} was already stopped.", session_id);
+                    Ok(true) // Consider it a success
+                } else {
+                    // For any other error, the kill command failed unexpectedly.
+                    // The process might still be running. We must put the info back to avoid orphaning it.
+                    eprintln!("Failed to kill process for session {}, re-inserting into map. Error: {}", session_id, e);
+                    
+                    // Re-acquire lock to put it back
+                    let mut processes = state.processes.lock().map_err(|e_lock| format!("Failed to re-lock processes mutex: {}", e_lock))?;
+                    processes.insert(session_id.clone(), info);
+                    
+                    Err(format!("Failed to stop session {}: {}", session_id, e))
+                }
+            }
+        }
     } else {
-        Err(format!("Session not found: {}", session_id))
+        // If the session is not in the map, it might have already finished.
+        // Run cleanup to be sure and then give a clearer message.
+        state.cleanup_finished()?;
+        Err(format!("Session not found or already terminated: {}", session_id))
     }
 }
 
