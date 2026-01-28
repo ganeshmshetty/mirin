@@ -1,3 +1,4 @@
+import logo from "../assets/logo.png"; // Import logo
 import { Home, Settings, Smartphone, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
@@ -29,11 +30,11 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         <aside className="w-64 bg-gray-50/50 border-r border-gray-200 flex flex-col flex-shrink-0">
             {/* Logo */}
             <div className="h-14 flex items-center px-6 gap-3">
-                <div className="w-6 h-6 bg-cyan-500 rounded-md flex items-center justify-center shadow-sm">
-                    <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                    </svg>
-                </div>
+                <img
+                    src={logo}
+                    alt="Mirin"
+                    className="w-8 h-8 rounded-lg shadow-sm object-cover"
+                />
                 <span className="font-semibold text-gray-800 tracking-tight">Mirin</span>
             </div>
 
