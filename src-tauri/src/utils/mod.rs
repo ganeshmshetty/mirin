@@ -31,11 +31,30 @@ fn get_resource_base_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Err("Could not find resources directory".to_string())
 }
 
+/// Helper to get the correct subdirectory based on platform and architecture
+fn get_platform_subpath() -> Result<&'static str, String> {
+    let os = std::env::consts::OS;
+    let arch = std::env::consts::ARCH;
+
+    match (os, arch) {
+        ("windows", _) => Ok("windows"),
+        ("macos", "aarch64") => Ok("macos-aarch64"),
+        ("macos", "x86_64") => Ok("macos-x86_64"),
+        _ => Err(format!("Unsupported OS/Arch combination: {}-{}", os, arch)),
+    }
+}
+
 /// Get the path to the bundled ADB executable
 pub fn get_adb_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let resource_path = get_resource_base_path(app)?;
+    let adb_dir = get_adb_dir(app)?;
     
-    let adb_path = resource_path.join("adb").join("adb.exe");
+    let exe_name = if cfg!(target_os = "windows") {
+        "adb.exe"
+    } else {
+        "adb"
+    };
+    
+    let adb_path = adb_dir.join(exe_name);
     
     if !adb_path.exists() {
         return Err(format!("ADB executable not found at: {:?}", adb_path));
@@ -46,9 +65,15 @@ pub fn get_adb_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 /// Get the path to the bundled scrcpy executable
 pub fn get_scrcpy_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let resource_path = get_resource_base_path(app)?;
+    let scrcpy_dir = get_scrcpy_dir(app)?;
     
-    let scrcpy_path = resource_path.join("scrcpy").join("scrcpy.exe");
+    let exe_name = if cfg!(target_os = "windows") {
+        "scrcpy.exe"
+    } else {
+        "scrcpy"
+    };
+    
+    let scrcpy_path = scrcpy_dir.join(exe_name);
     
     if !scrcpy_path.exists() {
         return Err(format!("Scrcpy executable not found at: {:?}", scrcpy_path));
@@ -60,9 +85,9 @@ pub fn get_scrcpy_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 /// Get the path to the scrcpy-server file
 #[allow(dead_code)]
 pub fn get_scrcpy_server_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let resource_path = get_resource_base_path(app)?;
+    let scrcpy_dir = get_scrcpy_dir(app)?;
     
-    let server_path = resource_path.join("scrcpy").join("scrcpy-server");
+    let server_path = scrcpy_dir.join("scrcpy-server");
     
     if !server_path.exists() {
         return Err(format!("Scrcpy server not found at: {:?}", server_path));
@@ -74,8 +99,9 @@ pub fn get_scrcpy_server_path(app: &tauri::AppHandle) -> Result<PathBuf, String>
 /// Get the directory containing ADB executables and libraries
 pub fn get_adb_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let resource_path = get_resource_base_path(app)?;
+    let platform_subpath = get_platform_subpath()?;
     
-    let adb_dir = resource_path.join("adb");
+    let adb_dir = resource_path.join("adb").join(platform_subpath);
     
     if !adb_dir.exists() {
         return Err(format!("ADB directory not found at: {:?}", adb_dir));
@@ -87,8 +113,9 @@ pub fn get_adb_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 /// Get the directory containing scrcpy executables and libraries
 pub fn get_scrcpy_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let resource_path = get_resource_base_path(app)?;
+    let platform_subpath = get_platform_subpath()?;
     
-    let scrcpy_dir = resource_path.join("scrcpy");
+    let scrcpy_dir = resource_path.join("scrcpy").join(platform_subpath);
     
     if !scrcpy_dir.exists() {
         return Err(format!("Scrcpy directory not found at: {:?}", scrcpy_dir));

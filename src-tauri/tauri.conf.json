@@ -34,8 +34,8 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "resources/adb/*",
-      "resources/scrcpy/*"
+      "resources/adb/**/*",
+      "resources/scrcpy/**/*"
     ]
   }
 }

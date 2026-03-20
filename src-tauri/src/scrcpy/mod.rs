@@ -139,8 +139,16 @@ pub fn build_scrcpy_command(
     // Set working directory to scrcpy directory (for DLL dependencies)
     cmd.current_dir(scrcpy_dir);
     
+    // Set SCRCPY_SERVER_PATH so macOS/Linux instances find the bundled server
+    let server_path = scrcpy_dir.join("scrcpy-server");
+    cmd.env("SCRCPY_SERVER_PATH", server_path);
+    
     // Set ADB path environment variable
     if let Some(dir) = adb_dir {
+        let exe_name = if cfg!(target_os = "windows") { "adb.exe" } else { "adb" };
+        let adb_path = dir.join(exe_name);
+        cmd.env("ADB", &adb_path);
+        
         let path_env = std::env::var("PATH").unwrap_or_default();
         let new_path = format!("{};{}", dir.to_string_lossy(), path_env);
         cmd.env("PATH", new_path);
@@ -203,11 +211,14 @@ pub fn execute_scrcpy(
         options
     );
     
+    // Open a log file for stderr/stdout
+    use std::fs::File;
+    let log_file = File::create("/tmp/scrcpy_error.log").map_err(|e| format!("Log err: {}", e))?;
+    let err_file = log_file.try_clone().map_err(|e| format!("Log err: {}", e))?;
+    
     // Spawn the process
-    // Note: We use inherit() to pipe scrcpy output directly to our terminal for debugging.
-    // This allows us to see errors like "Input injection failed" or specific device warnings.
-    cmd.stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
+    cmd.stdout(log_file)
+        .stderr(err_file)
         .spawn()
         .map_err(|e| format!("Failed to start scrcpy: {}", e))
 }
