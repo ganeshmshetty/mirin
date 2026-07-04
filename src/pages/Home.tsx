@@ -7,10 +7,11 @@ import { useToast } from "../components/ToastProvider";
 import { deviceService, scrcpyService, settingsService } from "../services";
 import type { Device, MirrorSession, ScrcpyOptions, Settings } from "../types";
 
-const DEVICE_POLL_INTERVAL = 3000;
-const SAVE_DEBOUNCE_MS = 500;
+interface HomeProps {
+  refreshTrigger?: number;
+}
 
-export function Home() {
+export function Home({ refreshTrigger = 0 }: HomeProps) {
   const [devices, setDevices] = useState<Device[]>([]);
   const [sessions, setSessions] = useState<MirrorSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -18,33 +19,12 @@ export function Home() {
   // const [showIPDialog, setShowIPDialog] = useState(false);
 
   const isMountedRef = useRef(true);
-  const saveQueueRef = useRef<Map<string, Device>>(new Map());
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toast = useToast();
 
 
 
-  // Debounced device save to prevent race conditions
-  const queueDeviceSave = useCallback((device: Device) => {
-    saveQueueRef.current.set(device.id, device);
-
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    saveTimeoutRef.current = setTimeout(async () => {
-      const devicesToSave = Array.from(saveQueueRef.current.values());
-      saveQueueRef.current.clear();
-
-      for (const dev of devicesToSave) {
-        try {
-          await deviceService.saveDevice(dev);
-        } catch (err) {
-          console.error("Failed to save device:", err);
-        }
-      }
-    }, SAVE_DEBOUNCE_MS);
-  }, []);
+  // Debounced device save removed to prevent auto-saving deleted devices.
+  // Devices are now saved when paired via modal or when mirroring starts.
 
   // Load data
   const loadData = useCallback(async () => {
@@ -65,15 +45,11 @@ export function Home() {
           mergedDevicesMap.set(device.id, { ...device, status: "Offline" });
         });
 
-        // 2. Update/Add connected devices
+        // 2. Update connected devices ONLY if they are in history
         for (const device of connectedDevices) {
           const existing = mergedDevicesMap.get(device.id);
 
-          if (!existing) {
-            // New device we haven't seen before
-            mergedDevicesMap.set(device.id, device);
-            queueDeviceSave(device);
-          } else {
+          if (existing) {
             // Existing device: Update connection info but Preserve saved name
             const mergedDevice = {
               ...device,
@@ -81,11 +57,6 @@ export function Home() {
             };
 
             mergedDevicesMap.set(device.id, mergedDevice);
-
-            // Only save if critical hardware info changed (unlikely for same ID)
-            if (existing.model !== device.model) {
-              queueDeviceSave(mergedDevice);
-            }
           }
         }
 
@@ -102,7 +73,7 @@ export function Home() {
         setIsLoading(false);
       }
     }
-  }, [queueDeviceSave]);
+  }, []);
 
   // Refresh handler
   const handleRefresh = useCallback(async () => {
@@ -111,26 +82,22 @@ export function Home() {
     toast.success("Devices refreshed");
   }, [loadData, toast]);
 
-  // Polling
+  // Polling removed per user request
   useEffect(() => {
     isMountedRef.current = true;
     loadData();
 
-    const interval = setInterval(() => {
-      if (isMountedRef.current) {
-        loadData();
-      }
-    }, DEVICE_POLL_INTERVAL);
-
     return () => {
       isMountedRef.current = false;
-      clearInterval(interval);
-      // Flush any pending saves on unmount
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
     };
   }, [loadData]);
+
+  // External refresh trigger
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      loadData();
+    }
+  }, [refreshTrigger, loadData]);
 
   // Start mirroring
   const handleStartMirroring = async (device: Device) => {
@@ -145,6 +112,8 @@ export function Home() {
         turn_screen_off: settings.turnScreenOff,
       };
       await scrcpyService.startMirroring(device.id, options);
+      // Auto-save to history when mirroring successfully starts
+      await deviceService.saveDevice(device).catch(() => {});
       toast.success(`Started mirroring ${device.name}`);
       loadData();
     } catch (err) {
@@ -166,8 +135,6 @@ export function Home() {
   // Remove saved device
   const handleRemoveDevice = async (deviceId: string) => {
     try {
-      await deviceService.removeSavedDevice(deviceId);
-      toast.success("Device removed from history");
       await deviceService.removeSavedDevice(deviceId);
       toast.success("Device removed from history");
       loadData();

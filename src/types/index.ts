@@ -14,6 +14,12 @@ export interface Device {
   ip_address?: string;
 }
 
+export interface MdnsService {
+  instance_name: string;
+  service_type: string;
+  address: string;
+}
+
 // Scrcpy mirror options
 export interface MirrorOptions {
   resolution?: string;

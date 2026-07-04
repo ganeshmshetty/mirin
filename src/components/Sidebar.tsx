@@ -17,9 +17,10 @@ const navItems: NavItem[] = [
 interface SidebarProps {
     activeTab: string;
     onTabChange: (tab: string) => void;
+    onConnectClick?: () => void;
 }
 
-export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange, onConnectClick }: SidebarProps) {
     const [appVersion, setAppVersion] = useState<string>("");
 
     useEffect(() => {
@@ -41,9 +42,9 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             {/* Primary Action */}
             <div className="px-4 mb-2">
                 <button
-                    disabled
-                    className="w-full h-9 flex items-center justify-center gap-2 bg-gray-900 text-white rounded-lg text-sm font-medium opacity-50 cursor-not-allowed hover:opacity-100 transition-opacity"
-                    title="Wireless Connection Wizard (Coming Soon)"
+                    onClick={onConnectClick}
+                    className="w-full h-9 flex items-center justify-center gap-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors shadow-sm"
+                    title="Connect New Device"
                 >
                     <Plus size={16} />
                     <span>Connect Device</span>

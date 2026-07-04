@@ -53,6 +53,8 @@ pub fn run() {
             // Device commands
             commands::get_connected_devices,
             commands::connect_wireless_device,
+            commands::pair_wireless_device,
+            commands::get_mdns_services,
             commands::disconnect_device,
             commands::enable_wireless_mode,
             commands::refresh_devices,

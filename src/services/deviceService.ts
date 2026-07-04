@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Device } from "../types";
+import type { Device, MdnsService } from "../types";
 
 /**
  * Service for device-related operations
@@ -17,6 +17,20 @@ export const deviceService = {
    */
   async connectWireless(ip: string, port?: number): Promise<boolean> {
     return await invoke<boolean>("connect_wireless_device", { ip, port });
+  },
+
+  /**
+   * Pair with a device wirelessly using a pairing code (Android 11+)
+   */
+  async pairWireless(ip: string, port: number, pairingCode: string): Promise<boolean> {
+    return await invoke<boolean>("pair_wireless_device", { ip, port, pairingCode });
+  },
+
+  /**
+   * Discover mDNS services (Android 11+)
+   */
+  async getMdnsServices(): Promise<MdnsService[]> {
+    return await invoke<MdnsService[]>("get_mdns_services");
   },
 
   /**

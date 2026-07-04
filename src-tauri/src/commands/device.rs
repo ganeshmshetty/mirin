@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::adb::Adb;
+use crate::adb::{Adb, MdnsService};
 use crate::utils;
 use std::fs;
 use std::path::PathBuf;
@@ -36,17 +36,10 @@ pub async fn get_connected_devices(app: tauri::AppHandle) -> Result<Vec<Device>,
     let adb = Adb::new(adb_path);
 
     // Start ADB server if needed (this can be slow on first call)
-    // We do this in a spawn_blocking to not block the async runtime
-    let adb_clone = adb.clone();
-    tokio::task::spawn_blocking(move || {
-        let _ = adb_clone.start_server();
-    }).await.map_err(|e| format!("Failed to start ADB server: {}", e))?;
+    let _ = adb.start_server().await;
 
     // Get devices from ADB
-    let adb_clone = adb.clone();
-    let adb_devices = tokio::task::spawn_blocking(move || {
-        adb_clone.devices()
-    }).await.map_err(|e| format!("Failed to get devices: {}", e))??;
+    let adb_devices = adb.devices().await?;
 
     // Convert ADB devices to our Device struct
     let mut devices = Vec::new();
@@ -81,12 +74,7 @@ pub async fn get_connected_devices(app: tauri::AppHandle) -> Result<Vec<Device>,
                 device.replace("_", " ")
             } else {
                 // Last resort: make the shell call (this is slow)
-                let adb_clone = adb.clone();
-                let serial = adb_device.serial.clone();
-                tokio::task::spawn_blocking(move || {
-                    adb_clone.get_model(Some(&serial))
-                        .unwrap_or_else(|_| "Unknown".to_string())
-                }).await.unwrap_or_else(|_| "Unknown".to_string())
+                adb.get_model(Some(&adb_device.serial)).await.unwrap_or_else(|_| "Unknown".to_string())
             }
         } else {
             // For unauthorized/offline devices, don't try to get model (would timeout)
@@ -135,12 +123,8 @@ pub async fn connect_wireless_device(
     let adb_path = utils::get_adb_path(&app)?;
     let adb = Adb::new(adb_path);
 
-    // Connect to device (run in blocking task to avoid blocking async runtime)
-    let adb_clone = adb.clone();
-    let ip_clone = ip.clone();
-    let result = tokio::task::spawn_blocking(move || {
-        adb_clone.connect(&ip_clone, port)
-    }).await.map_err(|e| format!("Connection task failed: {}", e))??;
+    // Connect to device
+    let result = adb.connect(&ip, port).await?;
 
     // Check if connection was successful
     let result_lower = result.to_lowercase();
@@ -173,10 +157,8 @@ pub async fn disconnect_device(app: tauri::AppHandle, device_id: String) -> Resu
     let adb_path = utils::get_adb_path(&app)?;
     let adb = Adb::new(adb_path);
 
-    // Disconnect device (run in blocking task to avoid blocking async runtime)
-    let result = tokio::task::spawn_blocking(move || {
-        adb.disconnect(&device_id)
-    }).await.map_err(|e| format!("Disconnect task failed: {}", e))??;
+    // Disconnect device
+    let result = adb.disconnect(&device_id).await?;
 
     // Check if disconnection was successful
     if result.contains("disconnected") {
@@ -184,6 +166,35 @@ pub async fn disconnect_device(app: tauri::AppHandle, device_id: String) -> Resu
     } else {
         Err(format!("Failed to disconnect: {}", result))
     }
+}
+
+/// Pair with a device wirelessly using a pairing code (Android 11+)
+#[tauri::command]
+pub async fn pair_wireless_device(
+    app: tauri::AppHandle,
+    ip: String,
+    port: u16,
+    pairing_code: String,
+) -> Result<bool, String> {
+    let adb_path = utils::get_adb_path(&app)?;
+    let adb = Adb::new(adb_path);
+
+    let result = adb.pair(&ip, port, &pairing_code).await?;
+
+    let result_lower = result.to_lowercase();
+    if result_lower.contains("successfully paired") {
+        Ok(true)
+    } else {
+        Err(format!("Failed to pair: {}", result))
+    }
+}
+
+/// Get mDNS services for Android 11+ wireless discovery
+#[tauri::command]
+pub async fn get_mdns_services(app: tauri::AppHandle) -> Result<Vec<MdnsService>, String> {
+    let adb_path = utils::get_adb_path(&app)?;
+    let adb = Adb::new(adb_path);
+    adb.get_mdns_services().await
 }
 
 /// Enable wireless debugging on a USB-connected device
@@ -196,91 +207,7 @@ pub async fn enable_wireless_mode(
     let adb_path = utils::get_adb_path(&app)?;
     let adb = Adb::new(adb_path);
 
-    // First, get the device's current info (model name) so we can find it after reconnection
-    let adb_clone = adb.clone();
-    let device_id_clone = device_id.clone();
-    let model_result = tokio::task::spawn_blocking(move || {
-        adb_clone.get_model(Some(&device_id_clone))
-    }).await.map_err(|e| format!("Failed to get device model: {}", e))?;
-    
-    let device_model = model_result.unwrap_or_default();
-
-    // Enable TCP/IP mode on port 5555 (run in blocking task)
-    let adb_clone = adb.clone();
-    let device_id_clone = device_id.clone();
-    let tcpip_result = tokio::task::spawn_blocking(move || {
-        adb_clone.tcpip(Some(&device_id_clone), 5555)
-    }).await.map_err(|e| format!("TCP/IP task failed: {}", e))?;
-    
-    // Check for device not found error
-    if let Err(ref e) = tcpip_result {
-        if e.contains("not found") {
-            return Err(format!(
-                "Device '{}' not found. Please refresh the device list and try again.\n\
-                Make sure the device is connected via USB with debugging enabled.",
-                device_id
-            ));
-        }
-    }
-    tcpip_result?;
-
-    // The tcpip command causes the device to disconnect and reconnect.
-    // Wait for the device to reconnect and find it again.
-    // Try multiple times with small delays.
-    let mut ip_address: Option<String> = None;
-    
-    for attempt in 0..5 {
-        // Wait for device to reconnect (longer on first attempt)
-        let wait_ms = if attempt == 0 { 1500 } else { 500 };
-        tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
-        
-        // Get current devices
-        let adb_clone = adb.clone();
-        let devices_result = tokio::task::spawn_blocking(move || {
-            adb_clone.devices()
-        }).await.map_err(|e| format!("Failed to get devices: {}", e))?;
-        
-        if let Ok(devices) = devices_result {
-            // Find a USB device (one that matches our original device or has same model)
-            for dev in &devices {
-                // Skip wireless devices (they contain :)
-                if dev.serial.contains(':') {
-                    continue;
-                }
-                
-                // Check if this is our device (same serial or same model)
-                if dev.serial == device_id || 
-                   dev.model.as_ref().map(|m| m == &device_model).unwrap_or(false) ||
-                   devices.len() == 1 { // If only one USB device, it's probably ours
-                    
-                    // Try to get IP from this device
-                    let adb_clone = adb.clone();
-                    let serial = dev.serial.clone();
-                    let ip_result = tokio::task::spawn_blocking(move || {
-                        adb_clone.get_device_ip(Some(&serial))
-                    }).await;
-                    
-                    if let Ok(Ok(ip)) = ip_result {
-                        ip_address = Some(ip);
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if ip_address.is_some() {
-            break;
-        }
-    }
-    
-    match ip_address {
-        Some(ip) => Ok(ip),
-        None => Err(
-            "Wireless mode enabled but couldn't retrieve IP address.\n\
-            Check your phone's WiFi settings for the IP address,\n\
-            then use 'IP Connect' to connect wirelessly.".to_string()
-        )
-    }
+    adb.enable_wireless_mode_and_wait(&device_id).await
 }
 
 /// Refresh the device list
