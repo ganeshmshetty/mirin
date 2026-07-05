@@ -23,3 +23,5 @@ plan.md
 *.njsproj
 *.sln
 *.sw?
+homebrew-tap/
+

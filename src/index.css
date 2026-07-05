@@ -3,8 +3,34 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-app: #f9fafb;
+    --bg-sidebar: #f8fafc;
+    --bg-card: #ffffff;
+    --bg-input: #ffffff;
+    --border-color: #e5e7eb;
+    --text-primary: #1f2937;
+    --text-secondary: #4b5563;
+    --bg-active-tab: #cffafe;
+    --text-active-tab: #0891b2;
+    --bg-hover: #f3f4f6;
+  }
+
+  .dark {
+    --bg-app: #121315;
+    --bg-sidebar: #16191b;
+    --bg-card: #191c1f;
+    --bg-input: #1c2023;
+    --border-color: #222629;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --bg-active-tab: #1a262b;
+    --text-active-tab: #22d3ee;
+    --bg-hover: #1d2327;
+  }
+
   body {
-    @apply bg-gray-100 text-gray-800 antialiased;
+    @apply bg-app text-app-text antialiased transition-colors;
     user-select: none;
     -webkit-user-select: none;
     cursor: default;
@@ -48,13 +74,13 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 rounded-full;
+    @apply bg-gray-300 dark:bg-app-border rounded-full;
     border: 2px solid transparent;
     background-clip: content-box;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400;
+    @apply bg-gray-400 dark:bg-[#2f353a];
   }
 }
 
@@ -67,15 +93,15 @@
   }
 
   .btn-secondary {
-    @apply px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md font-medium transition-colors;
-    @apply hover:bg-gray-50;
+    @apply px-4 py-2 bg-white dark:bg-app-input text-gray-700 dark:text-app-text border border-gray-300 dark:border-app-border rounded-md font-medium transition-colors;
+    @apply hover:bg-gray-50 dark:hover:bg-app-hover;
     @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500;
-    @apply disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed;
+    @apply disabled:bg-gray-200 dark:disabled:bg-app-card disabled:text-gray-400 dark:disabled:text-app-muted disabled:cursor-not-allowed;
   }
 
   .btn-ghost {
-    @apply px-4 py-2 bg-transparent text-gray-600 rounded-md font-medium transition-colors;
-    @apply hover:bg-gray-200 hover:text-gray-800;
+    @apply px-4 py-2 bg-transparent text-gray-600 dark:text-app-muted rounded-md font-medium transition-colors;
+    @apply hover:bg-gray-200 dark:hover:bg-app-hover hover:text-gray-800 dark:hover:text-app-text;
     @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500;
     @apply disabled:text-gray-400 disabled:cursor-not-allowed;
   }
@@ -93,7 +119,7 @@
   }
 
   .card {
-    @apply bg-white rounded-lg shadow-sm border border-gray-200;
+    @apply bg-white dark:bg-app-card rounded-lg shadow-sm border border-gray-200 dark:border-app-border transition-colors;
   }
 
   .badge {
@@ -105,9 +131,21 @@
   }
 
   .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm;
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-app-border rounded-md shadow-sm bg-white dark:bg-app-input text-gray-900 dark:text-app-text transition-colors;
     @apply focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500;
-    @apply disabled:bg-gray-100 disabled:cursor-not-allowed;
+    @apply disabled:bg-gray-100 dark:disabled:bg-app-card disabled:cursor-not-allowed;
+  }
+
+  .dropdown-menu {
+    @apply bg-white dark:bg-app-card rounded-xl shadow-xl border border-gray-100 dark:border-app-border py-1.5 transition-colors;
+  }
+
+  .dropdown-item {
+    @apply w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-app-text hover:bg-gray-50 dark:hover:bg-app-hover flex items-center gap-2.5 transition-colors;
+  }
+
+  .dropdown-item-danger {
+    @apply w-full px-4 py-2.5 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center gap-2.5 transition-colors;
   }
 }
 

@@ -2,6 +2,7 @@ const colors = require('tailwindcss/colors');
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -23,6 +24,18 @@ module.exports = {
           950: '#072443',
         },
         gray: colors.neutral,
+        app: {
+          DEFAULT: 'var(--bg-app)',
+          sidebar: 'var(--bg-sidebar)',
+          card: 'var(--bg-card)',
+          input: 'var(--bg-input)',
+          border: 'var(--border-color)',
+          text: 'var(--text-primary)',
+          muted: 'var(--text-secondary)',
+          active: 'var(--bg-active-tab)',
+          'active-text': 'var(--text-active-tab)',
+          hover: 'var(--bg-hover)',
+        },
       },
       keyframes: {
         'slide-down': {

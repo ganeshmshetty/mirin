@@ -9,9 +9,10 @@ import type { Device, MirrorSession, ScrcpyOptions, Settings } from "../types";
 
 interface HomeProps {
   refreshTrigger?: number;
+  onConnectClick?: () => void;
 }
 
-export function Home({ refreshTrigger = 0 }: HomeProps) {
+export function Home({ refreshTrigger = 0, onConnectClick }: HomeProps) {
   const [devices, setDevices] = useState<Device[]>([]);
   const [sessions, setSessions] = useState<MirrorSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -181,30 +182,27 @@ export function Home({ refreshTrigger = 0 }: HomeProps) {
   return (
     <div className="flex-1 flex flex-col">
       {/* Toolbar */}
-      <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-2">
+      <header className="h-14 bg-white dark:bg-[#16191b] border-b border-gray-200 dark:border-[#222629] flex items-center justify-between px-6 flex-shrink-0 transition-colors">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">My Devices</h2>
         <button
           onClick={handleRefresh}
           disabled={isLoading}
-          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-[#1d2327] rounded-md transition-colors disabled:opacity-50"
         >
           <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
           Refresh
         </button>
-        <div className="w-px h-6 bg-gray-200" />
       </header>
 
       {/* Devices Section */}
-      <div className="flex-1 p-6 overflow-hidden">
-        <div className="mb-4 px-2">
-          <h2 className="text-lg font-semibold text-gray-800">My Devices</h2>
-        </div>
+      <div className="flex-1 p-6 overflow-hidden flex flex-col">
         <DeviceTable
           devices={devices}
           sessions={sessions}
-          isLoading={isLoading}
           onStartMirroring={handleStartMirroring}
           onStopMirroring={handleStopMirroring}
           onRemoveDevice={handleRemoveDevice}
+          onConnectClick={onConnectClick}
           onRenameDevice={(deviceId, newName) => {
             const device = devices.find(d => d.id === deviceId);
             if (device) {

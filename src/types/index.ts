@@ -38,6 +38,7 @@ export interface Settings {
   alwaysOnTop: boolean;
   stayAwake: boolean;
   turnScreenOff: boolean;
+  theme: 'light' | 'dark' | 'system';
 }
 
 // Default settings
@@ -48,4 +49,5 @@ export const DEFAULT_SETTINGS: Settings = {
   alwaysOnTop: false,
   stayAwake: true,
   turnScreenOff: false,
+  theme: 'system',
 };

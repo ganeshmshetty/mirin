@@ -15,6 +15,7 @@ pub struct Settings {
     pub stay_awake: bool,
     #[serde(rename = "turnScreenOff")]
     pub turn_screen_off: bool,
+    pub theme: String,
 }
 
 impl Default for Settings {
@@ -26,6 +27,7 @@ impl Default for Settings {
             always_on_top: false,
             stay_awake: true,
             turn_screen_off: false,
+            theme: "system".to_string(),
         }
     }
 }
