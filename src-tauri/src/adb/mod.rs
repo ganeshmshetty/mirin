@@ -32,8 +32,8 @@ impl Adb {
         Self { adb_path, transport_id: None }
     }
 
-    /// Execute an ADB command and return the output asynchronously
-    pub async fn execute(&self, args: &[&str]) -> Result<String, String> {
+    /// Raw execution helper
+    async fn execute_raw(&self, args: &[&str]) -> Result<String, String> {
         let mut std_cmd = std::process::Command::new(&self.adb_path);
         
         if let Some(ref id) = self.transport_id {
@@ -50,8 +50,8 @@ impl Adb {
 
         let mut command = tokio::process::Command::from(std_cmd);
         
-        // Wrap execution in a timeout (e.g., 30 seconds) to prevent hanging
-        let output_result = tokio::time::timeout(std::time::Duration::from_secs(30), command.output()).await;
+        // Wrap execution in a timeout (e.g., 10 seconds) to prevent hanging
+        let output_result = tokio::time::timeout(std::time::Duration::from_secs(10), command.output()).await;
 
         let output = match output_result {
             Ok(Ok(out)) => out,
@@ -66,6 +66,27 @@ impl Adb {
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         Ok(stdout)
+    }
+
+    /// Execute an ADB command and return the output asynchronously (with self-healing fallback)
+    pub async fn execute(&self, args: &[&str]) -> Result<String, String> {
+        let res = self.execute_raw(args).await;
+        
+        if let Err(ref e) = res {
+            // Avoid retrying if the command was already a server control command to prevent recursion
+            let is_control_cmd = args.iter().any(|&arg| arg == "kill-server" || arg == "start-server");
+            
+            // If it's a regular command and failed/timed out, try restarting the daemon once
+            if !is_control_cmd {
+                println!("ADB command failed ({:?}): {}. Restarting daemon...", args, e);
+                // Attempt server restart
+                let _ = self.execute_raw(&["kill-server"]).await;
+                let _ = self.execute_raw(&["start-server"]).await;
+                // Retry the original command
+                return self.execute_raw(args).await;
+            }
+        }
+        res
     }
 
     /// Get the ADB version
