@@ -213,9 +213,9 @@ export function ConnectDeviceModal({ onClose, onDeviceConnected }: ConnectDevice
                     setShowInstructions(false);
                     setStep("search-wireless");
                   }}
-                  className="p-6 rounded-3xl hover:bg-cyan-100/50 bg-cyan-50/50 dark:bg-cyan-950/20 dark:hover:bg-cyan-900/30 border border-transparent dark:border-cyan-900/30 shadow-sm hover:shadow-md transition-all flex items-center gap-5 group text-left active:scale-[0.98]"
+                  className="p-6 rounded-3xl bg-slate-50/60 hover:bg-slate-100/80 dark:bg-[#191c1f] dark:hover:bg-[#1d2327] border border-slate-200/60 dark:border-[#222629] shadow-sm hover:shadow-md transition-all flex items-center gap-5 group text-left active:scale-[0.98]"
                 >
-                  <div className="w-16 h-16 bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600 dark:text-cyan-400 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
+                  <div className="w-16 h-16 bg-slate-100 dark:bg-[#222629] text-slate-600 dark:text-slate-300 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
                     <Wifi size={28}/>
                   </div>
                   <div>
@@ -230,9 +230,9 @@ export function ConnectDeviceModal({ onClose, onDeviceConnected }: ConnectDevice
                     setShowInstructions(false);
                     setStep("search-usb");
                   }}
-                  className="p-6 rounded-3xl hover:bg-blue-100/50 bg-blue-50/50 dark:bg-blue-950/20 dark:hover:bg-blue-900/30 border border-transparent dark:border-blue-900/30 shadow-sm hover:shadow-md transition-all flex items-center gap-5 group text-left active:scale-[0.98]"
+                  className="p-6 rounded-3xl bg-slate-50/60 hover:bg-slate-100/80 dark:bg-[#191c1f] dark:hover:bg-[#1d2327] border border-slate-200/60 dark:border-[#222629] shadow-sm hover:shadow-md transition-all flex items-center gap-5 group text-left active:scale-[0.98]"
                 >
-                  <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
+                  <div className="w-16 h-16 bg-slate-100 dark:bg-[#222629] text-slate-600 dark:text-slate-300 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
                     <Usb size={28}/>
                   </div>
                   <div>

@@ -162,7 +162,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
   }
 
   return (
-    <div className="card p-6 max-w-2xl mx-auto animate-slide-down">
+    <div className="card p-6 max-w-2xl mx-auto">
       {/* Tabs Selector */}
       <div className="flex bg-gray-100 dark:bg-app-input p-1 rounded-xl mb-6">
         <button
@@ -274,7 +274,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                   step="1000000"
                   value={settings.bitrate}
                   onChange={(e) => updateSetting('bitrate', parseInt(e.target.value))}
-                  className="flex-1 h-1 bg-gray-200 dark:bg-app-border rounded-lg appearance-none cursor-pointer accent-cyan-600"
+                  className="flex-1 h-1 bg-gray-200 dark:bg-app-border rounded-lg appearance-none cursor-default accent-cyan-600"
                 />
                 <span className="text-xs font-semibold text-cyan-600 dark:text-[#22d3ee] w-16 text-right font-mono">
                   {(settings.bitrate / 1000000).toFixed(1)} Mbps
@@ -296,7 +296,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                   step="5"
                   value={settings.maxFps}
                   onChange={(e) => updateSetting('maxFps', parseInt(e.target.value))}
-                  className="flex-1 h-1 bg-gray-200 dark:bg-app-border rounded-lg appearance-none cursor-pointer accent-cyan-600"
+                  className="flex-1 h-1 bg-gray-200 dark:bg-app-border rounded-lg appearance-none cursor-default accent-cyan-600"
                 />
                 <span className="text-xs font-semibold text-cyan-600 dark:text-[#22d3ee] w-16 text-right font-mono">
                   {settings.maxFps} FPS

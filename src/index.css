@@ -36,6 +36,28 @@
     cursor: default;
   }
 
+  /* Enforce native desktop app cursor behaviors (default/arrow cursor on all controls) */
+  button,
+  select,
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="range"],
+  .button,
+  .btn,
+  .dropdown-item,
+  .dropdown-item-danger,
+  [role="button"],
+  [role="tab"] {
+    cursor: default !important;
+  }
+
+  /* External links or actual anchors should still use the pointer cursor */
+  a,
+  a *,
+  .link {
+    cursor: pointer !important;
+  }
+
   /* Ensure inputs are still selectable */
   input,
   textarea,
@@ -55,6 +77,16 @@
   html,
   body {
     overscroll-behavior: none;
+    overflow: hidden;
+  }
+
+  /* Disable rubber-band scroll bouncing on all scrollable containers */
+  .overflow-y-auto,
+  .overflow-auto,
+  .overflow-x-auto,
+  textarea,
+  pre {
+    overscroll-behavior: none !important;
   }
 
   html,
@@ -88,34 +120,34 @@
   .btn-primary {
     @apply px-4 py-2 bg-cyan-500 text-white rounded-md font-medium transition-colors;
     @apply hover:bg-cyan-600;
-    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-cyan-500;
     @apply disabled:bg-gray-400 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
     @apply px-4 py-2 bg-white dark:bg-app-input text-gray-700 dark:text-app-text border border-gray-300 dark:border-app-border rounded-md font-medium transition-colors;
     @apply hover:bg-gray-50 dark:hover:bg-app-hover;
-    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-cyan-500;
     @apply disabled:bg-gray-200 dark:disabled:bg-app-card disabled:text-gray-400 dark:disabled:text-app-muted disabled:cursor-not-allowed;
   }
 
   .btn-ghost {
     @apply px-4 py-2 bg-transparent text-gray-600 dark:text-app-muted rounded-md font-medium transition-colors;
     @apply hover:bg-gray-200 dark:hover:bg-app-hover hover:text-gray-800 dark:hover:text-app-text;
-    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-cyan-500;
     @apply disabled:text-gray-400 disabled:cursor-not-allowed;
   }
 
   .btn-danger {
     @apply px-4 py-2 bg-red-600 text-white rounded-md font-medium transition-colors;
     @apply hover:bg-red-700;
-    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500;
   }
 
   .btn-success {
     @apply px-4 py-2 bg-green-600 text-white rounded-md font-medium transition-colors;
     @apply hover:bg-green-700;
-    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-500;
   }
 
   .card {
@@ -151,7 +183,7 @@
 
 @layer utilities {
   .animate-scale-in {
-    animation: scale-in 0.2s ease-out forwards;
+    animation: scale-in 0.08s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   .animate-simple-fade {
@@ -175,7 +207,7 @@
 @keyframes scale-in {
   from {
     opacity: 0;
-    transform: scale(0.95);
+    transform: scale(0.98);
   }
 
   to {

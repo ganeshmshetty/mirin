@@ -29,7 +29,7 @@ function App() {
 
               {/* Main Content */}
               <main className="flex-1 flex overflow-hidden">
-                <div key={activeTab} className="flex-1 flex w-full h-full animate-simple-fade">
+                <div className="flex-1 flex w-full h-full">
                   {activeTab === "home" && (
                     <Home 
                       refreshTrigger={refreshTrigger} 

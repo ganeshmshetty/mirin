@@ -14,8 +14,6 @@ interface DeviceTableProps {
     onConnectClick?: () => void;
 }
 
-
-
 export function DeviceTable({
     devices,
     sessions,

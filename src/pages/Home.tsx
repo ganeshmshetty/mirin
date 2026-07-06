@@ -46,19 +46,14 @@ export function Home({ refreshTrigger = 0, onConnectClick }: HomeProps) {
           mergedDevicesMap.set(device.id, { ...device, status: "Offline" });
         });
 
-        // 2. Update connected devices ONLY if they are in history
+        // 2. Add or update connected devices
         for (const device of connectedDevices) {
           const existing = mergedDevicesMap.get(device.id);
-
-          if (existing) {
-            // Existing device: Update connection info but Preserve saved name
-            const mergedDevice = {
-              ...device,
-              name: existing.name, // Keep the custom name
-            };
-
-            mergedDevicesMap.set(device.id, mergedDevice);
-          }
+          const mergedDevice = {
+            ...device,
+            name: existing ? existing.name : device.name, // Keep the custom name if it exists
+          };
+          mergedDevicesMap.set(device.id, mergedDevice);
         }
 
         const finalList = Array.from(mergedDevicesMap.values());

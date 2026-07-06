@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 use tauri::Manager;
 
+pub mod names;
+
+
 /// Get the base resource path, with fallback for development mode
 fn get_resource_base_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     // First, try the standard resource directory (for production builds)

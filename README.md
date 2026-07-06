@@ -1,6 +1,14 @@
-# Mirin
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/icon-svg/full-lockup/Light-transparent.svg">
+    <source media="(prefers-color-scheme: light)" srcset="brand/icon-svg/full-lockup/Dark-transparent.svg">
+    <img alt="Mirin" src="brand/icon-svg/full-lockup/Dark-transparent.svg" width="280">
+  </picture>
+</p>
 
-A modern, intuitive graphical interface for [scrcpy](https://github.com/Genymobile/scrcpy) - the powerful Android screen mirroring tool.
+<p align="center">
+  A modern, intuitive graphical interface for <a href="https://github.com/Genymobile/scrcpy">scrcpy</a> - the powerful Android screen mirroring tool.
+</p>
 
 ## Features
 

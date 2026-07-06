@@ -28,6 +28,24 @@ pub enum DeviceStatus {
     Offline,
 }
 
+fn format_brand(brand: &str) -> String {
+    let brand = brand.trim().to_lowercase();
+    if brand.is_empty() {
+        return String::new();
+    }
+    
+    brand.split_whitespace()
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+            }
+        })
+        .collect::<Vec<String>>()
+        .join(" ")
+}
+
 /// Get list of all connected devices (USB and wireless)
 #[tauri::command]
 pub async fn get_connected_devices(app: tauri::AppHandle) -> Result<Vec<Device>, String> {
@@ -60,41 +78,47 @@ pub async fn get_connected_devices(app: tauri::AppHandle) -> Result<Vec<Device>,
             _ => DeviceStatus::Disconnected,
         };
 
-        // Get device model name - prioritize cached info from -l flag to avoid slow shell calls
-        // Only fallback to getprop for connected devices where model is missing
-        let model = if let Some(ref m) = adb_device.model {
-            // Model already available from adb devices -l output (fast path)
-            m.replace("_", " ") // Replace underscores with spaces for better display
-        } else if status == DeviceStatus::Connected {
-            // Only fetch model via shell for connected devices (avoids timeout for unauthorized/offline)
-            // Use product info as fallback before making expensive shell call
-            if let Some(ref product) = adb_device.product {
-                product.replace("_", " ")
-            } else if let Some(ref device) = adb_device.device {
-                device.replace("_", " ")
-            } else {
-                // Last resort: make the shell call (this is slow)
-                adb.get_model(Some(&adb_device.serial)).await.unwrap_or_else(|_| "Unknown".to_string())
+        let mut model = String::new();
+        let mut name = String::new();
+
+        if status == DeviceStatus::Connected {
+            // Fetch brand
+            let brand_raw = adb.get_prop(Some(&adb_device.serial), "ro.product.brand").await.unwrap_or_default();
+            // Fetch model
+            let model_raw = adb.get_prop(Some(&adb_device.serial), "ro.product.model").await.unwrap_or_default();
+
+            if !model_raw.is_empty() {
+                let brand_formatted = format_brand(&brand_raw);
+                model = model_raw.trim().replace("_", " ");
+                
+                if model.to_lowercase().starts_with(&brand_formatted.to_lowercase()) {
+                    name = model.clone();
+                } else if !brand_formatted.is_empty() {
+                    name = format!("{} {}", brand_formatted, model);
+                } else {
+                    name = model.clone();
+                }
             }
-        } else {
-            // For unauthorized/offline devices, don't try to get model (would timeout)
-            "Unknown Device".to_string()
-        };
+        }
+
+        // Fallback if name is empty (unauthorized, offline, or query failed)
+        if name.is_empty() {
+            name = utils::names::get_deterministic_name(&adb_device.serial);
+            // Model fallback
+            model = if let Some(ref m) = adb_device.model {
+                m.replace("_", " ")
+            } else if let Some(ref product) = adb_device.product {
+                product.replace("_", " ")
+            } else {
+                "Unknown Device".to_string()
+            };
+        }
 
         // Extract IP address for wireless devices
         let ip_address = if connection_type == ConnectionType::Wireless {
             adb_device.serial.split(':').next().map(|s| s.to_string())
         } else {
             None
-        };
-
-        // Use model as name, or device codename, or "Unknown Device"
-        let name = if !model.is_empty() && model != "Unknown" && model != "Unknown Device" {
-            model.clone()
-        } else if let Some(ref device) = adb_device.device {
-            device.replace("_", " ")
-        } else {
-            "Unknown Device".to_string()
         };
 
         devices.push(Device {
