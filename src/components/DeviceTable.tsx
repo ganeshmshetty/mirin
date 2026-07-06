@@ -2,7 +2,7 @@ import { Play, Wifi, Usb, AlertCircle, Trash2, MoreVertical, Edit2, Plus } from 
 import { useState, useRef, useEffect } from "react";
 import type { Device, MirrorSession } from "../types";
 import { useInputDialog } from "./InputDialog";
-import logo from "../assets/logo.png";
+import logo from "../assets/logo.svg";
 
 interface DeviceTableProps {
     devices: Device[];
@@ -69,7 +69,7 @@ export function DeviceTable({
                 <img 
                     src={logo} 
                     alt="Mirin" 
-                    className="w-24 h-24 mb-6 object-cover" 
+                    className="w-24 h-24 mb-6 object-contain" 
                 />
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-1">No devices connected</h3>
                 <p className="text-sm text-gray-400 dark:text-slate-500 max-w-xs mx-auto">
