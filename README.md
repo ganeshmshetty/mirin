@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="brand/icon-svg/full-lockup/Light-transparent.svg">
-    <source media="(prefers-color-scheme: light)" srcset="brand/icon-svg/full-lockup/Dark-transparent.svg">
+    <source media="(prefers-color-scheme: light)" srcset="brand/icon-svg/full-lockup/Light-transparent.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="brand/icon-svg/full-lockup/Dark-transparent.svg">
     <img alt="Mirin" src="brand/icon-svg/full-lockup/Dark-transparent.svg" width="280">
   </picture>
 </p>
