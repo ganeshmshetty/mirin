@@ -47,3 +47,32 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+  update-tap:
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: ganeshmshetty/homebrew-tap
+          token: ${{ secrets.TAP_PAT }}
+          path: homebrew-tap
+
+      - name: Update Cask Version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd homebrew-tap
+          sed -i -E "s/version \".*\"/version \"${VERSION}\"/" Casks/mirin.rb
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/mirin.rb
+          
+          if git diff --staged --quiet; then
+            echo "Version is already up to date."
+          else
+            git commit -m "Bump Mirin Cask to v${VERSION}"
+            git push
+          fi
