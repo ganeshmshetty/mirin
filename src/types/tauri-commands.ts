@@ -59,3 +59,16 @@ export interface MirrorSession {
   status: SessionStatus;
   started_at: string;
 }
+
+export interface FrameEvent {
+  event: "config" | "packet" | "disconnected";
+  data: any;
+}
+
+export interface EmbeddedStreamSettings {
+  max_size: number;
+  max_fps: number;
+  video_bit_rate: number;
+  video_codec: string;
+  audio: boolean;
+}

@@ -1,34 +1,43 @@
-import { Play, Wifi, Usb, AlertCircle, Trash2, MoreVertical, Edit2, Plus } from "lucide-react";
+import { AlertCircle, Trash2, MoreVertical, Edit2, Plus, Smartphone, Zap } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Device, MirrorSession } from "../types";
+import type { Device } from "../types";
 import { useInputDialog } from "./InputDialog";
+import { MirrorButton } from "./MirrorButton";
 import logo from "../assets/logo.svg";
 
 interface DeviceTableProps {
     devices: Device[];
-    sessions: MirrorSession[];
-    onStartMirroring: (device: Device) => void;
-    onStopMirroring: (sessionId: string) => void;
     onRemoveDevice: (deviceId: string) => void;
     onRenameDevice: (deviceId: string, newName: string) => void;
     onConnectClick?: () => void;
+    onQuickMirrorClick?: () => void;
 }
 
 export function DeviceTable({
     devices,
-    sessions,
-    onStartMirroring,
-    onStopMirroring,
     onRemoveDevice,
     onRenameDevice,
     onConnectClick,
+    onQuickMirrorClick,
 }: DeviceTableProps) {
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
+    const [mirrorStatuses, setMirrorStatuses] = useState<Record<string, string>>({});
     const menuRef = useRef<HTMLDivElement>(null);
     const { prompt } = useInputDialog();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const handleMirrorStatus = (e: CustomEvent<{ deviceId: string, status: string }>) => {
+            setMirrorStatuses(prev => ({
+                ...prev,
+                [e.detail.deviceId]: e.detail.status
+            }));
+        };
+        window.addEventListener('mirror-status', handleMirrorStatus as EventListener);
+        return () => window.removeEventListener('mirror-status', handleMirrorStatus as EventListener);
+    }, []);
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -55,13 +64,7 @@ export function DeviceTable({
         };
     }, [openMenuId]);
 
-    const getSessionForDevice = (deviceId: string) => {
-        return sessions.find((s) => s.device_id === deviceId);
-    };
-
     const activeDevice = devices.find(d => d.id === openMenuId);
-
-
 
     if (devices.length === 0) {
         return (
@@ -80,17 +83,17 @@ export function DeviceTable({
                     className="mt-6 px-6 py-2.5 bg-cyan-600 text-white rounded-xl text-sm font-semibold hover:bg-cyan-700 transition-all shadow-sm active:scale-95 inline-flex items-center gap-2"
                 >
                     <Plus size={16} />
-                    Start Mirroring
+                    Connect Device
                 </button>
             </div>
         );
     }
 
     return (
-        <div className="flex-1 overflow-y-auto p-2 space-y-2">
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col min-h-0">
+            <div className="max-w-xl mx-auto w-full flex-1 flex flex-col min-h-0">
+            <div className="space-y-3">
             {devices.map((device) => {
-                const session = getSessionForDevice(device.id);
-                const isMirroring = !!session;
                 const isMenuOpen = openMenuId === device.id;
                 const isOffline = device.status === "Offline";
                 const isUnauthorized = device.status === "Unauthorized";
@@ -98,16 +101,19 @@ export function DeviceTable({
                 return (
                     <div
                         key={device.id}
-                        onClick={() => navigate(`/device/${encodeURIComponent(device.id)}`)}
-                        className="cursor-pointer group relative flex items-center gap-4 p-4 rounded-xl border bg-white dark:bg-[#191c1f] border-gray-100 dark:border-[#222629] hover:border-gray-200 dark:hover:border-[#2f353a] hover:shadow-sm transition-all"
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => navigate(`/device/${encodeURIComponent(device.id)}?tab=screen`)}
+                        onKeyDown={(event) => {
+                            if (event.target === event.currentTarget && event.key === "Enter") {
+                                navigate(`/device/${encodeURIComponent(device.id)}?tab=screen`);
+                            }
+                        }}
+                        className="cursor-pointer group relative flex items-center gap-4 py-5 px-5 rounded-xl bg-white dark:bg-[#16191b] hover:bg-gray-50 dark:hover:bg-[#1d2327]/50 transition-colors shadow-md shadow-black/5 dark:shadow-none"
                     >
                         {/* 1. Icon */}
                         <div className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors bg-gray-50 dark:bg-[#1d2327] text-gray-500 dark:text-slate-400 group-hover:bg-gray-100 dark:group-hover:bg-[#252c31]">
-                            {device.connection_type === "Wireless" ? (
-                                <Wifi size={20} />
-                            ) : (
-                                <Usb size={20} />
-                            )}
+                            <Smartphone size={20} />
                         </div>
 
                         {/* 2. Info */}
@@ -115,12 +121,12 @@ export function DeviceTable({
                             <h4 className="font-medium truncate text-gray-900 dark:text-slate-100">
                                 {device.name}
                             </h4>
-                            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400 font-mono mt-0.5">
-                                <span>{device.id}</span>
-                                {(device.model && device.model !== device.name) && (
+                            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400 font-medium mt-0.5 capitalize">
+                                <span>{device.status}</span>
+                                {device.connection_type && (
                                     <>
                                         <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-[#2f353a]" />
-                                        <span className="truncate">{device.model}</span>
+                                        <span className="uppercase">{device.connection_type}</span>
                                     </>
                                 )}
                             </div>
@@ -140,37 +146,31 @@ export function DeviceTable({
                                     Offline
                                 </span>
                             ) : (
-                                <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium border border-green-100 dark:border-green-900/50">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                    Connected
-                                </span>
+                                <div className="hidden sm:flex items-center gap-3 pr-2">
+                                    <div 
+                                        className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" 
+                                        title="Connected" 
+                                    />
+                                    {mirrorStatuses[device.id] === "streaming" && (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-medium border border-blue-100 dark:border-blue-900/50">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                            Mirroring
+                                        </span>
+                                    )}
+                                </div>
                             )}
 
                             {/* Mirror Action */}
                             {device.status === "Connected" && (
-                                <button
+                                <MirrorButton
+                                    size="sm"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if (isMirroring) {
-                                            onStopMirroring(session.session_id);
-                                        } else {
-                                            onStartMirroring(device);
-                                        }
+                                        navigate(`/device/${encodeURIComponent(device.id)}?tab=screen`);
                                     }}
-                                    className={`relative z-10 px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${isMirroring
-                                        ? "bg-red-50 text-red-600 hover:bg-red-100 border border-red-100"
-                                        : "bg-cyan-500 text-white hover:bg-cyan-600 shadow-sm hover:shadow"
-                                        }`}
-                                >
-                                    {isMirroring ? (
-                                        <>Stop</>
-                                    ) : (
-                                        <>
-                                            Mirror
-                                            <Play size={14} className="ml-0.5 fill-current" />
-                                        </>
-                                    )}
-                                </button>
+                                    title="Quick mirror — skip device details"
+                                    className="relative z-10"
+                                />
                             )}
 
                             {/* Context Menu Toggle */}
@@ -196,6 +196,25 @@ export function DeviceTable({
                     </div>
                 );
             })}
+            </div>
+            
+            {/* Quick Mirror Button at the bottom */}
+            {devices.length > 0 && (
+                <>
+                    <div className="flex-1 min-h-[32px]" />
+                    <div className="flex justify-center flex-shrink-0">
+                        <button
+                            onClick={onQuickMirrorClick}
+                            className="px-6 py-3 bg-cyan-50 dark:bg-cyan-900/20 hover:bg-cyan-100 dark:hover:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400 font-semibold rounded-xl transition-all shadow-sm active:scale-95 text-sm flex items-center gap-2 border border-cyan-200 dark:border-cyan-800"
+                        >
+                            <Zap size={18} className="fill-current" />
+                            Quick Mirror
+                        </button>
+                    </div>
+                    <div className="flex-1 min-h-[32px]" />
+                </>
+            )}
+            </div>
 
             {/* Fixed Menu Rendering */}
             {openMenuId && activeDevice && menuPosition && (

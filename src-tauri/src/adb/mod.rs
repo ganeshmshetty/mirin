@@ -32,6 +32,14 @@ impl Adb {
         Self { adb_path, transport_id: None }
     }
 
+    /// Return a new Adb instance targeted at a specific device serial (`-s <serial>`)
+    pub fn with_device(&self, serial: &str) -> Self {
+        let mut clone = self.clone();
+        clone.transport_id = Some(serial.to_string());
+        clone
+    }
+
+
     /// Raw execution helper
     async fn execute_raw(&self, args: &[&str]) -> Result<String, String> {
         let mut std_cmd = std::process::Command::new(&self.adb_path);
@@ -75,15 +83,71 @@ impl Adb {
         if let Err(ref e) = res {
             // Avoid retrying if the command was already a server control command to prevent recursion
             let is_control_cmd = args.iter().any(|&arg| arg == "kill-server" || arg == "start-server");
+            let is_daemon_error = e.contains("could not connect to daemon") 
+                || e.contains("daemon not running") 
+                || e.contains("cannot connect to daemon") 
+                || e.contains("ADB server didn't ACK") 
+                || e.contains("timed out") 
+                || e.contains("connection refused");
             
-            // If it's a regular command and failed/timed out, try restarting the daemon once
-            if !is_control_cmd {
-                println!("ADB command failed ({:?}): {}. Restarting daemon...", args, e);
-                // Attempt server restart
+            // Only restart daemon if ADB server crashed, NOT when a regular command exits non-zero
+            if !is_control_cmd && is_daemon_error {
+                println!("ADB daemon error ({:?}): {}. Restarting daemon...", args, e);
                 let _ = self.execute_raw(&["kill-server"]).await;
                 let _ = self.execute_raw(&["start-server"]).await;
-                // Retry the original command
                 return self.execute_raw(args).await;
+            }
+        }
+        res
+    }
+
+    /// Raw execution helper returning raw byte output
+    async fn execute_bytes_raw(&self, args: &[&str]) -> Result<Vec<u8>, String> {
+        let mut std_cmd = std::process::Command::new(&self.adb_path);
+        if let Some(ref id) = self.transport_id {
+            std_cmd.arg("-s").arg(id);
+        }
+        std_cmd.args(args);
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            std_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
+
+        let mut command = tokio::process::Command::from(std_cmd);
+        let output_result = tokio::time::timeout(std::time::Duration::from_secs(10), command.output()).await;
+
+        let output = match output_result {
+            Ok(Ok(out)) => out,
+            Ok(Err(e)) => return Err(format!("Failed to execute ADB command: {}", e)),
+            Err(_) => return Err("ADB command timed out".to_string()),
+        };
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("ADB command failed: {}", stderr.trim()));
+        }
+
+        Ok(output.stdout)
+    }
+
+    /// Execute an ADB command and return the raw output bytes (with self-healing fallback)
+    pub async fn execute_bytes(&self, args: &[&str]) -> Result<Vec<u8>, String> {
+        let res = self.execute_bytes_raw(args).await;
+        if let Err(ref e) = res {
+            let is_control_cmd = args.iter().any(|&arg| arg == "kill-server" || arg == "start-server");
+            let is_daemon_error = e.contains("could not connect to daemon") 
+                || e.contains("daemon not running") 
+                || e.contains("cannot connect to daemon") 
+                || e.contains("ADB server didn't ACK") 
+                || e.contains("timed out") 
+                || e.contains("connection refused");
+            if !is_control_cmd && is_daemon_error {
+                println!("ADB daemon error ({:?}): {}. Restarting daemon...", args, e);
+                let _ = self.execute_raw(&["kill-server"]).await;
+                let _ = self.execute_raw(&["start-server"]).await;
+                return self.execute_bytes_raw(args).await;
             }
         }
         res
@@ -373,6 +437,101 @@ impl Adb {
         }
     }
 
+    /// Push a local file to a remote device path
+    pub async fn push(&self, device_serial: &str, local_path: &str, remote_path: &str) -> Result<String, String> {
+        let mut std_cmd = std::process::Command::new(&self.adb_path);
+        if let Some(ref id) = self.transport_id {
+            std_cmd.arg("-s").arg(id);
+        } else {
+            std_cmd.arg("-s").arg(device_serial);
+        }
+        std_cmd.args(&["push", local_path, remote_path]);
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            std_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
+
+        let mut command = tokio::process::Command::from(std_cmd);
+        let output_result = tokio::time::timeout(std::time::Duration::from_secs(60), command.output()).await;
+
+        let output = match output_result {
+            Ok(Ok(out)) => out,
+            Ok(Err(e)) => return Err(format!("Failed to execute ADB command: {}", e)),
+            Err(_) => return Err("ADB command timed out".to_string()),
+        };
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("ADB error: {}", err));
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    }
+
+    /// Reverse port forwarding (Android device connects to local port)
+    pub async fn reverse(&self, device_serial: &str, remote: &str, local_port: u16) -> Result<String, String> {
+        if self.transport_id.is_some() {
+            self.execute(&["reverse", remote, &format!("tcp:{}", local_port)]).await
+        } else {
+            self.execute(&["-s", device_serial, "reverse", remote, &format!("tcp:{}", local_port)]).await
+        }
+    }
+
+    /// Remove reverse port forwarding
+    pub async fn remove_reverse(&self, device_serial: &str, remote: &str) -> Result<String, String> {
+        if self.transport_id.is_some() {
+            let _ = self.execute_raw(&["reverse", "--remove", remote]).await;
+        } else {
+            let _ = self.execute_raw(&["-s", device_serial, "reverse", "--remove", remote]).await;
+        }
+        Ok("".to_string())
+    }
+
+    /// Remove port forwarding
+    pub async fn remove_forward(&self, device_serial: &str, local_port: u16) -> Result<String, String> {
+        if self.transport_id.is_some() {
+            let _ = self.execute_raw(&["forward", "--remove", &format!("tcp:{}", local_port)]).await;
+        } else {
+            let _ = self.execute_raw(&["-s", device_serial, "forward", "--remove", &format!("tcp:{}", local_port)]).await;
+        }
+        Ok("".to_string())
+    }
+
+    /// Kill any running scrcpy server on the remote device
+    pub async fn kill_scrcpy_server(&self, device_serial: &str) {
+        if self.transport_id.is_some() {
+            let _ = self.execute_raw(&["shell", "pkill -f com.genymobile.scrcpy.Server"]).await;
+        } else {
+            let _ = self.execute_raw(&["-s", device_serial, "shell", "pkill -f com.genymobile.scrcpy.Server"]).await;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    }
+
+    /// Spawn a continuous shell command (returning child process without waiting)
+    pub fn spawn_shell(&self, device_serial: &str, cmd: &str) -> Result<tokio::process::Child, String> {
+        let mut std_cmd = std::process::Command::new(&self.adb_path);
+        if let Some(ref id) = self.transport_id {
+            std_cmd.arg("-s").arg(id);
+        } else {
+            std_cmd.arg("-s").arg(device_serial);
+        }
+        std_cmd.args(&["shell", cmd]);
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            std_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
+
+        std_cmd.stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+
+        tokio::process::Command::from(std_cmd)
+            .spawn()
+            .map_err(|e| format!("Failed to spawn shell child: {}", e))
+    }
 }
 
 #[cfg(test)]

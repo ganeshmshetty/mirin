@@ -129,8 +129,6 @@ pub fn get_scrcpy_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     // Note: These tests require a Tauri app instance and are mainly for documentation
     // Real testing should be done in integration tests or manually
 }

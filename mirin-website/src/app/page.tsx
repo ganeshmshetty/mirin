@@ -218,17 +218,17 @@ export default function LandingPage() {
         </div>
         <div>
           {detectedOS === "mac" ? (
-            <button className="bg-accent hover:bg-accent/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+            <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-accent hover:bg-accent/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
               <AppleIcon className="w-4 h-4" /> Download for macOS
-            </button>
+            </a>
           ) : detectedOS === "windows" ? (
-            <button className="bg-accent hover:bg-accent/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+            <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-accent hover:bg-accent/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
               <WindowsIcon className="w-4 h-4" /> Download for Windows
-            </button>
+            </a>
           ) : (
-            <button className="bg-accent hover:bg-accent/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+            <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-accent hover:bg-accent/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
               <Download size={15} /> Download Mirin
-            </button>
+            </a>
           )}
         </div>
       </nav>
@@ -243,12 +243,12 @@ export default function LandingPage() {
         </p>
         
         <div className="hero-elem flex flex-col sm:flex-row items-center gap-4 mb-4">
-          <button className="bg-accent hover:bg-accent/90 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
+          <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-accent hover:bg-accent/90 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
             <AppleIcon className="w-5 h-5" /> Download for macOS
-          </button>
-          <button className="bg-white border border-border hover:bg-page-bg-alt text-text-primary px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
+          </a>
+          <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-white border border-border hover:bg-page-bg-alt text-text-primary px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
             <WindowsIcon className="w-5 h-5" /> Download for Windows
-          </button>
+          </a>
         </div>
         
         <div className="hero-elem flex items-center gap-2 bg-page-bg-alt border border-border rounded-md pl-4 pr-2 py-1.5 text-sm text-text-muted font-mono mb-16">
@@ -456,12 +456,12 @@ export default function LandingPage() {
             Your Android, fully at your desk's command.
           </h2>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button className="bg-accent hover:bg-accent/90 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
+            <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-accent hover:bg-accent/90 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
               <AppleIcon className="w-5 h-5" /> Download for macOS
-            </button>
-            <button className="bg-white border border-border hover:bg-page-bg text-text-primary px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
+            </a>
+            <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-white border border-border hover:bg-page-bg text-text-primary px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
               <WindowsIcon className="w-5 h-5" /> Download for Windows
-            </button>
+            </a>
           </div>
         </div>
       </section>
@@ -477,10 +477,10 @@ export default function LandingPage() {
           />
         </div>
         <div className="flex gap-8 text-sm font-medium text-text-muted">
-          <a href="#" className="hover:text-text-primary transition-colors">GitHub</a>
-          <a href="#" className="hover:text-text-primary transition-colors">Documentation</a>
-          <a href="#" className="hover:text-text-primary transition-colors">MCP Reference</a>
-          <a href="#" className="hover:text-text-primary transition-colors">License</a>
+          <a href="https://github.com/ganeshmshetty/mirin" target="_blank" rel="noopener noreferrer" className="hover:text-text-primary transition-colors">GitHub</a>
+          <Link href="/docs" className="hover:text-text-primary transition-colors">Documentation</Link>
+          <Link href="/docs#mcp" className="hover:text-text-primary transition-colors">MCP Reference</Link>
+          <a href="https://github.com/ganeshmshetty/mirin/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="hover:text-text-primary transition-colors">License</a>
         </div>
       </footer>
 

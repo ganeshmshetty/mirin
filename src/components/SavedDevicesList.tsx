@@ -17,6 +17,8 @@ const getErrorMessage = (err: unknown): string => {
   }
 };
 
+const isWirelessDevice = (device: Device) => device.connection_type === "Wireless" || device.id.includes(":");
+
 interface SavedDevicesListProps {
   onDeviceConnected: () => void;
 }
@@ -64,18 +66,24 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
     loadSavedDevices();
 
     let unlisten: (() => void) | undefined;
+    let cancelled = false;
     import("@tauri-apps/api/event").then(({ listen }) => {
       listen("device-connected", () => {
         if (isMountedRef.current) {
           loadSavedDevices();
         }
       }).then((fn) => {
-        unlisten = fn;
+        if (cancelled) {
+          fn();
+        } else {
+          unlisten = fn;
+        }
       });
     });
 
     return () => {
       isMountedRef.current = false;
+      cancelled = true;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -84,7 +92,7 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
   }, [loadSavedDevices]);
 
   const handleConnect = async (device: Device) => {
-    const isUsb = device.connection_type === "USB" || (!device.connection_type && !device.id.includes(":"));
+    const isUsb = !isWirelessDevice(device);
     if (isUsb) {
       setError(`"${device.name}" is a USB device. To connect it, simply plug it into your computer via USB cable with USB Debugging enabled.`);
       return;
@@ -136,7 +144,7 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
       }
     } catch (err) {
       if (isMountedRef.current) {
-        setError(err instanceof Error ? err.message : "Failed to forget device");
+        setError(getErrorMessage(err));
       }
     }
   };
@@ -195,7 +203,7 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
       ) : (
         <div className="space-y-3">
           {savedDevices.map((device) => {
-            const isWireless = device.connection_type === "Wireless" || device.id.includes(":");
+            const isWireless = isWirelessDevice(device);
             return (
               <div
                 key={device.id}

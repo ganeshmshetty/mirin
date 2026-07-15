@@ -1,10 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Device, MdnsService } from "../types";
+import type { Device, MdnsService, DeviceDetails } from "../types";
 
 /**
  * Service for device-related operations
  */
 export const deviceService = {
+  /**
+   * Get dynamic device details (battery, storage, hardware version, manufacturer)
+   */
+  async getDeviceDetails(deviceId: string): Promise<DeviceDetails> {
+    return await invoke<DeviceDetails>("get_device_details", { deviceId });
+  },
+
   /**
    * Get all connected devices (USB and wireless)
    */

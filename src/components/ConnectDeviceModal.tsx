@@ -5,6 +5,7 @@ import type { Device } from "../types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { emit } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 
 type Step = "instructions" | "search-wireless" | "search-usb" | "manual-wireless" | "manual-connect";
 
@@ -22,11 +23,12 @@ const getErrorMessage = (err: unknown): string => {
 };
 
 interface ConnectDeviceModalProps {
+  mode?: string;
   onClose: () => void;
   onDeviceConnected?: () => void;
 }
 
-export function ConnectDeviceModal({ onClose, onDeviceConnected }: ConnectDeviceModalProps) {
+export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnected }: ConnectDeviceModalProps) {
   const [step, setStep] = useState<Step>("instructions");
   const [showInstructions, setShowInstructions] = useState(false);
 
@@ -104,7 +106,7 @@ export function ConnectDeviceModal({ onClose, onDeviceConnected }: ConnectDevice
         
         const saved = await deviceService.getSavedDevices();
         const validDevices = Array.from(deviceMap.entries())
-          .filter(([_, data]) => data.pairing_port !== "") // Must have at least pairing port
+          .filter(([_, data]) => data.pairing_port !== "" || data.connect_port !== "") // Must have pairing or connect info
           .map(([name, data]) => ({ instance_name: name, ...data }))
           .filter(d => !saved.some(s => s.ip_address === d.ip));
           
@@ -240,8 +242,17 @@ export function ConnectDeviceModal({ onClose, onDeviceConnected }: ConnectDevice
           ip_address: cleanIp,
         }],
       };
-      await deviceService.saveDevice(device).catch(() => {});
-      await emit("device-connected");
+      
+      if (mode !== "quick-mirror") {
+        await deviceService.saveDevice(device).catch((saveErr) => {
+          console.error("Failed to save device:", saveErr);
+        });
+        await emit("device-connected");
+      } else {
+        await invoke("open_mirror_window", { deviceId: device.id, deviceName: device.name }).catch((err) => {
+          console.error("Failed to open quick mirror window:", err);
+        });
+      }
       
       onDeviceConnected?.();
       onClose();
@@ -256,20 +267,26 @@ export function ConnectDeviceModal({ onClose, onDeviceConnected }: ConnectDevice
     setError(null);
     setConnectingUsbId(device.id);
     try {
-      // Ensure exact data integrity assigning connection_type: "USB"
-      const usbDeviceToSave: Device = {
-        ...device,
-        connection_type: "USB",
-        status: "Connected",
-        hardware_id: device.hardware_id || device.id,
-        connections: device.connections || [{
-          id: device.id,
+      if (mode !== "quick-mirror") {
+        // Ensure exact data integrity assigning connection_type: "USB"
+        const usbDeviceToSave: Device = {
+          ...device,
           connection_type: "USB",
           status: "Connected",
-        }],
-      };
-      await deviceService.saveDevice(usbDeviceToSave);
-      await emit("device-connected");
+          hardware_id: device.hardware_id || device.id,
+          connections: device.connections || [{
+            id: device.id,
+            connection_type: "USB",
+            status: "Connected",
+          }],
+        };
+        await deviceService.saveDevice(usbDeviceToSave);
+        await emit("device-connected");
+      } else {
+        await invoke("open_mirror_window", { deviceId: device.id, deviceName: device.name }).catch((err) => {
+          console.error("Failed to open quick mirror window:", err);
+        });
+      }
       onDeviceConnected?.();
       onClose();
     } catch (err) {
@@ -280,11 +297,11 @@ export function ConnectDeviceModal({ onClose, onDeviceConnected }: ConnectDevice
   };
 
   return (
-    <div className="h-full w-full bg-transparent flex flex-col p-6 items-center justify-center">
-      <div className="w-full h-full max-w-lg bg-app-card flex flex-col overflow-hidden rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.3)] border border-app-border/50">
+    <div className="h-full w-full bg-transparent flex flex-col p-10 items-center justify-center">
+      <div className="w-full h-full max-w-lg bg-gray-50 dark:bg-[#16191b] flex flex-col overflow-hidden rounded-xl shadow-[0_16px_40px_rgb(0,0,0,0.15)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
         
         {/* Header */}
-        <div data-tauri-drag-region className="relative px-4 py-3 border-b border-app-border flex items-center justify-end bg-app-hover/80 select-none">
+        <div data-tauri-drag-region className="relative px-4 py-3 flex items-center justify-end select-none border-b border-gray-200 dark:border-[#222629]">
           <h2 id="modal-title" data-tauri-drag-region className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-base font-bold text-app-text pointer-events-none">Connect Device</h2>
           <button 
             onClick={onClose}
@@ -306,7 +323,7 @@ export function ConnectDeviceModal({ onClose, onDeviceConnected }: ConnectDevice
                 Choose how you want to connect your Android device.
               </p>
 
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col bg-white dark:bg-[#1d2327] rounded-2xl shadow-md overflow-hidden border border-gray-100 dark:border-[#2a3036]">
                 
                 {/* Wireless Choice */}
                 <button 
@@ -315,9 +332,9 @@ export function ConnectDeviceModal({ onClose, onDeviceConnected }: ConnectDevice
                     setShowInstructions(false);
                     setStep("search-wireless");
                   }}
-                  className="p-4 rounded-2xl bg-slate-50/60 hover:bg-cyan-50/50 dark:bg-app-card dark:hover:bg-cyan-900/10 border border-slate-200/60 hover:border-cyan-300 dark:border-app-border dark:hover:border-cyan-800 shadow-sm hover:shadow-md transition-all flex items-center gap-4 group text-left active:scale-[0.98]"
+                  className="p-5 hover:bg-gray-50 dark:hover:bg-[#252c31] transition-colors flex items-center gap-4 group text-left cursor-pointer border-b border-gray-100 dark:border-[#2a3036]"
                 >
-                  <div className="w-12 h-12 bg-cyan-100/70 dark:bg-cyan-900/40 text-cyan-600 dark:text-cyan-400 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-cyan-200/80 dark:group-hover:bg-cyan-800/60 transition-all duration-300">
+                  <div className="w-12 h-12 bg-cyan-50 dark:bg-[#16191b] text-cyan-600 dark:text-cyan-400 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
                     <Wifi size={22}/>
                   </div>
                   <div>
@@ -336,9 +353,9 @@ export function ConnectDeviceModal({ onClose, onDeviceConnected }: ConnectDevice
                     setShowInstructions(false);
                     setStep("search-usb");
                   }}
-                  className="p-4 rounded-2xl bg-slate-50/60 hover:bg-cyan-50/50 dark:bg-app-card dark:hover:bg-cyan-900/10 border border-slate-200/60 hover:border-cyan-300 dark:border-app-border dark:hover:border-cyan-800 shadow-sm hover:shadow-md transition-all flex items-center gap-4 group text-left active:scale-[0.98]"
+                  className="p-5 hover:bg-gray-50 dark:hover:bg-[#252c31] transition-colors flex items-center gap-4 group text-left cursor-pointer"
                 >
-                  <div className="w-12 h-12 bg-cyan-100/70 dark:bg-cyan-900/40 text-cyan-600 dark:text-cyan-400 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:bg-cyan-200/80 dark:group-hover:bg-cyan-800/60 transition-all duration-300">
+                  <div className="w-12 h-12 bg-cyan-50 dark:bg-[#16191b] text-cyan-600 dark:text-cyan-400 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
                     <Usb size={22}/>
                   </div>
                   <div>
@@ -389,7 +406,7 @@ export function ConnectDeviceModal({ onClose, onDeviceConnected }: ConnectDevice
                 <div className="flex-1 overflow-y-auto flex flex-col gap-3 pb-4">
                   {discoveredDevices.length > 0 ? (
                     discoveredDevices.map((device, idx) => (
-                      <div key={`wifi-${device.instance_name}-${idx}`} className="p-3 border border-cyan-200 dark:border-cyan-900/30 bg-cyan-50/50 dark:bg-cyan-950/20 rounded-xl flex items-center justify-between">
+                      <div key={`wifi-${device.instance_name}-${idx}`} className="p-4 bg-white dark:bg-[#1d2327] rounded-xl flex items-center justify-between hover:bg-gray-50 dark:hover:bg-[#252c31] transition-colors shadow-sm">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400 rounded-full flex items-center justify-center">
                             <Wifi size={18} />
@@ -477,7 +494,7 @@ export function ConnectDeviceModal({ onClose, onDeviceConnected }: ConnectDevice
                 <div className="flex-1 overflow-y-auto flex flex-col gap-3 pb-4">
                   {detectedUsbDevices.length > 0 ? (
                     detectedUsbDevices.map((device, idx) => (
-                      <div key={`usb-${device.id}-${idx}`} className="p-3 border border-cyan-200 dark:border-cyan-900/30 bg-cyan-50/50 dark:bg-cyan-950/20 rounded-xl flex items-center justify-between">
+                      <div key={`usb-${device.id}-${idx}`} className="p-4 bg-white dark:bg-[#1d2327] rounded-xl flex items-center justify-between hover:bg-gray-50 dark:hover:bg-[#252c31] transition-colors shadow-sm">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400 rounded-full flex items-center justify-center">
                             <Smartphone size={18} />

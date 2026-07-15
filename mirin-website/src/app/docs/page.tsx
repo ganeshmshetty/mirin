@@ -116,42 +116,38 @@ export default function DocsPage() {
           </div>
         </aside>
 
-        {/* DOCS CONTENT */}
-        <main className="flex-1 max-w-3xl space-y-20">
-          
-          {/* SECTION: INTRO */}
-          <section id="intro" className="scroll-mt-28 space-y-6">
-            <h1 className="text-4xl font-semibold tracking-tight text-text-primary">Introduction</h1>
+        {/* MAIN CONTENT */}
+        <main className="flex-1 max-w-3xl space-y-16">
+          {/* OVERVIEW */}
+          <section id="overview" className="space-y-4">
+            <h1 className="text-4xl font-semibold text-text-primary tracking-tight">Overview</h1>
             <p className="text-lg text-text-muted leading-relaxed">
               Welcome to the Mirin documentation workspace. Mirin is a desktop application built with Tauri 2.0 that provides an intuitive interface for configuring and controlling Android devices.
             </p>
             <p className="text-text-muted leading-relaxed">
-              Unlike typical command-line screen mirroring wrappers, Mirin treats device pairing, configuration mapping, automation endpoints, and local file sharing as first-class, built-in capabilities.
+              Unlike standard mirroring utilities, Mirin is engineered for developers and AI agents. It combines ultra-low latency hardware acceleration via bundled `scrcpy-server` binaries with an integrated Model Context Protocol (MCP) server, allowing language models and AI IDEs to visually inspect and automate connected hardware.
             </p>
-            <div className="p-4 bg-page-bg-alt border border-border rounded-xl flex gap-4 items-start">
-              <BookOpen className="text-accent shrink-0 mt-0.5" size={20} />
-              <div className="text-sm text-text-muted">
-                <strong>New to Mirin?</strong> Start with the installation guides below to get the workspace up and running on your system.
-              </div>
-            </div>
           </section>
 
-          {/* SECTION: INSTALL */}
-          <section id="install" className="scroll-mt-28 space-y-6">
-            <h2 className="text-3xl font-semibold tracking-tight text-text-primary">Installation</h2>
+          <hr className="border-border" />
+
+          {/* INSTALLATION */}
+          <section id="installation" className="space-y-6">
+            <h2 className="text-2xl font-semibold text-text-primary">Installation</h2>
             <p className="text-text-muted leading-relaxed">
-              Mirin supports both macOS (Intel & Apple Silicon) and Windows 10/11 operating systems. Follow the instructions corresponding to your system.
+              Mirin requires a desktop operating system (macOS or Windows) and a connected Android device with USB Debugging or Wireless Debugging enabled.
             </p>
 
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-text-primary flex items-center gap-2">
-                <AppleIcon className="w-5 h-5 text-text-primary" /> macOS setup
+              <h3 className="text-lg font-medium text-text-primary flex items-center gap-2">
+                <AppleIcon className="w-4 h-4 text-text-muted" /> macOS (Apple Silicon & Intel)
               </h3>
               <p className="text-sm text-text-muted">The recommended way to install Mirin on macOS is via Homebrew Cask:</p>
               <div className="flex justify-between items-center bg-page-bg-alt border border-border rounded-lg pl-4 pr-2 py-2 text-sm font-mono text-text-muted">
                 <span>brew install --cask ganeshmshetty/tap/mirin</span>
                 <button 
                   onClick={() => handleCopy("brew install --cask ganeshmshetty/tap/mirin", "brew")} 
+                  aria-label="Copy install command"
                   className="p-1.5 hover:bg-border rounded text-text-primary transition-colors"
                 >
                   {copiedText === "brew" ? <Check size={14} className="text-accent" /> : <Copy size={14} />}
@@ -163,44 +159,74 @@ export default function DocsPage() {
             </div>
 
             <div className="space-y-4 pt-4">
-              <h3 className="text-xl font-semibold text-text-primary flex items-center gap-2">
-                <WindowsIcon className="w-5 h-5 text-text-primary" /> Windows setup
+              <h3 className="text-lg font-medium text-text-primary flex items-center gap-2">
+                <WindowsIcon className="w-4 h-4 text-text-muted" /> Windows 10 & 11
               </h3>
               <p className="text-sm text-text-muted">
                 Download the official `.msi` package from GitHub, double-click the installer, and follow the on-screen configuration guidelines.
               </p>
             </div>
+
+            <div className="bg-page-bg-alt border border-border rounded-lg p-4 space-y-2 mt-4">
+              <h4 className="text-sm font-medium text-text-primary flex items-center gap-2">
+                <Terminal size={15} className="text-accent" /> Android Device Prerequisites
+              </h4>
+              <ul className="text-sm text-text-muted space-y-1 list-disc pl-5">
+                <li>Enable <strong>Developer Options</strong> on your Android device (`Settings &gt; About Phone &gt; Tap Build Number 7 times`).</li>
+                <li>Enable <strong>USB Debugging</strong> within Developer Options.</li>
+                <li>For Wi-Fi mirroring, ensure your computer and Android device are connected to the same local network and enable <strong>Wireless Debugging</strong>.</li>
+              </ul>
+            </div>
           </section>
 
-          {/* SECTION: WIRELESS */}
-          <section id="wireless" className="scroll-mt-28 space-y-6">
-            <h2 className="text-3xl font-semibold tracking-tight text-text-primary">Wireless Setup</h2>
-            <p className="text-text-muted leading-relaxed">
-              Mirin features automatic network scanning so you never have to locate your device IP address manually. Ensure your computer and device share the same Wi-Fi connection.
-            </p>
-            <ol className="list-decimal pl-5 space-y-3 text-text-muted">
-              <li>Open Settings on your Android Device and navigate to <strong>Developer Options</strong>.</li>
-              <li>Toggle <strong>Wireless Debugging</strong> to active.</li>
-              <li>Select "Pair device with pairing code". You will be shown a 6-digit code and a port value.</li>
-              <li>In Mirin, wait for the automatic scan to list your device and click <strong>Pair</strong>.</li>
-              <li>Input the 6-digit pairing code. Once verified, Mirin stores the pairing key permanently.</li>
-            </ol>
-          </section>
+          <hr className="border-border" />
 
-          {/* SECTION: MCP */}
-          <section id="mcp" className="scroll-mt-28 space-y-6">
-            <h2 className="text-3xl font-semibold tracking-tight text-text-primary">Model Context Protocol (MCP)</h2>
-            <p className="text-text-muted leading-relaxed">
-              Mirin hosts a built-in Model Context Protocol (MCP) server that exposes device interaction interfaces to AI agents (like Claude Desktop or Cursor).
-            </p>
-
+          {/* QUICKSTART */}
+          <section id="quickstart" className="space-y-6">
+            <h2 className="text-2xl font-semibold text-text-primary">Quickstart</h2>
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-text-primary">Claude Desktop Configuration</h3>
+              <div className="flex gap-4 items-start">
+                <div className="w-7 h-7 rounded-full bg-page-bg-alt border border-border flex items-center justify-center shrink-0 text-sm font-semibold text-text-primary">1</div>
+                <div className="space-y-1">
+                  <h3 className="font-medium text-text-primary">Connect your Android device</h3>
+                  <p className="text-sm text-text-muted">Plug in your Android device via USB. Accept the RSA fingerprint prompt on your mobile screen allowing USB debugging from your desktop.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4 items-start">
+                <div className="w-7 h-7 rounded-full bg-page-bg-alt border border-border flex items-center justify-center shrink-0 text-sm font-semibold text-text-primary">2</div>
+                <div className="space-y-1">
+                  <h3 className="font-medium text-text-primary">Launch Mirin</h3>
+                  <p className="text-sm text-text-muted">Open the Mirin desktop application. Your device will automatically appear in the active hardware list with its model name, serial number, and connection mode.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-4 items-start">
+                <div className="w-7 h-7 rounded-full bg-page-bg-alt border border-border flex items-center justify-center shrink-0 text-sm font-semibold text-text-primary">3</div>
+                <div className="space-y-1">
+                  <h3 className="font-medium text-text-primary">Start Mirroring</h3>
+                  <p className="text-sm text-text-muted">Click the <strong>Start Mirroring</strong> button on your device card. A high-fps hardware-accelerated viewport will launch, allowing mouse clicks, drag events, and physical keyboard passthrough.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <hr className="border-border" />
+
+          {/* MCP SERVER */}
+          <section id="mcp" className="space-y-6">
+            <h2 className="text-2xl font-semibold text-text-primary">Model Context Protocol (MCP)</h2>
+            <p className="text-text-muted leading-relaxed">
+              Mirin includes a native Model Context Protocol (MCP) server that runs as a loopback bridge on `127.0.0.1:48484`. This empowers local AI assistants—such as Claude Desktop, Cursor, or Claude Code—to interact directly with your Android screen and hardware sensors.
+            </p>
+
+            <div className="space-y-3">
+              <h3 className="text-lg font-medium text-text-primary">Configuring Claude Desktop</h3>
               <p className="text-sm text-text-muted">
-                To connect Claude Desktop to your Mirin workspace, add the server setup to your global configuration file (`claude_desktop_config.json`):
+                Add the following JSON snippet to your `claude_desktop_config.json` configuration file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
               </p>
               <div className="relative">
-                <pre className="bg-app-bg text-app-text p-4 rounded-xl text-xs font-mono border border-app-border overflow-x-auto">
+                <pre className="bg-[#0f1115] border border-border rounded-lg p-4 text-xs font-mono text-[#e2e8f0] overflow-x-auto">
 {`{
   "mcpServers": {
     "mirin": {
@@ -212,6 +238,7 @@ export default function DocsPage() {
                 </pre>
                 <button 
                   onClick={() => handleCopy(`{\n  "mcpServers": {\n    "mirin": {\n      "command": "mirin",\n      "args": ["--mcp"]\n    }\n  }\n}`, "mcp-json")} 
+                  aria-label="Copy configuration snippet"
                   className="p-1.5 hover:bg-app-card rounded text-app-text-muted hover:text-app-text transition-colors absolute top-2 right-2 border border-app-border"
                 >
                   {copiedText === "mcp-json" ? <Check size={14} className="text-app-primary" /> : <Copy size={14} />}
@@ -223,17 +250,25 @@ export default function DocsPage() {
               <h3 className="text-xl font-semibold text-text-primary">Available Tools</h3>
               <p className="text-sm text-text-muted">Once active, AI agents gain access to the following JSON-RPC commands:</p>
               <div className="space-y-3">
-                <div className="border border-border p-3 rounded-lg">
-                  <div className="text-xs font-mono text-accent font-semibold">list_devices()</div>
-                  <div className="text-xs text-text-muted mt-1">Queries ADB and returns all active connected hardware and wireless devices.</div>
+                <div className="p-3 bg-page-bg-alt border border-border rounded-lg space-y-1">
+                  <div className="font-mono text-xs font-semibold text-accent">list_devices</div>
+                  <p className="text-xs text-text-muted">Returns a structured JSON list of all connected hardware serials, device states, and battery metadata.</p>
                 </div>
-                <div className="border border-border p-3 rounded-lg">
-                  <div className="text-xs font-mono text-accent font-semibold">take_screenshot(deviceId)</div>
-                  <div className="text-xs text-text-muted mt-1">Directly accesses device framebuffer to return a Base64-encoded PNG image of the screen.</div>
+                <div className="p-3 bg-page-bg-alt border border-border rounded-lg space-y-1">
+                  <div className="font-mono text-xs font-semibold text-accent">get_screenshot</div>
+                  <p className="text-xs text-text-muted">Captures the current screen. Supports Set-of-Mark (`annotate: true`) high-contrast numbered bounding boxes overlays drawn directly on GPU buffers without persisting data.</p>
                 </div>
-                <div className="border border-border p-3 rounded-lg">
-                  <div className="text-xs font-mono text-accent font-semibold">send_input(deviceId, type, value)</div>
-                  <div className="text-xs text-text-muted mt-1">Allows inputs such as tap coordinates, drag gestures, and simulated keyboard strings.</div>
+                <div className="p-3 bg-page-bg-alt border border-border rounded-lg space-y-1">
+                  <div className="font-mono text-xs font-semibold text-accent">tap, long_press, swipe, drag</div>
+                  <p className="text-xs text-text-muted">Executes touch actions using exact screen coordinates, semantic accessibility selectors (`"Allow"`), or assigned Set-of-Mark numeric IDs (`"4"`).</p>
+                </div>
+                <div className="p-3 bg-page-bg-alt border border-border rounded-lg space-y-1">
+                  <div className="font-mono text-xs font-semibold text-accent">type_text, press_key</div>
+                  <p className="text-xs text-text-muted">Injects keyboard strings and physical hardware keycodes (`HOME`, `BACK`, `ENTER`) via scrcpy control socket.</p>
+                </div>
+                <div className="p-3 bg-page-bg-alt border border-border rounded-lg space-y-1">
+                  <div className="font-mono text-xs font-semibold text-accent">launch_app, stop_app, list_apps</div>
+                  <p className="text-xs text-text-muted">Manages applications cleanly using Activity resolution without triggering noisy monkey randomness.</p>
                 </div>
               </div>
             </div>
@@ -274,10 +309,10 @@ export default function DocsPage() {
           />
         </div>
         <div className="flex gap-8 text-sm font-medium text-text-muted">
-          <a href="#" className="hover:text-text-primary transition-colors">GitHub</a>
-          <a href="#" className="hover:text-text-primary transition-colors">Documentation</a>
-          <a href="#" className="hover:text-text-primary transition-colors">MCP Reference</a>
-          <a href="#" className="hover:text-text-primary transition-colors">License</a>
+          <a href="https://github.com/ganeshmshetty/mirin" target="_blank" rel="noopener noreferrer" className="hover:text-text-primary transition-colors">GitHub</a>
+          <Link href="/docs" className="hover:text-text-primary transition-colors">Documentation</Link>
+          <Link href="/docs#mcp" className="hover:text-text-primary transition-colors">MCP Reference</Link>
+          <a href="https://github.com/ganeshmshetty/mirin/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="hover:text-text-primary transition-colors">License</a>
         </div>
       </footer>
 

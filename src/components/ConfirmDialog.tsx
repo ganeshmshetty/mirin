@@ -6,6 +6,7 @@ interface ConfirmDialogOptions {
     confirmText?: string;
     cancelText?: string;
     variant?: "danger" | "warning" | "info";
+    hideCancel?: boolean;
 }
 
 interface ConfirmDialogContextType {
@@ -39,6 +40,7 @@ export function ConfirmDialogProvider({ children }: ConfirmDialogProviderProps) 
         confirmText: "Confirm",
         cancelText: "Cancel",
         variant: "danger",
+        hideCancel: false,
         resolve: null,
     });
 
@@ -50,6 +52,7 @@ export function ConfirmDialogProvider({ children }: ConfirmDialogProviderProps) 
                 confirmText: options.confirmText || "Confirm",
                 cancelText: options.cancelText || "Cancel",
                 variant: options.variant || "danger",
+                hideCancel: options.hideCancel || false,
                 resolve,
             });
         });
@@ -132,16 +135,18 @@ export function ConfirmDialogProvider({ children }: ConfirmDialogProviderProps) 
                         </div>
 
                         {/* Actions */}
-                        <div className="px-6 py-4 bg-gray-50 flex gap-3 justify-end">
-                            <button
-                                onClick={handleCancel}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
-                            >
-                                {dialogState.cancelText}
-                            </button>
+                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 p-6 border-t border-gray-200 dark:border-[#2a3036] bg-gray-50 dark:bg-[#16191b] rounded-b-2xl">
+                            {!dialogState.hideCancel && (
+                                <button
+                                    onClick={handleCancel}
+                                    className="px-5 py-2.5 rounded-xl font-medium text-gray-700 dark:text-slate-300 bg-white dark:bg-[#1d2327] hover:bg-gray-50 dark:hover:bg-[#252b30] border border-gray-200 dark:border-[#2a3036] transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700 shadow-sm"
+                                >
+                                    {dialogState.cancelText}
+                                </button>
+                            )}
                             <button
                                 onClick={handleConfirm}
-                                className={`px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${currentVariant.confirmBtn}`}
+                                className={`px-5 py-2.5 rounded-xl font-medium text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#16191b] ${currentVariant.confirmBtn}`}
                             >
                                 {dialogState.confirmText}
                             </button>

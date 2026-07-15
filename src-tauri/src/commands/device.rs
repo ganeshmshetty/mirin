@@ -357,3 +357,86 @@ pub async fn remove_saved_device(device_id: String) -> Result<bool, String> {
     
     Ok(true)
 }
+
+#[derive(serde::Serialize)]
+pub struct DeviceDetails {
+    pub serial: String,
+    pub manufacturer: String,
+    pub android_version: String,
+    pub battery_level: i32,
+    pub storage_used_gb: u64,
+    pub storage_total_gb: u64,
+}
+
+#[tauri::command]
+pub async fn get_device_details(app: tauri::AppHandle, device_id: String) -> Result<DeviceDetails, String> {
+    let adb_path = utils::get_adb_path(&app)?;
+    let adb = Adb::new(adb_path).with_device(&device_id);
+
+    // Fetch manufacturer
+    let manufacturer = adb.get_manufacturer(None).await.unwrap_or_else(|_| "Unknown".to_string());
+    
+    // Fetch Android Version
+    let android_version = adb.get_android_version(None).await.unwrap_or_else(|_| "Unknown".to_string());
+
+    // Fetch Battery Level
+    let mut battery_level = 100;
+    if let Ok(battery_raw) = adb.shell(None, "dumpsys battery").await {
+        for line in battery_raw.lines() {
+            if line.trim().to_lowercase().starts_with("level:") {
+                if let Some(level_str) = line.split(':').nth(1) {
+                    if let Ok(level) = level_str.trim().parse::<i32>() {
+                        battery_level = level;
+                    }
+                }
+            }
+        }
+    }
+
+    // Fetch Storage info
+    let mut storage_used_gb = 0;
+    let mut storage_total_gb = 0;
+    
+    // Check df output
+    if let Ok(df_raw) = adb.shell(None, "df -k /sdcard").await {
+        let lines: Vec<&str> = df_raw.lines().collect();
+        if lines.len() > 1 {
+            let parts: Vec<&str> = lines[1].split_whitespace().collect();
+            if parts.len() > 2 {
+                if let Ok(total_kb) = parts[1].parse::<u64>() {
+                    storage_total_gb = total_kb / 1024 / 1024;
+                }
+                if let Ok(used_kb) = parts[2].parse::<u64>() {
+                    storage_used_gb = used_kb / 1024 / 1024;
+                }
+            }
+        }
+    }
+
+    // Fallback if df -k /sdcard fails
+    if storage_total_gb == 0 {
+        if let Ok(df_raw) = adb.shell(None, "df -k /data").await {
+            let lines: Vec<&str> = df_raw.lines().collect();
+            if lines.len() > 1 {
+                let parts: Vec<&str> = lines[1].split_whitespace().collect();
+                if parts.len() > 2 {
+                    if let Ok(total_kb) = parts[1].parse::<u64>() {
+                        storage_total_gb = total_kb / 1024 / 1024;
+                    }
+                    if let Ok(used_kb) = parts[2].parse::<u64>() {
+                        storage_used_gb = used_kb / 1024 / 1024;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(DeviceDetails {
+        serial: device_id,
+        manufacturer: manufacturer.trim().to_string(),
+        android_version: android_version.trim().to_string(),
+        battery_level,
+        storage_used_gb,
+        storage_total_gb,
+    })
+}
