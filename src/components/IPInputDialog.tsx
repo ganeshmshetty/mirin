@@ -51,14 +51,28 @@ export function IPInputDialog({ onComplete, onCancel }: IPInputDialogProps) {
       const success = await deviceService.connectWireless(ipAddress, portNum);
 
       if (success) {
+        // Get actual device info for hardware_id
+        const connectedDevices = await deviceService.getConnectedDevices();
+        const connectedDevice = connectedDevices.find(
+          d => d.ip_address === ipAddress || d.id === `${ipAddress}:${portNum}`
+        );
+
         // Save the device for future use
+        const deviceId = `${ipAddress}:${portNum}`;
         const device: Device = {
-          id: `${ipAddress}:${portNum}`,
-          name: `Device (${ipAddress})`,
-          model: "Unknown",
+          hardware_id: connectedDevice?.hardware_id || deviceId,
+          id: deviceId,
+          name: connectedDevice?.name || `Device (${ipAddress})`,
+          model: connectedDevice?.model || "Unknown",
           connection_type: "Wireless",
           status: "Connected",
           ip_address: ipAddress,
+          connections: [{
+              id: deviceId,
+              connection_type: "Wireless",
+              status: "Connected",
+              ip_address: ipAddress,
+          }],
         };
 
         try {

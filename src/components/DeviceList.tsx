@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { DeviceCard } from "./DeviceCard";
 import type { Device, MirrorSession } from "../types";
 
@@ -24,6 +25,20 @@ export function DeviceList({
   onSessionUpdate,
   onRefresh,
 }: DeviceListProps) {
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    import("@tauri-apps/api/event").then(({ listen }) => {
+      listen("device-connected", () => {
+        onRefresh();
+      }).then((fn) => {
+        unlisten = fn;
+      });
+    });
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [onRefresh]);
 
   if (isLoading && devices.length === 0) {
     return (

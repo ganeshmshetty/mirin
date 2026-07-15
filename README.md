@@ -31,14 +31,7 @@
 You can install **Mirin** via Homebrew Cask:
 
 ```bash
-# Add the tap repository
-brew tap ganeshmshetty/tap
-
-# Trust the cask (if you have tap trust enabled on your system)
-brew trust --cask ganeshmshetty/tap/mirin
-
-# Install the application
-brew install --cask ganeshmshetty/tap/mirin
+brew tap ganeshmshetty/tap && brew trust --cask ganeshmshetty/tap/mirin && brew install --cask ganeshmshetty/tap/mirin
 ```
 
 ### Method 2: Manual Download

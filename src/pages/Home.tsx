@@ -48,12 +48,14 @@ export function Home({ refreshTrigger = 0, onConnectClick }: HomeProps) {
 
         // 2. Add or update connected devices
         for (const device of connectedDevices) {
-          const existing = mergedDevicesMap.get(device.id);
-          const mergedDevice = {
-            ...device,
-            name: existing ? existing.name : device.name, // Keep the custom name if it exists
-          };
-          mergedDevicesMap.set(device.id, mergedDevice);
+          if (mergedDevicesMap.has(device.id)) {
+            const existing = mergedDevicesMap.get(device.id)!;
+            const mergedDevice = {
+              ...device,
+              name: existing.name || device.name, // Keep the custom name if it exists
+            };
+            mergedDevicesMap.set(device.id, mergedDevice);
+          }
         }
 
         const finalList = Array.from(mergedDevicesMap.values());
@@ -96,8 +98,15 @@ export function Home({ refreshTrigger = 0, onConnectClick }: HomeProps) {
   }, [refreshTrigger, loadData]);
 
   // Start mirroring
-  const handleStartMirroring = async (device: Device) => {
+  const handleStartMirroring = async (device: Device, connectionId?: string) => {
     try {
+      // Default to the first connected connection if none provided
+      const connections = Array.isArray(device.connections) ? device.connections : [];
+      const targetConnectionId = connectionId || connections.find(c => c.status === "Connected")?.id || connections[0]?.id || device.id;
+      if (!targetConnectionId) {
+          throw new Error("No available connection for this device.");
+      }
+
       const settings: Settings = await settingsService.loadSettings();
       const options: Partial<ScrcpyOptions> = {
         max_size: settings.resolution === "default" ? undefined : parseInt(settings.resolution),
@@ -107,7 +116,7 @@ export function Home({ refreshTrigger = 0, onConnectClick }: HomeProps) {
         stay_awake: settings.stayAwake,
         turn_screen_off: settings.turnScreenOff,
       };
-      await scrcpyService.startMirroring(device.id, options);
+      await scrcpyService.startMirroring(targetConnectionId, options);
       // Auto-save to history when mirroring successfully starts
       await deviceService.saveDevice(device).catch(() => {});
       toast.success(`Started mirroring ${device.name}`);
@@ -128,14 +137,19 @@ export function Home({ refreshTrigger = 0, onConnectClick }: HomeProps) {
     }
   };
 
-  // Remove saved device
+  // Forget saved device
   const handleRemoveDevice = async (deviceId: string) => {
     try {
+      const device = devices.find(d => d.id === deviceId);
+      // Disconnect only if it's a wireless device so it disappears from the active list
+      // Calling disconnect on a USB device breaks ADB's USB tracking until physical replug
+      if (device?.connection_type === "Wireless" || deviceId.includes(':')) {
+        await deviceService.disconnect(deviceId).catch(() => {});
+      }
       await deviceService.removeSavedDevice(deviceId);
-      toast.success("Device removed from history");
       loadData();
     } catch (err) {
-      toast.error("Failed to remove device");
+      toast.error("Failed to forget device");
     }
   };
 

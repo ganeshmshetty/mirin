@@ -323,8 +323,6 @@ impl Adb {
         self.get_prop(device_serial, "ro.build.version.release").await
     }
 
-    /// Check if ADB is accessible and working
-    #[allow(dead_code)]
 
     /// Enable wireless debugging and wait for the device to reconnect on IP
     pub async fn enable_wireless_mode_and_wait(&self, device_id: &str) -> Result<String, String> {
@@ -375,12 +373,6 @@ impl Adb {
         }
     }
 
-    pub async fn check_availability(&self) -> Result<bool, String> {
-        match self.version().await {
-            Ok(_) => Ok(true),
-            Err(e) => Err(format!("ADB not available: {}", e)),
-        }
-    }
 }
 
 #[cfg(test)]

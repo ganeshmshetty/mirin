@@ -16,7 +16,8 @@ pub struct Device {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ConnectionType {
-    USB,
+    #[serde(rename = "USB")]
+    Usb,
     Wireless,
 }
 
@@ -67,7 +68,7 @@ pub async fn get_connected_devices(app: tauri::AppHandle) -> Result<Vec<Device>,
         let connection_type = if adb_device.serial.contains(':') {
             ConnectionType::Wireless
         } else {
-            ConnectionType::USB
+            ConnectionType::Usb
         };
 
         // Map ADB state to our DeviceStatus
@@ -326,7 +327,22 @@ pub async fn remove_saved_device(device_id: String) -> Result<bool, String> {
     
     // Remove device by ID
     let initial_len = saved_devices.len();
-    saved_devices.retain(|d| d.id != device_id);
+    saved_devices.retain(|d| {
+        if d.id == device_id {
+            return false; // Remove it
+        }
+        
+        // If it's a wireless device (IP:port format), compare the IP addresses
+        if d.id.contains(':') && device_id.contains(':') {
+            let d_ip = d.id.split(':').next();
+            let req_ip = device_id.split(':').next();
+            if d_ip.is_some() && req_ip.is_some() && d_ip == req_ip {
+                return false; // Remove it (IP matches)
+            }
+        }
+        
+        true // Keep it
+    });
     
     if saved_devices.len() == initial_len {
         return Ok(false); // Device not found

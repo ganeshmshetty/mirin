@@ -22,7 +22,7 @@ fn get_resource_base_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .join("..").join("..").join("..").join("resources");
     
     if dev_path.exists() {
-        return Ok(dev_path.canonicalize().map_err(|e| format!("Failed to canonicalize path: {}", e))?);
+        return dev_path.canonicalize().map_err(|e| format!("Failed to canonicalize path: {}", e));
     }
     
     // Another fallback: check relative to manifest dir (Cargo.toml location)

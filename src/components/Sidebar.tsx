@@ -1,6 +1,6 @@
-import logo from "../assets/logo.svg"; // Import logo
+import logo from "../assets/logo.svg";
 import { Home, Settings, Smartphone, Plus, Github } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 
 interface NavItem {
@@ -22,37 +22,87 @@ interface SidebarProps {
 
 export function Sidebar({ activeTab, onTabChange, onConnectClick }: SidebarProps) {
     const [appVersion, setAppVersion] = useState<string>("");
+    
+    // Initialize width from localStorage or default to 256px
+    const [width, setWidth] = useState(() => {
+        const savedWidth = localStorage.getItem("sidebarWidth");
+        return savedWidth ? parseInt(savedWidth, 10) : 256;
+    });
+    
+    const isResizing = useRef(false);
 
     useEffect(() => {
         getVersion().then((v) => setAppVersion(v));
     }, []);
 
+    const startResizing = useCallback(() => {
+        isResizing.current = true;
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+    }, []);
+
+    const stopResizing = useCallback(() => {
+        if (isResizing.current) {
+            isResizing.current = false;
+            document.body.style.cursor = "";
+            document.body.style.userSelect = "";
+            localStorage.setItem("sidebarWidth", width.toString());
+        }
+    }, [width]);
+
+    const resize = useCallback((e: MouseEvent) => {
+        if (isResizing.current) {
+            // Constrain width between 200px and 400px
+            const newWidth = Math.min(Math.max(e.clientX, 200), 400);
+            setWidth(newWidth);
+        }
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener("mousemove", resize);
+        window.addEventListener("mouseup", stopResizing);
+        return () => {
+            window.removeEventListener("mousemove", resize);
+            window.removeEventListener("mouseup", stopResizing);
+        };
+    }, [resize, stopResizing]);
+
     return (
-        <aside className="w-64 bg-slate-50 dark:bg-[#16191b] border-r border-gray-200 dark:border-[#222629] flex flex-col flex-shrink-0 transition-colors">
+        <aside 
+            style={{ width: `${width}px` }}
+            className="relative bg-slate-50 dark:bg-[#16191b] border-r border-gray-200 dark:border-[#222629] flex flex-col flex-shrink-0 transition-colors"
+        >
+            {/* Drag Handle */}
+            <div 
+                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize z-50 hover:bg-cyan-500/50 active:bg-cyan-500/80 transition-colors"
+                onMouseDown={startResizing}
+                title="Drag to resize sidebar"
+            />
+            
             {/* Logo */}
-            <div className="h-14 flex items-center px-6 gap-3">
+            <div className="h-14 flex items-center px-6 gap-3 flex-shrink-0">
                 <img
                     src={logo}
                     alt="Mirin"
                     className="w-8 h-8 object-contain"
                 />
-                <span className="font-semibold text-gray-800 dark:text-white tracking-tight">Mirin</span>
+                <span className="font-semibold text-gray-800 dark:text-white tracking-tight truncate">Mirin</span>
             </div>
 
             {/* Primary Action */}
-            <div className="px-4 mb-2">
+            <div className="px-4 mb-2 flex-shrink-0">
                 <button
                     onClick={onConnectClick}
                     className="w-full h-9 flex items-center justify-center gap-2 bg-cyan-600 text-white rounded-lg text-sm font-medium hover:bg-cyan-700 transition-all shadow-sm active:scale-[0.98]"
                     title="Start Mirroring"
                 >
-                    <Plus size={16} />
-                    <span>Start Mirroring</span>
+                    <Plus size={16} className="flex-shrink-0" />
+                    <span className="truncate">Start Mirroring</span>
                 </button>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 py-4 px-2 space-y-2">
+            <nav className="flex-1 py-4 px-2 space-y-2 overflow-y-auto">
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.id;
@@ -63,14 +113,14 @@ export function Sidebar({ activeTab, onTabChange, onConnectClick }: SidebarProps
                             onClick={() => onTabChange(item.id)}
                             className="w-full flex items-center gap-4 pl-6 pr-4 py-1.5 text-sm font-medium rounded-lg transition-all text-gray-600 dark:text-slate-400 hover:bg-gray-200/50 dark:hover:bg-[#1d2327]/50 hover:text-gray-950 dark:hover:text-slate-100 outline-none"
                         >
-                            <div className={`px-3 py-1.5 rounded-lg transition-all flex items-center justify-center ${
+                            <div className={`flex-shrink-0 px-3 py-1.5 rounded-lg transition-all flex items-center justify-center ${
                                 isActive 
                                     ? "bg-app-active text-app-active-text shadow-sm ring-1 ring-cyan-200/40 dark:ring-[#22d3ee]/20" 
                                     : "text-gray-400 dark:text-slate-500"
                             }`}>
                                 <Icon size={18} />
                             </div>
-                            <span className={isActive ? "text-gray-800 dark:text-slate-200 font-semibold" : ""}>
+                            <span className={`truncate ${isActive ? "text-gray-800 dark:text-slate-200 font-semibold" : ""}`}>
                                 {item.label}
                             </span>
                         </button>
@@ -79,18 +129,18 @@ export function Sidebar({ activeTab, onTabChange, onConnectClick }: SidebarProps
             </nav>
 
             {/* Footer / Version */}
-            <div className="p-4 border-t border-gray-200/60 dark:border-[#222629]/60 flex items-center justify-center gap-3">
+            <div className="p-4 border-t border-gray-200/60 dark:border-[#222629]/60 flex items-center justify-center gap-3 flex-shrink-0">
                 <a
                     href="https://github.com/ganeshmshetty/mirin"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-[#22d3ee] transition-colors"
+                    className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-[#22d3ee] transition-colors flex-shrink-0"
                     title="GitHub Repository"
                 >
                     <Github size={16} />
                 </a>
-                <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-[#2f353a]" />
-                <p className="text-xs text-gray-400 dark:text-slate-500 text-center font-mono">
+                <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-[#2f353a] flex-shrink-0" />
+                <p className="text-xs text-gray-400 dark:text-slate-500 text-center font-mono truncate">
                     {appVersion ? `v${appVersion}` : "..."}
                 </p>
             </div>

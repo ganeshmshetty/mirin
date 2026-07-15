@@ -1,7 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { emit } from "@tauri-apps/api/event";
 import { deviceService } from "../services";
 import { useConfirmDialog } from "./ConfirmDialog";
 import type { Device } from "../types";
+
+const getErrorMessage = (err: unknown): string => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "message" in err && typeof (err as any).message === "string") {
+    return (err as any).message;
+  }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
+};
 
 interface SavedDevicesListProps {
   onDeviceConnected: () => void;
@@ -49,29 +63,53 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
     isMountedRef.current = true;
     loadSavedDevices();
 
+    let unlisten: (() => void) | undefined;
+    import("@tauri-apps/api/event").then(({ listen }) => {
+      listen("device-connected", () => {
+        if (isMountedRef.current) {
+          loadSavedDevices();
+        }
+      }).then((fn) => {
+        unlisten = fn;
+      });
+    });
+
     return () => {
       isMountedRef.current = false;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      if (unlisten) unlisten();
     };
   }, [loadSavedDevices]);
 
   const handleConnect = async (device: Device) => {
-    if (!device.ip_address) return;
+    const isUsb = device.connection_type === "USB" || (!device.connection_type && !device.id.includes(":"));
+    if (isUsb) {
+      setError(`"${device.name}" is a USB device. To connect it, simply plug it into your computer via USB cable with USB Debugging enabled.`);
+      return;
+    }
+
+    const ip = device.ip_address || (device.id.includes(":") ? device.id.split(":")[0] : null);
+    if (!ip) {
+      setError("Cannot connect: No IP address recorded for this wireless device.");
+      return;
+    }
 
     setConnectingDeviceId(device.id);
     setError(null);
 
     try {
       const port = device.id.includes(":") ? parseInt(device.id.split(":")[1], 10) : 5555;
-      await deviceService.connectWireless(device.ip_address, port);
+      await deviceService.connectWireless(ip, port);
+      await emit("device-connected");
       if (isMountedRef.current) {
+        await loadSavedDevices();
         onDeviceConnected();
       }
     } catch (err) {
       if (isMountedRef.current) {
-        setError(err instanceof Error ? err.message : "Failed to connect");
+        setError(getErrorMessage(err));
       }
     } finally {
       if (isMountedRef.current) {
@@ -82,9 +120,9 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
 
   const handleRemove = async (deviceId: string, deviceName: string) => {
     const confirmed = await confirm({
-      title: "Remove Saved Device",
-      message: `Are you sure you want to remove "${deviceName}" from your saved devices? You can always add it back later.`,
-      confirmText: "Remove",
+      title: "Forget Saved Device",
+      message: `Are you sure you want to forget "${deviceName}"? You can always add it back later.`,
+      confirmText: "Forget",
       cancelText: "Cancel",
       variant: "danger",
     });
@@ -98,7 +136,7 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
       }
     } catch (err) {
       if (isMountedRef.current) {
-        setError(err instanceof Error ? err.message : "Failed to remove device");
+        setError(err instanceof Error ? err.message : "Failed to forget device");
       }
     }
   };
@@ -156,26 +194,32 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          {savedDevices.map((device) => (
-            <div
-              key={device.id}
-              className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-gray-900">{device.name}</h3>
-                    <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                      Wireless
-                    </span>
+          {savedDevices.map((device) => {
+            const isWireless = device.connection_type === "Wireless" || device.id.includes(":");
+            return (
+              <div
+                key={device.id}
+                className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-gray-900">{device.name}</h3>
+                      <span className={`px-2 py-1 text-xs rounded font-medium ${
+                        isWireless 
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" 
+                          : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                      }`}>
+                        {isWireless ? "Wireless" : "USB"}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">{device.model}</p>
+                    {device.ip_address && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        IP: {device.ip_address}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">{device.model}</p>
-                  {device.ip_address && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      IP: {device.ip_address}
-                    </p>
-                  )}
-                </div>
                 <div className="flex gap-2 ml-4">
                   <button
                     onClick={() => handleConnect(device)}
@@ -212,7 +256,7 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
                   <button
                     onClick={() => handleRemove(device.id, device.name)}
                     className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                    title="Remove device"
+                    title="Forget device"
                   >
                     <svg
                       className="h-4 w-4"
@@ -231,7 +275,8 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -1,5 +1,6 @@
 import { Play, Wifi, Usb, AlertCircle, Trash2, MoreVertical, Edit2, Plus } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import type { Device, MirrorSession } from "../types";
 import { useInputDialog } from "./InputDialog";
 import logo from "../assets/logo.svg";
@@ -27,6 +28,7 @@ export function DeviceTable({
     const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     const { prompt } = useInputDialog();
+    const navigate = useNavigate();
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -96,7 +98,8 @@ export function DeviceTable({
                 return (
                     <div
                         key={device.id}
-                        className="group relative flex items-center gap-4 p-4 rounded-xl border bg-white dark:bg-[#191c1f] border-gray-100 dark:border-[#222629] hover:border-gray-200 dark:hover:border-[#2f353a] hover:shadow-sm transition-all"
+                        onClick={() => navigate(`/device/${encodeURIComponent(device.id)}`)}
+                        className="cursor-pointer group relative flex items-center gap-4 p-4 rounded-xl border bg-white dark:bg-[#191c1f] border-gray-100 dark:border-[#222629] hover:border-gray-200 dark:hover:border-[#2f353a] hover:shadow-sm transition-all"
                     >
                         {/* 1. Icon */}
                         <div className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors bg-gray-50 dark:bg-[#1d2327] text-gray-500 dark:text-slate-400 group-hover:bg-gray-100 dark:group-hover:bg-[#252c31]">
@@ -233,7 +236,7 @@ export function DeviceTable({
                         className="dropdown-item-danger"
                     >
                         <Trash2 size={14} />
-                        Remove
+                        Forget
                     </button>
                 </div>
             )}

@@ -15,13 +15,23 @@ export enum DeviceStatus {
   Offline = "Offline",
 }
 
+
+export interface DeviceConnection {
+  id: string;
+  connection_type: ConnectionType;
+  status: DeviceStatus;
+  ip_address?: string;
+}
+
 export interface Device {
+  hardware_id: string;
   id: string;
   name: string;
   model: string;
   connection_type: ConnectionType;
   status: DeviceStatus;
   ip_address?: string;
+  connections: DeviceConnection[];
 }
 
 export interface ScrcpyOptions {
