@@ -2040,6 +2040,7 @@ dependencies = [
  "dirs 5.0.1",
  "image",
  "mirin-core",
+ "mirin-mcp",
  "quick-xml 0.36.2",
  "serde",
  "serde_json",
@@ -2069,6 +2070,19 @@ dependencies = [
  "socket2 0.5.10",
  "tokio",
  "urlencoding",
+ "uuid",
+]
+
+[[package]]
+name = "mirin-mcp"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "mirin-core",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tokio",
  "uuid",
 ]
 

@@ -7,7 +7,7 @@ use tauri::AppHandle;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::time::sleep;
 use mirin_core::adb::Adb;
-use crate::mcp::screenshot::ScreenshotRegistry;
+use crate::screenshot::ScreenshotRegistry;
 use mirin_core::ui_extractor::UiExtractor;
 use mirin_core::scrcpy::{control, EmbeddedScrcpyState};
 
@@ -24,6 +24,16 @@ pub struct ScriptStep {
     pub duration_ms: Option<u64>,
 }
 
+pub type OpenMirrorWindowCallback = Arc<
+    dyn Fn(
+        tauri::AppHandle,
+        String,
+        String,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send>>
+        + Send
+        + Sync,
+>;
+
 #[derive(Clone)]
 pub struct ToolDispatcher {
     app: AppHandle,
@@ -31,7 +41,8 @@ pub struct ToolDispatcher {
     pub ui_extractor: UiExtractor,
     pub screenshot_registry: ScreenshotRegistry,
     pub current_device: Arc<Mutex<Option<String>>>,
-    pub device_registry: crate::device_registry::DeviceRegistry,
+    pub device_registry: mirin_core::device_registry::DeviceRegistry,
+    pub open_mirror_window_fn: Option<OpenMirrorWindowCallback>,
 }
 
 impl ToolDispatcher {
@@ -40,7 +51,8 @@ impl ToolDispatcher {
         state: EmbeddedScrcpyState,
         ui_extractor: UiExtractor,
         screenshot_registry: ScreenshotRegistry,
-        device_registry: crate::device_registry::DeviceRegistry,
+        device_registry: mirin_core::device_registry::DeviceRegistry,
+        open_mirror_window_fn: Option<OpenMirrorWindowCallback>,
     ) -> Self {
         Self {
             app,
@@ -49,6 +61,7 @@ impl ToolDispatcher {
             screenshot_registry,
             current_device: Arc::new(Mutex::new(None)),
             device_registry,
+            open_mirror_window_fn,
         }
     }
 
@@ -474,7 +487,9 @@ impl ToolDispatcher {
                             .execute(&["shell", "getprop", "ro.product.model"])
                             .await
                             .unwrap_or_else(|_| serial.clone());
-                        let _ = crate::open_mirror_window_impl(self.app.clone(), serial, model).await;
+                        if let Some(ref open_fn) = self.open_mirror_window_fn {
+                            let _ = open_fn(self.app.clone(), serial, model).await;
+                        }
                     }
 
                     Ok(json!({ "status": "connected", "width": width, "height": height }))

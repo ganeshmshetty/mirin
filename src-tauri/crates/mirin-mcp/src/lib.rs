@@ -1,6 +1,7 @@
 pub mod resources;
 pub mod screenshot;
 pub mod tools;
+pub mod utils;
 
 use serde_json::{json, Value};
 use std::io::Write;
@@ -8,9 +9,9 @@ use std::sync::Arc;
 use tauri::AppHandle;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader as TokioBufReader};
 use tokio::net::{TcpListener, TcpStream};
-use crate::mcp::resources::ResourceDispatcher;
-use crate::mcp::screenshot::ScreenshotRegistry;
-use crate::mcp::tools::ToolDispatcher;
+use crate::resources::ResourceDispatcher;
+use crate::screenshot::ScreenshotRegistry;
+use crate::tools::ToolDispatcher;
 use mirin_core::ui_extractor::UiExtractor;
 use mirin_core::scrcpy::EmbeddedScrcpyState;
 
@@ -28,10 +29,11 @@ impl McpBridge {
         state: EmbeddedScrcpyState,
         ui_extractor: UiExtractor,
         screenshot_registry: ScreenshotRegistry,
-        device_registry: crate::device_registry::DeviceRegistry,
+        device_registry: mirin_core::device_registry::DeviceRegistry,
+        open_mirror_window_fn: Option<crate::tools::OpenMirrorWindowCallback>,
     ) -> Self {
         Self {
-            tool_dispatcher: ToolDispatcher::new(app.clone(), state, ui_extractor, screenshot_registry, device_registry),
+            tool_dispatcher: ToolDispatcher::new(app.clone(), state, ui_extractor, screenshot_registry, device_registry, open_mirror_window_fn),
             resource_dispatcher: ResourceDispatcher::new(app),
         }
     }

@@ -1,6 +1,5 @@
 mod commands;
-pub mod mcp;
-pub mod utils;
+use mirin_mcp::utils;
 use mirin_core::{scrcpy, device_registry};
 
 use tauri::Manager;
@@ -14,7 +13,7 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 async fn submit_screenshot(
-    registry: tauri::State<'_, mcp::screenshot::ScreenshotRegistry>,
+    registry: tauri::State<'_, mirin_mcp::screenshot::ScreenshotRegistry>,
     req_id: String,
     data_base64: String,
     width: u32,
@@ -24,7 +23,7 @@ async fn submit_screenshot(
     registry
         .complete_request(
             req_id,
-            mcp::screenshot::ScreenshotResult {
+            mirin_mcp::screenshot::ScreenshotResult {
                 data_base64,
                 mime_type: "image/png".to_string(),
                 width,
@@ -206,7 +205,7 @@ async fn close_current_window(window: tauri::WebviewWindow) -> Result<(), String
 pub fn run() {
     let embedded_state = scrcpy::EmbeddedScrcpyState::new();
     let ui_extractor = mirin_core::ui_extractor::UiExtractor::new();
-    let screenshot_registry = mcp::screenshot::ScreenshotRegistry::new();
+    let screenshot_registry = mirin_mcp::screenshot::ScreenshotRegistry::new();
     let logcat_state = commands::LogcatState::new();
     let device_registry = device_registry::DeviceRegistry::new();
     let device_registry_clone = device_registry.clone();
@@ -240,15 +239,20 @@ pub fn run() {
                 }
             }
 
-            let bridge = Arc::new(mcp::McpBridge::new(
+            let bridge = Arc::new(mirin_mcp::McpBridge::new(
                 app.handle().clone(),
                 embedded_state,
                 ui_extractor,
                 screenshot_registry,
                 device_registry_clone,
+                Some(Arc::new(|app_handle, serial, model| {
+                    Box::pin(async move {
+                        open_mirror_window_impl(app_handle, serial, model).await
+                    })
+                })),
             ));
             tauri::async_runtime::spawn(async move {
-                mcp::start_loopback_server(bridge).await;
+                mirin_mcp::start_loopback_server(bridge).await;
             });
 
             Ok(())

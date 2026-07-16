@@ -4,7 +4,7 @@
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|arg| arg == "--mcp") {
-        mirin_lib::mcp::run_stdio_proxy();
+        mirin_mcp::run_stdio_proxy();
     } else {
         mirin_lib::run()
     }
