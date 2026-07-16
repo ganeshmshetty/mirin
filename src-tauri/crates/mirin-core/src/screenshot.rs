@@ -3,8 +3,8 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::path::PathBuf;
-use crate::core::adb::Adb;
-use crate::core::ui_extractor::UiElement;
+use crate::adb::Adb;
+use crate::ui_extractor::UiElement;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScreenshotResult {

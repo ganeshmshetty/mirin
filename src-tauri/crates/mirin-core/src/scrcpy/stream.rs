@@ -4,7 +4,7 @@ use socket2::{Domain, Socket, Type};
 use std::net::SocketAddr;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
-use crate::core::adb::Adb;
+use crate::adb::Adb;
 
 const SCRCPY_SERVER_REMOTE_PATH: &str = "/data/local/tmp/scrcpy-server.jar";
 

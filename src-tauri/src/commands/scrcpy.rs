@@ -1,26 +1,29 @@
 use tauri::{State, ipc::Channel};
-use crate::core::scrcpy::{
+use mirin_core::scrcpy::{
     self,
     EmbeddedScrcpyState, EmbeddedSessionInfo,
     stream::{self, EmbeddedStreamSettings},
     video::{self, FrameEvent, VideoCodec},
     control,
 };
-use crate::core::adb::Adb;
-use crate::core::utils;
+use mirin_core::adb::Adb;
+use crate::utils;
 use std::sync::Arc;
 use tokio::sync::{Mutex as TokioMutex, Notify};
 
 /// Check if scrcpy is installed/available
 #[tauri::command]
 pub async fn check_scrcpy_available(app: tauri::AppHandle) -> Result<bool, String> {
-    Ok(scrcpy::check_available(&app))
+    let scrcpy_path = utils::get_scrcpy_path(&app)?;
+    Ok(scrcpy::check_available(&scrcpy_path))
 }
 
 /// Get scrcpy version
 #[tauri::command]
 pub async fn get_scrcpy_version(app: tauri::AppHandle) -> Result<String, String> {
-    scrcpy::get_version(&app)
+    let scrcpy_path = utils::get_scrcpy_path(&app)?;
+    let scrcpy_dir = utils::get_scrcpy_dir(&app)?;
+    scrcpy::get_version(&scrcpy_path, &scrcpy_dir)
 }
 
 /// Connect and stream embedded video using WebCodecs NAL unit forwarding
@@ -41,9 +44,10 @@ pub async fn connect_embedded_mirror(
     let adb_path = utils::get_adb_path(&app)?;
     let adb = Adb::new(adb_path);
     let scrcpy_server_path = utils::get_scrcpy_server_path(&app)?;
-    let app_clone = app.clone();
+    let scrcpy_path = utils::get_scrcpy_path(&app)?;
+    let scrcpy_dir = utils::get_scrcpy_dir(&app)?;
     let scrcpy_version = tokio::task::spawn_blocking(move || {
-        scrcpy::get_version_number(&app_clone)
+        scrcpy::get_version_number(&scrcpy_path, &scrcpy_dir)
     }).await.map_err(|e| e.to_string())?;
 
     // If an embedded session is already active for this device, stop it cleanly first.
@@ -71,7 +75,9 @@ pub async fn connect_embedded_mirror(
     let codec = VideoCodec::from_str(&opts.video_codec);
     let video_socket = streams.video_socket;
     tokio::spawn(async move {
-        video::stream_video(video_socket, on_frame, shutdown_clone, codec).await;
+        video::stream_video(video_socket, move |event| {
+            let _ = on_frame.send(event);
+        }, shutdown_clone, codec).await;
     });
 
     let session = EmbeddedSessionInfo {

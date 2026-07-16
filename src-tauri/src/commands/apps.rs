@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use crate::core::adb::Adb;
-use crate::core::utils;
+use mirin_core::adb::Adb;
+use crate::utils;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppInfo {

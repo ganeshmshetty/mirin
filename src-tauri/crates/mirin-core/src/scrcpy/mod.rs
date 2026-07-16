@@ -5,7 +5,6 @@ pub mod video;
 use std::process::Command;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use crate::core::utils;
 use tokio::sync::{Mutex as TokioMutex, Notify};
 use tokio::net::TcpStream;
 
@@ -82,10 +81,7 @@ impl EmbeddedScrcpyState {
 }
 
 /// Get scrcpy version
-pub fn get_version(app: &tauri::AppHandle) -> Result<String, String> {
-    let scrcpy_path = utils::get_scrcpy_path(app)?;
-    let scrcpy_dir = utils::get_scrcpy_dir(app)?;
-
+pub fn get_version(scrcpy_path: &std::path::Path, scrcpy_dir: &std::path::Path) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     use std::os::windows::process::CommandExt;
     
@@ -109,8 +105,8 @@ pub fn get_version(app: &tauri::AppHandle) -> Result<String, String> {
 }
 
 /// Get just the version number (e.g., "3.3.4") from the scrcpy version output
-pub fn get_version_number(app: &tauri::AppHandle) -> String {
-    if let Ok(version_output) = get_version(app) {
+pub fn get_version_number(scrcpy_path: &std::path::Path, scrcpy_dir: &std::path::Path) -> String {
+    if let Ok(version_output) = get_version(scrcpy_path, scrcpy_dir) {
         if let Some(first_line) = version_output.lines().next() {
             let parts: Vec<&str> = first_line.split_whitespace().collect();
             if parts.len() >= 2 && parts[0] == "scrcpy" {
@@ -122,6 +118,6 @@ pub fn get_version_number(app: &tauri::AppHandle) -> String {
 }
 
 /// Check if scrcpy is available
-pub fn check_available(app: &tauri::AppHandle) -> bool {
-    utils::get_scrcpy_path(app).is_ok()
+pub fn check_available(scrcpy_path: &std::path::Path) -> bool {
+    scrcpy_path.exists()
 }

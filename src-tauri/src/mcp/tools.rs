@@ -6,10 +6,10 @@ use std::time::Duration;
 use tauri::AppHandle;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::time::sleep;
-use crate::core::adb::Adb;
+use mirin_core::adb::Adb;
 use crate::mcp::screenshot::ScreenshotRegistry;
-use crate::core::ui_extractor::UiExtractor;
-use crate::core::scrcpy::{control, EmbeddedScrcpyState};
+use mirin_core::ui_extractor::UiExtractor;
+use mirin_core::scrcpy::{control, EmbeddedScrcpyState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScriptStep {
@@ -393,12 +393,12 @@ impl ToolDispatcher {
 
     pub fn call_tool<'a>(&'a self, name: &'a str, args: Value) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, String>> + Send + 'a>> {
         Box::pin(async move {
-            let adb = Adb::new(crate::core::utils::get_adb_path(&self.app)?);
+            let adb = Adb::new(crate::utils::get_adb_path(&self.app)?);
 
             match name {
                 "list_devices" => {
-                    let adb_path = crate::core::utils::get_adb_path(&self.app)?;
-                    let devices: Vec<crate::core::device_registry::Device> = self.device_registry.get_resolved_devices(adb_path).await?;
+                    let adb_path = crate::utils::get_adb_path(&self.app)?;
+                    let devices: Vec<mirin_core::device_registry::Device> = self.device_registry.get_resolved_devices(adb_path).await?;
                     Ok(serde_json::to_value(devices).map_err(|e| format!("Serialization error: {}", e))?)
                 }
                 "connect_device" => {
@@ -423,11 +423,13 @@ impl ToolDispatcher {
                         let _ = self.state.remove_session(&serial);
                     }
 
-                    let scrcpy_server_path = crate::core::utils::get_scrcpy_server_path(&self.app)?;
-                    let scrcpy_version = crate::core::scrcpy::get_version_number(&self.app);
-                    let opts = crate::core::scrcpy::stream::EmbeddedStreamSettings::default();
+                    let scrcpy_server_path = crate::utils::get_scrcpy_server_path(&self.app)?;
+                    let scrcpy_path = crate::utils::get_scrcpy_path(&self.app)?;
+                    let scrcpy_dir = crate::utils::get_scrcpy_dir(&self.app)?;
+                    let scrcpy_version = mirin_core::scrcpy::get_version_number(&scrcpy_path, &scrcpy_dir);
+                    let opts = mirin_core::scrcpy::stream::EmbeddedStreamSettings::default();
 
-                    let streams = crate::core::scrcpy::stream::start_server(&adb, &serial, &scrcpy_server_path, &scrcpy_version, &opts)
+                    let streams = mirin_core::scrcpy::stream::start_server(&adb, &serial, &scrcpy_server_path, &scrcpy_version, &opts)
                         .await
                         .map_err(|e| format!("Failed to start embedded server: {}", e))?;
                     let (width, height) = (streams.screen_width, streams.screen_height);
@@ -450,7 +452,7 @@ impl ToolDispatcher {
                         }
                     });
 
-                    let session = crate::core::scrcpy::EmbeddedSessionInfo {
+                    let session = mirin_core::scrcpy::EmbeddedSessionInfo {
                         control_socket: Arc::new(TokioMutex::new(streams.control_socket)),
                         shutdown_notify: shutdown,
                         screen_width: width,
@@ -482,7 +484,7 @@ impl ToolDispatcher {
                     let mut session = self.state.remove_session(&serial).map_err(|_| format!("No active session for device {}", serial))?.ok_or_else(|| format!("No active session for device {}", serial))?;
                     session.shutdown_notify.notify_one();
                     let _ = session.server_process.kill().await;
-                    crate::core::scrcpy::stream::stop_server(&adb, &serial, session.port).await;
+                    mirin_core::scrcpy::stream::stop_server(&adb, &serial, session.port).await;
                     if let Ok(mut cur) = self.current_device.lock() {
                         *cur = None;
                     }

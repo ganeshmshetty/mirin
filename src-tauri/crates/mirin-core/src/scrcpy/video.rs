@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 use base64::Engine;
 use std::sync::Arc;
-use tauri::ipc::Channel;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::sync::Notify;
@@ -45,14 +44,16 @@ pub enum FrameEvent {
     Disconnected { reason: String },
 }
 
-pub async fn stream_video(
+pub async fn stream_video<F>(
     mut video_socket: TcpStream,
-    channel: Channel<FrameEvent>,
+    on_event: F,
     shutdown: Arc<Notify>,
     codec: VideoCodec,
-) {
+) where
+    F: Fn(FrameEvent) + Send + Sync + 'static,
+{
     let result = tokio::select! {
-        r = forward_loop(&mut video_socket, &channel, codec) => r,
+        r = forward_loop(&mut video_socket, &on_event, codec) => r,
         // Intentional stop/replace — do not emit "disconnected" or the UI will
         // schedule another reconnect on top of the replacement session.
         _ = shutdown.notified() => return,
@@ -60,14 +61,14 @@ pub async fn stream_video(
 
     match result {
         Err(e) => {
-            let _ = channel.send(FrameEvent::Disconnected {
+            on_event(FrameEvent::Disconnected {
                 reason: e.to_string(),
             });
         }
         Ok(()) => {
             // Forward loop only returns Ok on clean EOF; treat as disconnect so
             // the UI can reconnect if the tab is still open.
-            let _ = channel.send(FrameEvent::Disconnected {
+            on_event(FrameEvent::Disconnected {
                 reason: "Stream closed by device".to_string(),
             });
         }
@@ -76,11 +77,14 @@ pub async fn stream_video(
 
 const READ_TIMEOUT: Duration = Duration::from_secs(10);
 
-async fn forward_loop(
+async fn forward_loop<F>(
     socket: &mut TcpStream,
-    channel: &Channel<FrameEvent>,
+    on_event: &F,
     codec: VideoCodec,
-) -> Result<()> {
+) -> Result<()>
+where
+    F: Fn(FrameEvent) + Send + Sync + 'static,
+{
     loop {
         let mut header = [0u8; 12];
         timeout(READ_TIMEOUT, socket.read_exact(&mut header))
@@ -108,13 +112,13 @@ async fn forward_loop(
                 VideoCodec::H264 => parse_h264_config(&nals),
                 VideoCodec::H265 => parse_h265_config(&nals),
             };
-            let _ = channel.send(FrameEvent::Config {
+            on_event(FrameEvent::Config {
                 codec: codec_str,
                 description: base64::engine::general_purpose::STANDARD.encode(&desc),
             });
         } else {
             let avcc = nals_to_avcc(&data);
-            let _ = channel.send(FrameEvent::Packet {
+            on_event(FrameEvent::Packet {
                 key: is_key,
                 data: base64::engine::general_purpose::STANDARD.encode(&avcc),
                 timestamp: pts,

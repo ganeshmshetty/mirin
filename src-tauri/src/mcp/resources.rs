@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde_json::{json, Value};
 use tauri::AppHandle;
-use crate::core::adb::Adb;
+use mirin_core::adb::Adb;
 
 #[derive(Clone)]
 pub struct ResourceDispatcher {
@@ -25,7 +25,7 @@ impl ResourceDispatcher {
     pub async fn read_resource(&self, uri: &str) -> Result<Value, String> {
         if let Some(serial_part) = uri.strip_prefix("mirin://devices/") {
             if let Some(serial) = serial_part.strip_suffix("/logcat") {
-                let adb = Adb::new(crate::core::utils::get_adb_path(&self.app)?).with_device(serial);
+                let adb = Adb::new(crate::utils::get_adb_path(&self.app)?).with_device(serial);
                 let logs = adb
                     .execute(&["shell", "logcat", "-d", "-t", "200"])
                     .await?;

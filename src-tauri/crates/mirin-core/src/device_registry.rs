@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::collections::{HashSet, HashMap};
 use std::path::PathBuf;
 use std::fs;
-use crate::core::adb::{Adb, MdnsService};
+use crate::adb::{Adb, MdnsService};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Device {
@@ -136,7 +136,7 @@ pub async fn get_connected_devices_impl(adb_path: PathBuf) -> Result<Vec<Device>
         }
 
         if name.is_empty() {
-            name = crate::core::utils::names::get_deterministic_name(&adb_device.serial);
+            name = crate::utils::names::get_deterministic_name(&adb_device.serial);
             model = if let Some(ref m) = adb_device.model {
                 m.replace("_", " ")
             } else if let Some(ref product) = adb_device.product {

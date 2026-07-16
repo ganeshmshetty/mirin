@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use tauri::Manager;
 
-pub mod names;
 
 
 /// Get the base resource path, with fallback for development mode

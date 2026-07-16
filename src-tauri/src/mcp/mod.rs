@@ -11,8 +11,8 @@ use tokio::net::{TcpListener, TcpStream};
 use crate::mcp::resources::ResourceDispatcher;
 use crate::mcp::screenshot::ScreenshotRegistry;
 use crate::mcp::tools::ToolDispatcher;
-use crate::core::ui_extractor::UiExtractor;
-use crate::core::scrcpy::EmbeddedScrcpyState;
+use mirin_core::ui_extractor::UiExtractor;
+use mirin_core::scrcpy::EmbeddedScrcpyState;
 
 pub const MCP_LOOPBACK_PORT: u16 = 48484;
 

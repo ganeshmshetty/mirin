@@ -1,6 +1,6 @@
-use crate::core::adb::{Adb, MdnsService};
-pub use crate::core::device_registry::{Device, DeviceConnection, ConnectionType, DeviceStatus};
-use crate::core::utils;
+use mirin_core::adb::{Adb, MdnsService};
+pub use mirin_core::device_registry::{Device, DeviceConnection, ConnectionType, DeviceStatus};
+use crate::utils;
 
 #[derive(serde::Serialize)]
 pub struct DeviceDetails {
@@ -16,7 +16,7 @@ pub struct DeviceDetails {
 #[tauri::command]
 pub async fn get_connected_devices(app: tauri::AppHandle) -> Result<Vec<Device>, String> {
     let adb_path = utils::get_adb_path(&app)?;
-    crate::core::device_registry::get_connected_devices_impl(adb_path).await
+    mirin_core::device_registry::get_connected_devices_impl(adb_path).await
 }
 
 /// Connect to a device wirelessly via IP address
@@ -59,7 +59,7 @@ pub async fn connect_wireless_device(
 #[tauri::command]
 pub async fn disconnect_device(app: tauri::AppHandle, device_id: String) -> Result<bool, String> {
     let adb_path = utils::get_adb_path(&app)?;
-    crate::core::device_registry::disconnect_device_impl(adb_path, device_id).await
+    mirin_core::device_registry::disconnect_device_impl(adb_path, device_id).await
 }
 
 /// Pair with a device wirelessly using a pairing code (Android 11+)
@@ -116,7 +116,7 @@ pub async fn switch_to_wireless(
     let model_raw = adb.get_prop(Some(&device_id), "ro.product.model").await.unwrap_or_default();
 
     let name = if model_raw.is_empty() {
-        crate::core::utils::names::get_deterministic_name(&device_id)
+        mirin_core::utils::names::get_deterministic_name(&device_id)
     } else {
         let brand_formatted = {
             let brand = brand_raw.trim().to_lowercase();
@@ -187,19 +187,19 @@ pub async fn refresh_devices(app: tauri::AppHandle) -> Result<Vec<Device>, Strin
 /// Save a device to the saved devices list
 #[tauri::command]
 pub async fn save_device(device: Device) -> Result<bool, String> {
-    crate::core::device_registry::save_device_impl(device).await
+    mirin_core::device_registry::save_device_impl(device).await
 }
 
 /// Get all saved devices
 #[tauri::command]
 pub async fn get_saved_devices() -> Result<Vec<Device>, String> {
-    crate::core::device_registry::get_saved_devices_impl().await
+    mirin_core::device_registry::get_saved_devices_impl().await
 }
 
 /// Remove a device from saved devices
 #[tauri::command]
 pub async fn remove_saved_device(device_id: String) -> Result<bool, String> {
-    crate::core::device_registry::remove_saved_device_impl(device_id).await
+    mirin_core::device_registry::remove_saved_device_impl(device_id).await
 }
 
 /// Get dynamic device details (battery, storage, manufacturer, version)
@@ -277,7 +277,7 @@ pub async fn get_device_details(app: tauri::AppHandle, device_id: String) -> Res
 #[tauri::command]
 pub async fn get_resolved_devices(
     app: tauri::AppHandle,
-    registry: tauri::State<'_, crate::core::device_registry::DeviceRegistry>,
+    registry: tauri::State<'_, mirin_core::device_registry::DeviceRegistry>,
 ) -> Result<Vec<Device>, String> {
     let adb_path = utils::get_adb_path(&app)?;
     registry.get_resolved_devices(adb_path).await
@@ -286,7 +286,7 @@ pub async fn get_resolved_devices(
 #[tauri::command]
 pub async fn forget_device(
     app: tauri::AppHandle,
-    registry: tauri::State<'_, crate::core::device_registry::DeviceRegistry>,
+    registry: tauri::State<'_, mirin_core::device_registry::DeviceRegistry>,
     device_id: String,
 ) -> Result<bool, String> {
     let adb_path = utils::get_adb_path(&app)?;

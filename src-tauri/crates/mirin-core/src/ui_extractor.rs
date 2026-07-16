@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
-use crate::core::adb::Adb;
+use crate::adb::Adb;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UiElement {

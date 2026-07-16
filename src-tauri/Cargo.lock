@@ -2039,6 +2039,7 @@ dependencies = [
  "chrono",
  "dirs 5.0.1",
  "image",
+ "mirin-core",
  "quick-xml 0.36.2",
  "serde",
  "serde_json",
@@ -2048,6 +2049,24 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "tauri-plugin-shell",
+ "tokio",
+ "urlencoding",
+ "uuid",
+]
+
+[[package]]
+name = "mirin-core"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "byteorder",
+ "dirs 5.0.1",
+ "image",
+ "quick-xml 0.36.2",
+ "serde",
+ "serde_json",
+ "socket2 0.5.10",
  "tokio",
  "urlencoding",
  "uuid",

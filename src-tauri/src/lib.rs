@@ -1,7 +1,7 @@
 mod commands;
-pub mod core;
 pub mod mcp;
-use crate::core::{scrcpy, utils, device_registry};
+pub mod utils;
+use mirin_core::{scrcpy, device_registry};
 
 use tauri::Manager;
 use std::sync::Arc;
@@ -19,7 +19,7 @@ async fn submit_screenshot(
     data_base64: String,
     width: u32,
     height: u32,
-    annotated_elements: Vec<crate::core::ui_extractor::UiElement>,
+    annotated_elements: Vec<mirin_core::ui_extractor::UiElement>,
 ) -> Result<(), String> {
     registry
         .complete_request(
@@ -57,7 +57,9 @@ fn verify_bundled_resources(app: tauri::AppHandle) -> Result<bool, String> {
 #[tauri::command]
 fn test_scrcpy_execution(app: tauri::AppHandle) -> Result<String, String> {
     // Test scrcpy by getting its version
-    scrcpy::get_version(&app)
+    let scrcpy_path = utils::get_scrcpy_path(&app)?;
+    let scrcpy_dir = utils::get_scrcpy_dir(&app)?;
+    scrcpy::get_version(&scrcpy_path, &scrcpy_dir)
 }
 
 #[tauri::command]
@@ -203,7 +205,7 @@ async fn close_current_window(window: tauri::WebviewWindow) -> Result<(), String
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let embedded_state = scrcpy::EmbeddedScrcpyState::new();
-    let ui_extractor = core::ui_extractor::UiExtractor::new();
+    let ui_extractor = mirin_core::ui_extractor::UiExtractor::new();
     let screenshot_registry = mcp::screenshot::ScreenshotRegistry::new();
     let logcat_state = commands::LogcatState::new();
     let device_registry = device_registry::DeviceRegistry::new();
