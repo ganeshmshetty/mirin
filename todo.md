@@ -95,12 +95,16 @@
 - [ ] Delete settings.json from app data dir → reload → defaults applied
 
 ### Edge Cases
-- [ ] Invalid port number (clamping or error)
-- [ ] Empty/null resolution value (no crash)
+- [x] Invalid port number (clamped 1–65535 in UI + sanitize on save/load)
+- [x] Empty/null resolution value (sanitized to "default")
 - [ ] Rapid toggling (no race conditions or UI freeze)
 - [ ] Change scrcpy param while mirroring active — affects next start, not current session
 - [ ] Multiple changes before save — all persisted
-- [ ] Bitrate 0 or negative (clamping or rejection)
+- [x] Bitrate 0 or out-of-range (sanitized on save/load)
+
+### Persistence (code)
+- [x] Corrupt settings.json → defaults (no crash)
+- [x] Settings values sanitized on load/save
 
 ---
 
@@ -131,15 +135,16 @@
 
 ### Path Safety
 - [ ] Path traversal (`../../etc/hosts`) — should it be allowed?
-- [ ] Shell metacharacters in path (`` ` $ | ; ``) — don't break ADB command
-- [ ] Very long paths (>512 chars) — truncate or error
-- [ ] Empty path — error handling
+- [x] Shell metacharacters in path (`` ` $ | ; ``) — rejected by validate_device_path
+- [x] Very long paths (>1024 chars) — rejected
+- [x] Empty path — error handling
 - [ ] Trailing/leading slashes — normalized correctly
+- [x] Protected roots (`/`, `/system`, `/data`) refused on delete
 
 ### ls -al Parsing Robustness
-- [ ] Files with colons in name (`file:name.txt`) — time_idx detection doesn't break
-- [ ] Filenames with multiple spaces — `parts.join(" ")` reconstructs correctly
-- [ ] Symlinks with ` -> ` in name — real name extracted correctly
+- [x] Files with colons in name (`file:name.txt`) — time_idx detection (year/time token)
+- [x] Filenames with multiple spaces — `parts.join(" ")` reconstructs correctly
+- [x] Symlinks with ` -> ` in name — real name extracted via split_once
 - [ ] `ls -al` failure (no permissions) — fallback path works
 - [ ] Refresh after mutation returns updated listing (no ADB race condition)
 
@@ -167,25 +172,25 @@
 - [ ] Toggle grid/list view — layout switches correctly
 - [ ] Refresh button reloads the list
 - [ ] App count updates correctly after search filter
-- [ ] `list_apps` only returns third-party (`-3`) — `is_system` is always false (misleading field)
+- [x] `list_apps` lists third-party + system with accurate `is_system` (toggle in UI)
 - [ ] Cache app list across tab switches, invalidate after install/uninstall
 - [ ] 500+ apps: scroll lag in grid/list — consider virtual scrolling
 - [ ] Hover opacity (`group-hover:opacity-100`) causes repaints on scroll — check for jank
-- [ ] Search filter runs on every keystroke — add debounce (300ms)
+- [x] Search filter runs on every keystroke — add debounce (300ms)
 
 ### App Actions
 - [ ] Launch an app — opens on device
 - [ ] Launch non-existent package — error
-- [ ] Launch uses deprecated `monkey` command — verify on Android 14+, fallback to `am start`?
-- [ ] Force stop a running app — stops on device
-- [ ] Force stop an app that isn't running — harmless
+- [x] Launch uses `cmd package resolve-activity` + `am start` (monkey fallback only)
+- [x] Force stop available in grid + list views
+- [ ] Force stop an app that isn't running — harmless (manual device check)
 - [ ] Uninstall with confirm dialog, cancel (no action), verify removed from list
-- [ ] Uninstall a protected/system package — graceful error
-- [ ] Package name with shell metacharacters in ADB commands — don't break
-- [ ] Empty package name passed to launch/stop/uninstall — error
-- [ ] Grid view: missing force-stop button (list view has it)
-- [ ] No app name/version/icon shown — only last segment of package name in grid
-- [ ] `clear_app_data` Rust command exists but no UI button calls it — dead code or missing feature
+- [x] Uninstall hidden for system packages in UI
+- [x] Package name with shell metacharacters rejected server-side
+- [x] Empty package name passed to launch/stop/uninstall — error
+- [x] Grid view: force-stop + clear-data buttons added
+- [x] Grid/list show short name + full package on hover/secondary line
+- [x] `clear_app_data` wired in UI (confirm dialog)
 
 ### Installation
 - [ ] Install APK — file picker opens with `.apk` filter only
@@ -248,10 +253,10 @@
 ### Log Streaming
 - [ ] Open Console tab — logcat output streams in real time
 - [ ] Logs continue streaming when switching to another tab and back
-- [ ] Pause/resume log streaming
-- [ ] Clear log output
-- [ ] Auto-scroll follows new log lines (toggleable)
-- [ ] Large volume of logs (rapid output) — UI doesn't freeze, memory doesn't grow unbounded
+- [x] Pause/resume log streaming (drops new lines while paused)
+- [x] Clear log output (replaces buffer so memory is freed)
+- [x] Auto-scroll follows new log lines (toggleable)
+- [x] Large volume of logs — ring buffer capped at 2000 lines
 
 ### Filtering
 - [ ] Filter by package name — only matching logs shown
@@ -262,11 +267,11 @@
 - [ ] Empty filter — shows all logs
 
 ### Performance
-- [ ] Log lines accumulating in memory — use ring buffer, not unbounded array
+- [x] Log lines accumulating in memory — ring buffer (MAX_LOG_LINES=2000)
 - [ ] Rapid log output doesn't cause UI jank
 - [ ] Filter re-renders debounced (not on every new log line)
-- [ ] Clear button actually frees memory (not just clears the displayed list)
-- [ ] Pause stops both display and buffering (or buffers with max size)
+- [x] Clear button actually frees memory (not just clears the displayed list)
+- [x] Pause stops display buffering (drops lines while paused)
 
 ---
 
@@ -369,10 +374,10 @@
 ## 11. Error Boundaries & Crash Recovery
 
 ### Frontend Errors
-- [ ] React error boundary catches unhandled component errors — shows fallback UI, not white screen
+- [x] React error boundary catches unhandled component errors — shows fallback UI, not white screen
 - [ ] Tauri IPC invoke failure — shown as toast or error state, not silent hang
 - [ ] Invalid route data (device ID doesn't exist) — graceful redirect
-- [ ] Corrupt settings.json (malformed JSON) — falls back to defaults, doesn't crash
+- [x] Corrupt settings.json (malformed JSON) — falls back to defaults, doesn't crash
 
 ### Rust / Backend Errors
 - [ ] Rust command panics — caught by Tauri, error returned to frontend (no app crash)
@@ -394,7 +399,7 @@
 - [ ] Device list: cached across tab switches, not re-fetched on every Home visit
 - [ ] ScreenshotRegistry: verify TTL/eviction policy so memory doesn't grow unbounded
 - [ ] UI tree: `get_screen` fetches uiautomator XML every call — cache with invalidation on user interaction
-- [ ] MCP tool schemas: `tools/list` builds full schema every time — build once at server start
+- [x] MCP tool schemas: `tools/list` built once via OnceLock (cached)
 - [ ] Device details (model, Android version, battery): fetch once on connect, cache
 
 ### Tab & Page Navigation

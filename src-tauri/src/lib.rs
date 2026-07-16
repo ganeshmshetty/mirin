@@ -265,6 +265,7 @@ pub fn run() {
             commands::get_mdns_services,
             commands::disconnect_device,
             commands::enable_wireless_mode,
+            commands::switch_to_wireless,
             commands::refresh_devices,
             commands::save_device,
             commands::get_saved_devices,
@@ -283,6 +284,7 @@ pub fn run() {
             // Settings commands
             commands::save_settings,
             commands::load_settings,
+            commands::clear_app_cache,
             // App commands
             commands::list_apps,
             commands::install_app,

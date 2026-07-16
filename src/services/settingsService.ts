@@ -22,4 +22,8 @@ export const settingsService = {
       return DEFAULT_SETTINGS;
     }
   },
+
+  async clearAppCache(): Promise<string> {
+    return await invoke<string>('clear_app_cache');
+  },
 };

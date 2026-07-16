@@ -19,6 +19,21 @@ interface FileManagerProps {
   deviceId: string;
 }
 
+/** Join Android paths without producing double slashes. */
+function joinDevicePath(base: string, name: string): string {
+  const b = base.replace(/\/+$/, "") || "";
+  const n = name.replace(/^\/+/, "");
+  if (!b || b === "/") return `/${n}`.replace(/\/+/g, "/");
+  return `${b}/${n}`.replace(/\/+/g, "/");
+}
+
+function parentDevicePath(path: string): string {
+  if (path === "/" || !path) return "/";
+  const parts = path.replace(/\/+$/, "").split("/").filter(Boolean);
+  parts.pop();
+  return parts.length ? `/${parts.join("/")}` : "/";
+}
+
 export function FileManager({ deviceId }: FileManagerProps) {
   const [currentPath, setCurrentPath] = useState("/sdcard");
   const [files, setFiles] = useState<FileInfo[]>([]);
@@ -27,11 +42,12 @@ export function FileManager({ deviceId }: FileManagerProps) {
   const { confirm } = useConfirmDialog();
 
   const loadFiles = async (path: string) => {
+    const normalized = path.replace(/\/+/g, "/").replace(/\/+$/, "") || "/";
     setIsLoading(true);
     try {
-      const list = await fileService.listFiles(deviceId, path);
+      const list = await fileService.listFiles(deviceId, normalized);
       setFiles(list);
-      setCurrentPath(path);
+      setCurrentPath(normalized);
     } catch (err: any) {
       toast.error(`Failed to load directory: ${err}`);
     } finally {
@@ -44,16 +60,12 @@ export function FileManager({ deviceId }: FileManagerProps) {
   }, [deviceId]);
 
   const handleNavigate = (folder: string) => {
-    const newPath = currentPath === "/" ? `/${folder}` : `${currentPath}/${folder}`;
-    loadFiles(newPath);
+    loadFiles(joinDevicePath(currentPath, folder));
   };
 
   const handleNavigateUp = () => {
     if (currentPath === "/") return;
-    const parts = currentPath.split("/");
-    parts.pop();
-    const newPath = parts.join("/") || "/";
-    loadFiles(newPath);
+    loadFiles(parentDevicePath(currentPath));
   };
 
   const handleBreadcrumbClick = (index: number) => {
@@ -76,7 +88,7 @@ export function FileManager({ deviceId }: FileManagerProps) {
 
   const handlePull = async (file: FileInfo) => {
     try {
-      const remotePath = currentPath === "/" ? `/${file.name}` : `${currentPath}/${file.name}`;
+      const remotePath = joinDevicePath(currentPath, file.name);
       const success = await fileService.pullFile(deviceId, remotePath, file.name);
       if (success) {
         toast.success(`Downloaded ${file.name}`);
@@ -97,7 +109,7 @@ export function FileManager({ deviceId }: FileManagerProps) {
     if (!confirmed) return;
 
     try {
-      const remotePath = currentPath === "/" ? `/${file.name}` : `${currentPath}/${file.name}`;
+      const remotePath = joinDevicePath(currentPath, file.name);
       await fileService.deleteFile(deviceId, remotePath);
       toast.success("Deleted successfully.");
       loadFiles(currentPath);
@@ -112,7 +124,7 @@ export function FileManager({ deviceId }: FileManagerProps) {
     if (!folderName) return;
 
     try {
-      const remotePath = currentPath === "/" ? `/${folderName}` : `${currentPath}/${folderName}`;
+      const remotePath = joinDevicePath(currentPath, folderName);
       await fileService.createDirectory(deviceId, remotePath);
       toast.success("Folder created.");
       loadFiles(currentPath);

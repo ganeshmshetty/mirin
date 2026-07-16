@@ -1,10 +1,11 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use base64::Engine;
 use std::sync::Arc;
 use tauri::ipc::Channel;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::sync::Notify;
+use tokio::time::{timeout, Duration};
 
 const FLAG_CONFIG: u64 = 1 << 63;
 const FLAG_KEY_FRAME: u64 = 1 << 62;
@@ -73,6 +74,8 @@ pub async fn stream_video(
     }
 }
 
+const READ_TIMEOUT: Duration = Duration::from_secs(10);
+
 async fn forward_loop(
     socket: &mut TcpStream,
     channel: &Channel<FrameEvent>,
@@ -80,7 +83,9 @@ async fn forward_loop(
 ) -> Result<()> {
     loop {
         let mut header = [0u8; 12];
-        socket.read_exact(&mut header).await?;
+        timeout(READ_TIMEOUT, socket.read_exact(&mut header))
+            .await
+            .context("Timed out waiting for frame header")??;
 
         let pts_flags = u64::from_be_bytes(header[0..8].try_into()?);
         let is_config = pts_flags & FLAG_CONFIG != 0;
@@ -93,7 +98,9 @@ async fn forward_loop(
         }
 
         let mut data = vec![0u8; size];
-        socket.read_exact(&mut data).await?;
+        timeout(READ_TIMEOUT, socket.read_exact(&mut data))
+            .await
+            .context("Timed out waiting for frame data")??;
 
         if is_config {
             let nals = split_nals(&data);

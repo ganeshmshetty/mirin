@@ -1,4 +1,4 @@
-import { AlertCircle, Trash2, MoreVertical, Edit2, Plus, Smartphone, Zap } from "lucide-react";
+import { AlertCircle, Trash2, MoreVertical, Edit2, Plus, Smartphone, Zap, Wifi, RefreshCw } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Device } from "../types";
@@ -10,6 +10,8 @@ interface DeviceTableProps {
     devices: Device[];
     onRemoveDevice: (deviceId: string) => void;
     onRenameDevice: (deviceId: string, newName: string) => void;
+    onSwitchToWireless?: (deviceId: string) => void;
+    switchingId?: string | null;
     onConnectClick?: () => void;
     onQuickMirrorClick?: () => void;
 }
@@ -18,12 +20,15 @@ export function DeviceTable({
     devices,
     onRemoveDevice,
     onRenameDevice,
+    onSwitchToWireless,
+    switchingId,
     onConnectClick,
     onQuickMirrorClick,
 }: DeviceTableProps) {
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
     const [mirrorStatuses, setMirrorStatuses] = useState<Record<string, string>>({});
+    const [activeTransport, setActiveTransport] = useState<Record<string, string>>({});
     const menuRef = useRef<HTMLDivElement>(null);
     const { prompt } = useInputDialog();
     const navigate = useNavigate();
@@ -123,12 +128,19 @@ export function DeviceTable({
                             </h4>
                             <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400 font-medium mt-0.5 capitalize">
                                 <span>{device.status}</span>
-                                {device.connection_type && (
-                                    <>
-                                        <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-[#2f353a]" />
-                                        <span className="uppercase">{device.connection_type}</span>
-                                    </>
-                                )}
+                                {(() => {
+                                    const types = (device.connections || [])
+                                        .filter(c => c.status === "Connected")
+                                        .map(c => c.connection_type);
+                                    const uniqueTypes = [...new Set(types.length ? types : (device.connection_type ? [device.connection_type] : []))];
+                                    if (uniqueTypes.length > 0) {
+                                        return <>
+                                            <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-[#2f353a]" />
+                                            <span className={uniqueTypes.length === 1 ? "uppercase" : undefined}>{uniqueTypes.join(' + ')}</span>
+                                        </>;
+                                    }
+                                    return null;
+                                })()}
                             </div>
                         </div>
 
@@ -147,11 +159,7 @@ export function DeviceTable({
                                 </span>
                             ) : (
                                 <div className="hidden sm:flex items-center gap-3 pr-2">
-                                    <div 
-                                        className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" 
-                                        title="Connected" 
-                                    />
-                                    {mirrorStatuses[device.id] === "streaming" && (
+                                    {(mirrorStatuses[device.id] === "streaming" || device.connections?.some(connection => mirrorStatuses[connection.id] === "streaming")) && (
                                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-medium border border-blue-100 dark:border-blue-900/50">
                                             <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                                             Mirroring
@@ -160,13 +168,80 @@ export function DeviceTable({
                                 </div>
                             )}
 
-                            {/* Mirror Action */}
+                            {/* Transport toggle for merged entries (USB + Wireless) */}
+                            {(() => {
+                                const usbConn = device.connections?.find(c => c.connection_type === "USB");
+                                const wifiConn = device.connections?.find(c => c.connection_type === "Wireless");
+                                const bothConnected = device.status === "Connected" && usbConn?.status === "Connected" && wifiConn?.status === "Connected";
+                                const selectedId = activeTransport[device.id] || device.id;
+
+                                if (bothConnected) {
+                                    const setUsb = (e: React.MouseEvent) => {
+                                        e.stopPropagation();
+                                        setActiveTransport(prev => ({ ...prev, [device.id]: usbConn!.id }));
+                                    };
+                                    const setWifi = (e: React.MouseEvent) => {
+                                        e.stopPropagation();
+                                        setActiveTransport(prev => ({ ...prev, [device.id]: wifiConn!.id }));
+                                    };
+                                    return (
+                                        <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-[#2a3036] bg-white dark:bg-[#1d2327] relative z-10">
+                                            <button
+                                                onClick={setUsb}
+                                                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                                                    selectedId === usbConn!.id
+                                                        ? 'bg-cyan-500 text-white'
+                                                        : 'text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]'
+                                                }`}
+                                            >
+                                                USB
+                                            </button>
+                                            <div className="w-px bg-gray-200 dark:bg-[#2a3036]" />
+                                            <button
+                                                onClick={setWifi}
+                                                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                                                    selectedId === wifiConn!.id
+                                                        ? 'bg-cyan-500 text-white'
+                                                        : 'text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]'
+                                                }`}
+                                            >
+                                                WiFi
+                                            </button>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+
+                            {/* Switch to Wireless (USB-only devices, not already wireless) */}
+                            {device.status === "Connected" && device.connection_type === "USB"
+                              && !device.connections?.some(c => c.connection_type === "Wireless") && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onSwitchToWireless?.(device.id);
+                                    }}
+                                    disabled={switchingId === device.id}
+                                    className="relative z-10 px-2.5 py-1.5 text-xs font-medium text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 rounded-lg transition-colors border border-cyan-200 dark:border-cyan-800 disabled:opacity-50 flex items-center gap-1.5"
+                                    title="Switch to wireless mode"
+                                >
+                                    {switchingId === device.id ? (
+                                        <RefreshCw size={12} className="animate-spin" />
+                                    ) : (
+                                        <Wifi size={12} />
+                                    )}
+                                    Wireless
+                                </button>
+                            )}
+
+                            {/* Mirror Action (uses the selected transport) */}
                             {device.status === "Connected" && (
                                 <MirrorButton
                                     size="sm"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        navigate(`/device/${encodeURIComponent(device.id)}?tab=screen`);
+                                        const targetId = activeTransport[device.id] || device.id;
+                                        navigate(`/device/${encodeURIComponent(targetId)}?tab=screen&autoMirror=1`);
                                     }}
                                     title="Quick mirror — skip device details"
                                     className="relative z-10"
@@ -229,6 +304,59 @@ export function DeviceTable({
                     className="w-40 dropdown-menu animate-scale-in origin-top-right"
                     onClick={(e) => e.stopPropagation()}
                 >
+                    {/* Transport-specific mirror for merged entries */}
+                    {(() => {
+                        const usbConn = activeDevice.connections?.find(c => c.connection_type === "USB");
+                        const wifiConn = activeDevice.connections?.find(c => c.connection_type === "Wireless");
+                        if (activeDevice.status === "Connected" && usbConn?.status === "Connected" && wifiConn?.status === "Connected") {
+                            return (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            setActiveTransport(prev => ({ ...prev, [activeDevice.id]: usbConn!.id }));
+                                            navigate(`/device/${encodeURIComponent(usbConn!.id)}?tab=screen&autoMirror=1`);
+                                            setOpenMenuId(null);
+                                        }}
+                                        className="dropdown-item"
+                                    >
+                                        <Smartphone size={14} className="text-gray-400 dark:text-slate-400" />
+                                        Mirror via USB
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setActiveTransport(prev => ({ ...prev, [activeDevice.id]: wifiConn!.id }));
+                                            navigate(`/device/${encodeURIComponent(wifiConn!.id)}?tab=screen&autoMirror=1`);
+                                            setOpenMenuId(null);
+                                        }}
+                                        className="dropdown-item"
+                                    >
+                                        <Wifi size={14} className="text-gray-400 dark:text-slate-400" />
+                                        Mirror via WiFi
+                                    </button>
+                                </>
+                            );
+                        }
+                        return null;
+                    })()}
+
+                    {activeDevice.status === "Connected" && activeDevice.connection_type === "USB"
+                      && !activeDevice.connections?.some(c => c.connection_type === "Wireless") && (
+                        <button
+                            onClick={() => {
+                                onSwitchToWireless?.(activeDevice.id);
+                                setOpenMenuId(null);
+                            }}
+                            disabled={switchingId === activeDevice.id}
+                            className="dropdown-item"
+                        >
+                            {switchingId === activeDevice.id ? (
+                                <RefreshCw size={14} className="animate-spin text-gray-400 dark:text-slate-400" />
+                            ) : (
+                                <Wifi size={14} className="text-gray-400 dark:text-slate-400" />
+                            )}
+                            Switch to Wireless
+                        </button>
+                    )}
                     <button
                         onClick={async () => {
                             const newName = await prompt({

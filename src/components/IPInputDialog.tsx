@@ -51,14 +51,11 @@ export function IPInputDialog({ onComplete, onCancel }: IPInputDialogProps) {
       const success = await deviceService.connectWireless(ipAddress, portNum);
 
       if (success) {
-        // Get actual device info for hardware_id
-        const connectedDevices = await deviceService.getConnectedDevices();
-        const connectedDevice = connectedDevices.find(
-          d => d.ip_address === ipAddress || d.id === `${ipAddress}:${portNum}`
-        );
+        // Retry looking up the device (ADB may not update immediately).
+        // Prefer the live ADB transport id (may be TLS serial, not ip:port).
+        const connectedDevice = await deviceService.findConnectedAfterConnect(ipAddress, portNum);
 
-        // Save the device for future use
-        const deviceId = `${ipAddress}:${portNum}`;
+        const deviceId = connectedDevice?.id || `${ipAddress}:${portNum}`;
         const device: Device = {
           hardware_id: connectedDevice?.hardware_id || deviceId,
           id: deviceId,
@@ -66,13 +63,15 @@ export function IPInputDialog({ onComplete, onCancel }: IPInputDialogProps) {
           model: connectedDevice?.model || "Unknown",
           connection_type: "Wireless",
           status: "Connected",
-          ip_address: ipAddress,
-          connections: [{
-              id: deviceId,
-              connection_type: "Wireless",
-              status: "Connected",
-              ip_address: ipAddress,
-          }],
+          ip_address: connectedDevice?.ip_address || ipAddress,
+          connections: connectedDevice?.connections?.length
+            ? connectedDevice.connections
+            : [{
+                id: deviceId,
+                connection_type: "Wireless",
+                status: "Connected",
+                ip_address: connectedDevice?.ip_address || ipAddress,
+              }],
         };
 
         try {

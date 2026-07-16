@@ -7,8 +7,18 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Device {
     pub id: String,
+    pub hardware_id: String,
     pub name: String,
     pub model: String,
+    pub connection_type: ConnectionType,
+    pub status: DeviceStatus,
+    pub ip_address: Option<String>,
+    pub connections: Vec<DeviceConnection>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceConnection {
+    pub id: String,
     pub connection_type: ConnectionType,
     pub status: DeviceStatus,
     pub ip_address: Option<String>,
@@ -47,6 +57,40 @@ fn format_brand(brand: &str) -> String {
         .join(" ")
 }
 
+/// Resolve the LAN IP for an Android 11+ TLS ADB serial via mDNS.
+///
+/// ADB may report the serial as either:
+/// - `adb-XXXX._adb-tls-connect._tcp` (dot form)
+/// - `adb-XXXX_adb-tls-connect._tcp`  (underscore form)
+/// while `adb mdns services` lists instance + type separately.
+fn tls_service_ip(serial: &str, services: &[MdnsService]) -> Option<String> {
+    services.iter().find_map(|service| {
+        if !service.service_type.contains("tls-connect") {
+            return None;
+        }
+        let service_type = service.service_type.trim_end_matches('.');
+        let dotted = format!("{}.{}", service.instance_name, service_type);
+        // ADB sometimes uses underscore between instance and type instead of a dot.
+        let underscored = format!(
+            "{}_{}",
+            service.instance_name,
+            service_type.trim_start_matches('_')
+        );
+        let matches = serial == dotted
+            || serial == underscored
+            || serial == service.instance_name
+            || (!service.instance_name.is_empty() && serial.starts_with(&service.instance_name));
+        if matches {
+            service
+                .address
+                .rsplit_once(':')
+                .map(|(ip, _)| ip.to_string())
+        } else {
+            None
+        }
+    })
+}
+
 /// Get list of all connected devices (USB and wireless)
 #[tauri::command]
 pub async fn get_connected_devices(app: tauri::AppHandle) -> Result<Vec<Device>, String> {
@@ -59,13 +103,22 @@ pub async fn get_connected_devices(app: tauri::AppHandle) -> Result<Vec<Device>,
 
     // Get devices from ADB
     let adb_devices = adb.devices().await?;
+    let mdns_services = adb.get_mdns_services().await.unwrap_or_default();
 
     // Convert ADB devices to our Device struct
     let mut devices = Vec::new();
 
     for adb_device in adb_devices {
-        // Determine connection type (wireless if serial contains ':')
-        let connection_type = if adb_device.serial.contains(':') {
+        // Skip non-connected TLS devices (wireless debugging ghost entries)
+        let is_tls = adb_device.serial.contains("_adb-tls-connect._tcp");
+        if is_tls && adb_device.state.as_str() != "device" {
+            continue;
+        }
+
+        // Determine connection type:
+        //  - serial contains ':'          → IP:port format (traditional TCP/IP)
+        //  - serial contains "_tcp"       → ADB over TLS (Android 11+ wireless debugging)
+        let connection_type = if adb_device.serial.contains(':') || is_tls {
             ConnectionType::Wireless
         } else {
             ConnectionType::Usb
@@ -116,19 +169,38 @@ pub async fn get_connected_devices(app: tauri::AppHandle) -> Result<Vec<Device>,
         }
 
         // Extract IP address for wireless devices
-        let ip_address = if connection_type == ConnectionType::Wireless {
-            adb_device.serial.split(':').next().map(|s| s.to_string())
+        let ip_address = if is_tls {
+            tls_service_ip(&adb_device.serial, &mdns_services)
+        } else if connection_type == ConnectionType::Wireless {
+            adb_device.serial.rsplit_once(':').map(|(ip, _)| ip.to_string())
         } else {
             None
         };
 
+        // hardware_id: for USB use the serial, for wireless try to get the USB serial
+        let hardware_id = if (connection_type == ConnectionType::Wireless || is_tls) && status == DeviceStatus::Connected {
+            adb.get_prop(Some(&adb_device.serial), "ro.serialno").await
+                .unwrap_or_else(|_| adb_device.serial.clone())
+        } else {
+            adb_device.serial.clone()
+        };
+
+        let connection = DeviceConnection {
+            id: adb_device.serial.clone(),
+            connection_type: connection_type.clone(),
+            status: status.clone(),
+            ip_address: ip_address.clone(),
+        };
+
         devices.push(Device {
             id: adb_device.serial,
+            hardware_id,
             name,
             model,
             connection_type,
             status,
             ip_address,
+            connections: vec![connection],
         });
     }
 
@@ -235,6 +307,68 @@ pub async fn enable_wireless_mode(
     adb.enable_wireless_mode_and_wait(&device_id).await
 }
 
+/// One-click switch a USB-connected device to wireless mode and connect
+#[tauri::command]
+pub async fn switch_to_wireless(
+    app: tauri::AppHandle,
+    device_id: String,
+) -> Result<Device, String> {
+    let adb_path = utils::get_adb_path(&app)?;
+    let adb = Adb::new(adb_path);
+
+    // Fetch device info before switching (device may briefly go offline after tcpip)
+    let brand_raw = adb.get_prop(Some(&device_id), "ro.product.brand").await.unwrap_or_default();
+    let model_raw = adb.get_prop(Some(&device_id), "ro.product.model").await.unwrap_or_default();
+
+    let name = if model_raw.is_empty() {
+        utils::names::get_deterministic_name(&device_id)
+    } else {
+        let brand_formatted = format_brand(&brand_raw);
+        let model_clean = model_raw.trim().replace("_", " ");
+        if model_clean.to_lowercase().starts_with(&brand_formatted.to_lowercase()) {
+            model_clean
+        } else if !brand_formatted.is_empty() {
+            format!("{} {}", brand_formatted, model_clean)
+        } else {
+            model_clean
+        }
+    };
+
+    let model = model_raw.trim().replace("_", " ");
+
+    // Enable wireless debugging and wait for IP address
+    let ip = adb.enable_wireless_mode_and_wait(&device_id).await?;
+    let wireless_id = format!("{}:5555", ip);
+
+    // Connect to the device wirelessly
+    let result = adb.connect(&ip, 5555).await?;
+    let result_lower = result.to_lowercase();
+    if !result_lower.contains("connected") && !result_lower.contains("already connected") {
+        return Err(format!(
+            "Wireless mode enabled at {} but connection failed: {}. Try connecting manually.",
+            ip, result
+        ));
+    }
+
+    let connection = DeviceConnection {
+        id: wireless_id.clone(),
+        connection_type: ConnectionType::Wireless,
+        status: DeviceStatus::Connected,
+        ip_address: Some(ip.clone()),
+    };
+
+    Ok(Device {
+        id: wireless_id,
+        hardware_id: device_id,
+        name,
+        model,
+        connection_type: ConnectionType::Wireless,
+        status: DeviceStatus::Connected,
+        ip_address: Some(ip),
+        connections: vec![connection],
+    })
+}
+
 /// Refresh the device list
 #[tauri::command]
 pub async fn refresh_devices(app: tauri::AppHandle) -> Result<Vec<Device>, String> {
@@ -259,25 +393,28 @@ fn get_saved_devices_path() -> Result<PathBuf, String> {
 
 /// Save a device to the saved devices list
 #[tauri::command]
-pub async fn save_device(device: Device) -> Result<bool, String> {
+pub async fn save_device(mut device: Device) -> Result<bool, String> {
     let devices_path = get_saved_devices_path()?;
+
+    // One physical device → one saved record (keyed by hardware_id).
+    if device.hardware_id.is_empty() {
+        device.hardware_id = device.id.clone();
+    }
     
-    // Read existing devices
+    // Read existing devices (invalid/legacy files are treated as empty)
     let mut saved_devices: Vec<Device> = if devices_path.exists() {
         let content = fs::read_to_string(&devices_path)
             .map_err(|e| format!("Failed to read saved devices: {}", e))?;
-        serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse saved devices: {}", e))?
+        serde_json::from_str(&content).unwrap_or_default()
     } else {
         Vec::new()
     };
     
-    // Check if device already exists (by ID)
-    if let Some(pos) = saved_devices.iter().position(|d| d.id == device.id) {
-        // Update existing device
+    if let Some(pos) = saved_devices.iter().position(|d| {
+        d.hardware_id == device.hardware_id || d.id == device.id || d.id == device.hardware_id
+    }) {
         saved_devices[pos] = device;
     } else {
-        // Add new device
         saved_devices.push(device);
     }
     
@@ -303,8 +440,8 @@ pub async fn get_saved_devices() -> Result<Vec<Device>, String> {
     let content = fs::read_to_string(&devices_path)
         .map_err(|e| format!("Failed to read saved devices: {}", e))?;
     
-    let devices: Vec<Device> = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse saved devices: {}", e))?;
+    // Legacy records without hardware_id/connections are discarded (no migration).
+    let devices: Vec<Device> = serde_json::from_str(&content).unwrap_or_default();
     
     Ok(devices)
 }
@@ -325,13 +462,18 @@ pub async fn remove_saved_device(device_id: String) -> Result<bool, String> {
     let mut saved_devices: Vec<Device> = serde_json::from_str(&content)
         .map_err(|e| format!("Failed to parse saved devices: {}", e))?;
     
-    // Remove device by ID
+    // Remove device by ID or hardware_id
     let initial_len = saved_devices.len();
     saved_devices.retain(|d| {
         if d.id == device_id {
             return false; // Remove it
         }
-        
+
+        // Also match by hardware_id (same physical device, different connection)
+        if d.hardware_id == device_id {
+            return false;
+        }
+
         // If it's a wireless device (IP:port format), compare the IP addresses
         if d.id.contains(':') && device_id.contains(':') {
             let d_ip = d.id.split(':').next();
@@ -372,6 +514,12 @@ pub struct DeviceDetails {
 pub async fn get_device_details(app: tauri::AppHandle, device_id: String) -> Result<DeviceDetails, String> {
     let adb_path = utils::get_adb_path(&app)?;
     let adb = Adb::new(adb_path).with_device(&device_id);
+
+    // Prefer the hardware serial (stable across USB/WiFi transports).
+    let serial = adb
+        .get_prop(None, "ro.serialno")
+        .await
+        .unwrap_or_else(|_| device_id.clone());
 
     // Fetch manufacturer
     let manufacturer = adb.get_manufacturer(None).await.unwrap_or_else(|_| "Unknown".to_string());
@@ -432,11 +580,39 @@ pub async fn get_device_details(app: tauri::AppHandle, device_id: String) -> Res
     }
 
     Ok(DeviceDetails {
-        serial: device_id,
+        serial: serial.trim().to_string(),
         manufacturer: manufacturer.trim().to_string(),
         android_version: android_version.trim().to_string(),
         battery_level,
         storage_used_gb,
         storage_total_gb,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::adb::MdnsService;
+
+    #[test]
+    fn tls_service_ip_matches_dot_and_underscore_serials() {
+        let services = vec![MdnsService {
+            instance_name: "adb-RF8M52ABC".into(),
+            service_type: "_adb-tls-connect._tcp.".into(),
+            address: "192.168.1.42:37125".into(),
+        }];
+
+        assert_eq!(
+            tls_service_ip("adb-RF8M52ABC._adb-tls-connect._tcp", &services).as_deref(),
+            Some("192.168.1.42")
+        );
+        assert_eq!(
+            tls_service_ip("adb-RF8M52ABC_adb-tls-connect._tcp", &services).as_deref(),
+            Some("192.168.1.42")
+        );
+        assert_eq!(
+            tls_service_ip("adb-OTHER_adb-tls-connect._tcp", &services),
+            None
+        );
+    }
 }

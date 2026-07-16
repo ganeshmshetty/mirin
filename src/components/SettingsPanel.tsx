@@ -3,7 +3,8 @@ import { Settings, DEFAULT_SETTINGS } from '../types';
 import { settingsService } from '../services';
 import { useTheme } from './ThemeProvider';
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ChevronDown, Monitor, Sliders, ChevronRight, Settings as SettingsIcon, Terminal, Folder, RefreshCw } from 'lucide-react';
+import { ChevronDown, Monitor, Sliders, ChevronRight, Settings as SettingsIcon, Terminal, RefreshCw } from 'lucide-react';
+import { useToast } from './ToastProvider';
 
 interface SettingsPanelProps {
   onSettingsChange?: (settings: Settings) => void;
@@ -95,7 +96,9 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('general');
+  const [clearingCache, setClearingCache] = useState(false);
   const { setTheme } = useTheme();
+  const toast = useToast();
 
   useEffect(() => {
     loadSettings();
@@ -128,6 +131,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
       onSettingsChange?.(updated);
     } catch (error) {
       console.error('Failed to auto-save setting:', error);
+      toast.error('Failed to save setting');
     }
   };
 
@@ -136,9 +140,25 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
     try {
       await settingsService.saveSettings(DEFAULT_SETTINGS);
       setTheme(DEFAULT_SETTINGS.theme);
+      getCurrentWindow().setAlwaysOnTop(DEFAULT_SETTINGS.alwaysOnTop);
       onSettingsChange?.(DEFAULT_SETTINGS);
+      toast.success('Settings reset to defaults');
     } catch (error) {
       console.error('Failed to save default settings:', error);
+      toast.error('Failed to reset settings');
+    }
+  };
+
+  const handleClearCache = async () => {
+    setClearingCache(true);
+    try {
+      const msg = await settingsService.clearAppCache();
+      toast.success(msg || 'Cache cleared');
+    } catch (error) {
+      console.error('Failed to clear cache:', error);
+      toast.error(`Failed to clear cache: ${error}`);
+    } finally {
+      setClearingCache(false);
     }
   };
 
@@ -288,8 +308,8 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
               {activeTab === 'mcp' && 'MCP Server'}
             </h2>
             <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-              {activeTab === 'general' && 'Basic application settings, startup behavior, and storage.'}
-              {activeTab === 'interface' && 'Customize the appearance and behavior of the application.'}
+              {activeTab === 'general' && 'Window behavior, device power, and local cache.'}
+              {activeTab === 'interface' && 'Customize the application appearance.'}
               {activeTab === 'performance' && 'Adjust streaming quality and resource usage.'}
               {activeTab === 'mcp' && 'Configure the Model Context Protocol server for AI integration.'}
             </p>
@@ -307,22 +327,28 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
         </div>
 
         <div className="p-8 max-w-3xl">
-          {/* GENERAL TAB ITEMS */}
+          {/* GENERAL — window/device behavior + cache (no theme; that lives under Interface) */}
           {activeTab === 'general' && (
             <div className="space-y-6 animate-fade-in">
               <div>
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-3">System</h4>
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-3">Window & Device</h4>
                 <div className="bg-slate-50 dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl shadow-sm">
                   {renderSettingRow(
-                    "Launch on System Startup",
-                    "Automatically start Mirin in the background when you log in.",
-                    <ToggleSwitch checked={false} onChange={() => {}} />,
+                    "Always on Top",
+                    "Keep the Mirin window above all other windows on your screen.",
+                    <ToggleSwitch
+                      checked={settings.alwaysOnTop}
+                      onChange={(checked) => updateSetting('alwaysOnTop', checked)}
+                    />,
                     false
                   )}
                   {renderSettingRow(
-                    "Check for Updates",
-                    "Automatically check for and notify you about new application updates.",
-                    <ToggleSwitch checked={true} onChange={() => {}} />,
+                    "Stay Awake",
+                    "Prevent the device from sleeping automatically while mirroring is active.",
+                    <ToggleSwitch
+                      checked={settings.stayAwake}
+                      onChange={(checked) => updateSetting('stayAwake', checked)}
+                    />,
                     true
                   )}
                 </div>
@@ -332,28 +358,31 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-3">Data & Storage</h4>
                 <div className="bg-slate-50 dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl shadow-sm">
                   {renderSettingRow(
-                    "Screenshots Folder",
-                    "Choose where device screenshots are saved on your computer.",
-                    <button className="px-3 py-1.5 text-xs font-medium border border-gray-200/50 dark:border-[#222629]/50 rounded-lg hover:bg-gray-100 dark:hover:bg-[#1d2327] text-gray-600 dark:text-slate-300 transition-colors flex items-center gap-2">
-                      <Folder size={14} />
-                      ~/Pictures/Mirin
-                    </button>,
-                    false
-                  )}
-                  {renderSettingRow(
                     "Clear App Cache",
-                    "Free up space by clearing cached thumbnails, logs, and temporary data.",
-                    <button className="px-3 py-1.5 text-xs font-medium border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors">
-                      Clear Data
+                    "Remove temporary cache folders under the app data directory. Settings and saved devices are kept.",
+                    <button
+                      type="button"
+                      disabled={clearingCache}
+                      onClick={handleClearCache}
+                      className="px-3 py-1.5 text-xs font-medium border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                    >
+                      {clearingCache ? 'Clearing…' : 'Clear Cache'}
                     </button>,
                     true
                   )}
                 </div>
               </div>
+
+              <div className="rounded-xl border border-dashed border-gray-200 dark:border-[#2a3036] px-5 py-4">
+                <p className="text-sm font-medium text-gray-700 dark:text-slate-300">Coming soon</p>
+                <p className="text-xs text-gray-500 dark:text-slate-500 mt-1 leading-relaxed">
+                  Launch on system startup and automatic update checks need extra platform plugins and will ship in a later release.
+                </p>
+              </div>
             </div>
           )}
 
-          {/* INTERFACE TAB ITEMS */}
+          {/* INTERFACE — appearance only */}
           {activeTab === 'interface' && (
             <div className="space-y-6 animate-fade-in">
               <div>
@@ -370,30 +399,6 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                         { value: 'dark', label: 'Dark Mode' }
                       ]}
                       onChange={(val) => updateSetting('theme', val)}
-                    />,
-                    true
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-3">Window Behavior</h4>
-                <div className="bg-slate-50 dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl shadow-sm">
-                  {renderSettingRow(
-                    "Always on Top",
-                    "Keep the mirror window above all other windows on your screen.",
-                    <ToggleSwitch
-                      checked={settings.alwaysOnTop}
-                      onChange={(checked) => updateSetting('alwaysOnTop', checked)}
-                    />,
-                    false
-                  )}
-                  {renderSettingRow(
-                    "Stay Awake",
-                    "Prevent your device from sleeping automatically while mirroring is active.",
-                    <ToggleSwitch
-                      checked={settings.stayAwake}
-                      onChange={(checked) => updateSetting('stayAwake', checked)}
                     />,
                     true
                   )}
@@ -541,7 +546,15 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                       <input 
                         type="number" 
                         value={settings.mcpPort}
-                        onChange={(e) => updateSetting('mcpPort', parseInt(e.target.value) || 48484)}
+                        onChange={(e) => {
+                          const raw = parseInt(e.target.value, 10);
+                          if (Number.isNaN(raw)) {
+                            updateSetting('mcpPort', 48484);
+                            return;
+                          }
+                          // Valid TCP port range
+                          updateSetting('mcpPort', Math.min(65535, Math.max(1, raw)));
+                        }}
                         className="w-20 px-2 py-1.5 text-sm bg-white dark:bg-[#0e1012] border border-gray-200/50 dark:border-[#222629]/50 rounded-lg text-gray-900 dark:text-slate-200 outline-none focus:border-cyan-500" 
                       />
                       <button className="p-1.5 text-gray-400 hover:text-cyan-500 transition-colors" title="Restart Server">

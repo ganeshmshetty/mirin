@@ -16,8 +16,13 @@ interface HomeProps {
 export function Home({ refreshTrigger = 0, onConnectClick, onQuickMirrorClick }: HomeProps) {
   const [devices, setDevices] = useState<Device[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [switchingId, setSwitchingId] = useState<string | null>(null);
 
   const isMountedRef = useRef(true);
+  // Track hardware_ids that the user has explicitly "forgotten" so that
+  // the auto-save logic doesn't immediately re-add them while they remain
+  // physically connected (USB).
+  const forgottenHwIdsRef = useRef<Set<string>>(new Set());
   const toast = useToast();
 
   // Load data
@@ -30,7 +35,6 @@ export function Home({ refreshTrigger = 0, onConnectClick, onQuickMirrorClick }:
       ]);
 
       if (isMountedRef.current) {
-        // Create a map of merged devices
         const mergedDevicesMap = new Map<string, Device>();
 
         // 1. Add all saved devices first (default to Offline)
@@ -40,19 +44,99 @@ export function Home({ refreshTrigger = 0, onConnectClick, onQuickMirrorClick }:
 
         // 2. Add or update connected devices
         for (const device of connectedDevices) {
-          if (mergedDevicesMap.has(device.id)) {
-            const existing = mergedDevicesMap.get(device.id)!;
+          const existing = mergedDevicesMap.get(device.id);
+
+          if (existing) {
             mergedDevicesMap.set(device.id, {
               ...device,
-              name: existing.name || device.name, // Keep the custom name if it exists
+              name: existing.name || device.name,
             });
           } else {
             mergedDevicesMap.set(device.id, device);
           }
         }
 
-        const finalList = Array.from(mergedDevicesMap.values());
+        // 3. Deduplicate: if two entries share hardware_id (same physical device),
+        //    merge them into one entry with combined connection info
+        const hwMap = new Map<string, Device>();
+        for (const device of mergedDevicesMap.values()) {
+          const key = device.hardware_id || device.id;
+          const existing = hwMap.get(key);
+          if (existing) {
+            const deviceConnected = device.status === "Connected";
+            const existingConnected = existing.status === "Connected";
+            const anyConnected = deviceConnected || existingConnected;
+            // Prefer a live wireless transport, then any live transport. Saved
+            // siblings must not make an offline USB transport look active.
+            const transport = deviceConnected && device.connection_type === "Wireless" ? device
+              : existingConnected && existing.connection_type === "Wireless" ? existing
+              : deviceConnected ? device
+              : existingConnected ? existing
+              : device.connection_type === "Wireless" ? device
+              : existing;
+            hwMap.set(key, {
+              ...existing,
+              ...device,
+              id: transport.id,
+              name: existing.name || device.name,
+              status: device.status === "Connected" ? device.status : existing.status,
+              connection_type: transport.connection_type,
+              connections: anyConnected
+                ? [
+                    ...(deviceConnected ? (device.connections || []) : []),
+                    ...(existingConnected ? (existing.connections || []) : []),
+                  ]
+                : [
+                    ...(existing.connections || []),
+                    ...(device.connections || []),
+                  ],
+            });
+          } else {
+            hwMap.set(key, device);
+          }
+        }
+
+        const finalList = Array.from(hwMap.values());
         setDevices(finalList);
+
+        // Auto-save connected devices so they don't disappear when disconnected.
+        // Skip any device the user has explicitly "forgotten" this session.
+        (async () => {
+          try {
+            const forgotten = forgottenHwIdsRef.current;
+            for (const device of finalList) {
+              if (device.status === "Connected") {
+                // Don't re-save a device the user just forgot
+                if (forgotten.has(device.hardware_id)) continue;
+
+                const saved = savedDevices.find(s => s.hardware_id === device.hardware_id);
+                if (!saved) {
+                  await deviceService.saveDevice(device);
+                } else {
+                  // Merge connections to preserve both USB and Wireless if one of them is new
+                  const savedConnIds = new Set(saved.connections?.map(c => c.id) || []);
+                  const hasNewConnection = device.connections?.some(c => !savedConnIds.has(c.id));
+                  if (hasNewConnection) {
+                    const mergedConnections = [...(saved.connections || [])];
+                    for (const conn of device.connections || []) {
+                      if (!savedConnIds.has(conn.id)) {
+                        mergedConnections.push(conn);
+                      }
+                    }
+                    const updatedDevice = {
+                      ...saved,
+                      connections: mergedConnections,
+                      name: saved.name || device.name,
+                    };
+                    await deviceService.saveDevice(updatedDevice);
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.error("Failed to auto-save or update devices:", err);
+          }
+        })();
       }
     } catch (err) {
       console.error("Failed to load devices:", err);
@@ -86,16 +170,60 @@ export function Home({ refreshTrigger = 0, onConnectClick, onQuickMirrorClick }:
     }
   }, [refreshTrigger, loadData]);
 
+  // One-click switch USB device to wireless
+  const handleSwitchToWireless = async (deviceId: string) => {
+    setSwitchingId(deviceId);
+    try {
+      const wirelessDevice = await deviceService.switchToWireless(deviceId);
+      await deviceService.saveDevice(wirelessDevice);
+      toast.success(`Switched to wireless — ${wirelessDevice.ip_address}:5555`);
+      loadData();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(msg);
+    } finally {
+      if (isMountedRef.current) {
+        setSwitchingId(null);
+      }
+    }
+  };
+
   // Forget saved device
   const handleRemoveDevice = async (deviceId: string) => {
     try {
       const device = devices.find(d => d.id === deviceId);
-      // Disconnect only if it's a wireless device so it disappears from the active list
-      // Calling disconnect on a USB device breaks ADB's USB tracking until physical replug
-      if (device?.connection_type === "Wireless" || deviceId.includes(':')) {
+
+      // Mark this device's hardware_id as forgotten so auto-save won't re-add
+      // it while it remains physically connected (USB).
+      if (device?.hardware_id) {
+        forgottenHwIdsRef.current.add(device.hardware_id);
+      }
+
+      // Disconnect all wireless connections (for merged entries)
+      if (device?.connections) {
+        for (const conn of device.connections) {
+          if (conn.connection_type === "Wireless") {
+            await deviceService.disconnect(conn.id).catch(() => {});
+          }
+        }
+      } else if (device?.connection_type === "Wireless" || deviceId.includes(':')) {
         await deviceService.disconnect(deviceId).catch(() => {});
       }
-      await deviceService.removeSavedDevice(deviceId);
+
+      // Remove all saved entries belonging to this device
+      const idsToRemove = new Set<string>([deviceId]);
+      if (device?.connections) {
+        for (const conn of device.connections) {
+          idsToRemove.add(conn.id);
+        }
+      }
+      if (device?.hardware_id) {
+        idsToRemove.add(device.hardware_id);
+      }
+      for (const id of idsToRemove) {
+        await deviceService.removeSavedDevice(id).catch(() => {});
+      }
+
       loadData();
     } catch (err) {
       toast.error("Failed to forget device");
@@ -122,6 +250,8 @@ export function Home({ refreshTrigger = 0, onConnectClick, onQuickMirrorClick }:
         <DeviceTable
           devices={devices}
           onRemoveDevice={handleRemoveDevice}
+          onSwitchToWireless={handleSwitchToWireless}
+          switchingId={switchingId}
           onConnectClick={onConnectClick}
           onQuickMirrorClick={onQuickMirrorClick}
           onRenameDevice={(deviceId, newName) => {

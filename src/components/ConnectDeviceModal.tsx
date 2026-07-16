@@ -219,13 +219,10 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
       // Connect the device
       await deviceService.connectWireless(cleanIp, cPort);
 
-      // Get actual device info for hardware_id
-      const connectedDevices = await deviceService.getConnectedDevices();
-      const connectedDevice = connectedDevices.find(
-        d => d.ip_address === cleanIp || d.id === `${cleanIp}:${cPort}` || d.id.startsWith(`${cleanIp}:`)
-      );
+      // Retry looking up the device (ADB may not update immediately).
+      // Prefer the live ADB transport id (may be TLS serial, not ip:port).
+      const connectedDevice = await deviceService.findConnectedAfterConnect(cleanIp, cPort);
 
-      // Save it with exact Data Integrity ensuring connection_type is "Wireless"
       const deviceId = connectedDevice?.id || `${cleanIp}:${cPort}`;
       const device: Device = {
         hardware_id: connectedDevice?.hardware_id || deviceId,
@@ -234,13 +231,15 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
         model: connectedDevice?.model || "Unknown",
         connection_type: "Wireless",
         status: "Connected",
-        ip_address: cleanIp,
-        connections: [{
-          id: deviceId,
-          connection_type: "Wireless",
-          status: "Connected",
-          ip_address: cleanIp,
-        }],
+        ip_address: connectedDevice?.ip_address || cleanIp,
+        connections: connectedDevice?.connections?.length
+          ? connectedDevice.connections
+          : [{
+              id: deviceId,
+              connection_type: "Wireless",
+              status: "Connected",
+              ip_address: connectedDevice?.ip_address || cleanIp,
+            }],
       };
       
       if (mode !== "quick-mirror") {

@@ -25,9 +25,11 @@ export function DeviceDashboard({ activeTool: controlledTool, onDeviceMeta }: De
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const autoMirror = searchParams.get("autoMirror") === "1";
   const toast = useToast();
 
   const [device, setDevice] = useState<Device | null>(null);
+  const [activeTransportId, setActiveTransportId] = useState<string | null>(null);
 
   const requestedTab = controlledTool || searchParams.get("tab");
   const activeTab: DeviceTool =
@@ -44,15 +46,36 @@ export function DeviceDashboard({ activeTool: controlledTool, onDeviceMeta }: De
       if (!id) return;
       try {
         const connectedDevices = await deviceService.getConnectedDevices();
-        const found = connectedDevices.find((d) => d.id === id);
+        // Try direct id match first, then fallback to hardware_id (supports
+        // navigation from merged entries where id may be wireless IP:port or USB serial)
+        let found = connectedDevices.find((d) => d.id === id);
+        if (!found) {
+          found = connectedDevices.find((d) => d.hardware_id === id);
+        }
 
         if (found) {
+          // Gather all sibling connections sharing the same hardware_id
+          const siblings = connectedDevices.filter(
+            d => d.hardware_id && d.hardware_id === found!.hardware_id && d.id !== found!.id
+          );
+          if (siblings.length > 0) {
+            found = {
+              ...found,
+              connections: [
+                ...(found.connections || []),
+                ...siblings.flatMap(s => s.connections || []),
+              ],
+            };
+          }
           setDevice(found);
+          setActiveTransportId(found.id);
         } else {
           const savedDevices = await deviceService.getSavedDevices();
-          const savedFound = savedDevices.find((d) => d.id === id);
+          const savedFound = savedDevices.find((d) => d.id === id)
+            || savedDevices.find((d) => d.hardware_id === id);
           if (savedFound) {
             setDevice({ ...savedFound, status: "Offline" });
+            setActiveTransportId(savedFound.id);
           } else {
             toast.error("Device not found");
             navigate("/");
@@ -101,29 +124,32 @@ export function DeviceDashboard({ activeTool: controlledTool, onDeviceMeta }: De
               deviceModel={device.model}
               deviceStatus={device.status}
               deviceIp={device.ip_address}
+              availableConnections={device.connections}
+              autoStart={autoMirror}
               fillWorkspace
               onRename={(newName) => {
                 setDevice(prev => prev ? { ...prev, name: newName } : null);
               }}
+              onTransportChange={setActiveTransportId}
             />
           </div>
         )}
 
         {activeTab === "apps" && (
           <div className="h-full w-full animate-fade-in relative">
-            <AppManager deviceId={id!} />
+            <AppManager deviceId={activeTransportId || device.id} />
           </div>
         )}
 
         {activeTab === "files" && (
           <div className="h-full w-full animate-fade-in relative">
-            <FileManager deviceId={id!} />
+            <FileManager deviceId={activeTransportId || device.id} />
           </div>
         )}
 
         {activeTab === "console" && (
           <div className="h-full w-full animate-fade-in relative">
-            <ConsoleManager deviceId={id!} />
+            <ConsoleManager deviceId={activeTransportId || device.id} />
           </div>
         )}
       </main>

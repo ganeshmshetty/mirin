@@ -61,7 +61,14 @@ impl ToolDispatcher {
         current.clone().ok_or_else(|| "No serial provided and no device connected. Call connect_device first or provide 'serial'.".to_string())
     }
 
+    /// Built once at first call — `tools/list` is hot and the schema is static.
     pub fn get_tools_list() -> Vec<Value> {
+        use std::sync::OnceLock;
+        static TOOLS: OnceLock<Vec<Value>> = OnceLock::new();
+        TOOLS.get_or_init(Self::build_tools_list).clone()
+    }
+
+    fn build_tools_list() -> Vec<Value> {
         vec![
             json!({
                 "name": "list_devices",

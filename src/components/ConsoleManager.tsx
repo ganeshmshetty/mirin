@@ -1,52 +1,68 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { consoleService } from "../services";
-import { Terminal, Trash2, Play, Square, CornerDownLeft } from "lucide-react";
+import { Terminal, Trash2, Play, Square, CornerDownLeft, ArrowDownToLine } from "lucide-react";
 import { useToast } from "./ToastProvider";
 
 interface ConsoleManagerProps {
   deviceId: string;
 }
 
+const MAX_LOG_LINES = 2000;
+
 export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
   const [logs, setLogs] = useState<string[]>([]);
   const [isLogcatRunning, setIsLogcatRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
   const [command, setCommand] = useState("");
   const [isExecuting, setIsExecuting] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const isPausedRef = useRef(false);
   const toast = useToast();
+
+  // Keep ref in sync so the log listener can skip appends without re-subscribing.
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  const appendLines = useCallback((lines: string[]) => {
+    if (lines.length === 0) return;
+    setLogs((prev) => {
+      const next = prev.length + lines.length > MAX_LOG_LINES
+        ? [...prev, ...lines].slice(-MAX_LOG_LINES)
+        : [...prev, ...lines];
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
+    let cancelled = false;
 
     const setupListener = async () => {
       unlisten = await consoleService.listenToLogcat((payload) => {
-        if (payload.device_id === deviceId) {
-          setLogs((prev) => {
-            const newLogs = [...prev, payload.line];
-            if (newLogs.length > 2000) {
-              return newLogs.slice(-2000);
-            }
-            return newLogs;
-          });
-        }
+        if (payload.device_id !== deviceId) return;
+        // Pause stops display buffering so memory stays bounded while paused.
+        if (isPausedRef.current) return;
+        appendLines([payload.line]);
       });
     };
 
     setupListener();
 
     return () => {
+      cancelled = true;
       if (unlisten) unlisten();
-      // We explicitly leave logcat running in backend so you don't lose it if you swap tabs,
-      // but maybe it's better to stop. For now, leave running.
+      // Stop backend logcat when leaving the Console tab so streams don't leak across tools.
+      consoleService.stopLogcat(deviceId).catch(() => {});
+      void cancelled;
     };
-  }, [deviceId]);
+  }, [deviceId, appendLines]);
 
   useEffect(() => {
-    // Auto-scroll
-    if (logsEndRef.current) {
-        logsEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [logs]);
+    if (!autoScroll || !logsEndRef.current) return;
+    logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+  }, [logs, autoScroll]);
 
   const toggleLogcat = async () => {
     try {
@@ -56,6 +72,7 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
       } else {
         await consoleService.startLogcat(deviceId);
         setIsLogcatRunning(true);
+        setIsPaused(false);
       }
     } catch (err: any) {
       toast.error(`Failed to toggle logcat: ${err}`);
@@ -64,34 +81,31 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
 
   const executeCommand = async () => {
     if (!command.trim()) return;
-    
+
     setIsExecuting(true);
-    setLogs((prev) => [...prev.slice(-1999), `$ ${command}`]);
-    
+    appendLines([`$ ${command}`]);
+
     try {
       const output = await consoleService.executeShellCommand(deviceId, command);
       if (output.trim()) {
-        const outputLines = output.trim().split('\n');
-        setLogs((prev) => {
-            const newLogs = [...prev, ...outputLines];
-            return newLogs.length > 2000 ? newLogs.slice(-2000) : newLogs;
-        });
+        appendLines(output.trim().split("\n"));
       }
       setCommand("");
     } catch (err: any) {
-      setLogs((prev) => [...prev.slice(-1999), `Error: ${err}`]);
+      appendLines([`Error: ${err}`]);
     } finally {
       setIsExecuting(false);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       executeCommand();
     }
   };
 
   const clearLogs = () => {
+    // Replace with a new empty array so React drops the previous large buffer.
     setLogs([]);
   };
 
@@ -102,17 +116,42 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
           <Terminal className="text-cyan-600 dark:text-cyan-400" />
           ADB Console
         </h3>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
           <button
             onClick={toggleLogcat}
             className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm font-medium transition-colors shadow-sm ${
-              isLogcatRunning 
-                ? "bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-900/30 dark:hover:bg-orange-900/40" 
+              isLogcatRunning
+                ? "bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-900/30 dark:hover:bg-orange-900/40"
                 : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-[#16191b] dark:text-slate-300 dark:border-[#222629] dark:hover:bg-[#1d2327]"
             }`}
           >
             {isLogcatRunning ? <Square size={16} /> : <Play size={16} />}
             <span className="hidden sm:inline">{isLogcatRunning ? "Stop Logcat" : "Start Logcat"}</span>
+          </button>
+          {isLogcatRunning && (
+            <button
+              onClick={() => setIsPaused((p) => !p)}
+              className={`flex items-center gap-2 px-4 py-2 border rounded-xl text-sm font-medium transition-colors shadow-sm ${
+                isPaused
+                  ? "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/20 dark:text-cyan-400 dark:border-cyan-900/30"
+                  : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-[#16191b] dark:text-slate-300 dark:border-[#222629] dark:hover:bg-[#1d2327]"
+              }`}
+              title={isPaused ? "Resume appending log lines" : "Pause display (drops new lines)"}
+            >
+              {isPaused ? "Resume" : "Pause"}
+            </button>
+          )}
+          <button
+            onClick={() => setAutoScroll((v) => !v)}
+            className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-sm font-medium transition-colors shadow-sm ${
+              autoScroll
+                ? "bg-white text-cyan-700 border-cyan-200 dark:bg-[#16191b] dark:text-cyan-400 dark:border-cyan-900/40"
+                : "bg-white text-gray-500 border-gray-200 dark:bg-[#16191b] dark:text-slate-500 dark:border-[#222629]"
+            }`}
+            title="Auto-scroll to newest lines"
+          >
+            <ArrowDownToLine size={16} />
+            <span className="hidden sm:inline">Auto-scroll</span>
           </button>
           <button
             onClick={clearLogs}
@@ -124,21 +163,34 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
         </div>
       </div>
 
-      <div className="flex flex-col flex-1 bg-[#1e1e1e] rounded-xl border border-gray-800 dark:border-black/50 overflow-hidden shadow-lg shadow-black/10">
-        <div className="h-10 bg-[#2d2d2d] flex items-center px-4 border-b border-black/20">
+      <div className="flex flex-col flex-1 bg-[#1e1e1e] rounded-xl border border-gray-800 dark:border-black/50 overflow-hidden shadow-lg shadow-black/10 min-h-0">
+        <div className="h-10 bg-[#2d2d2d] flex items-center justify-between px-4 border-b border-black/20">
           <span className="text-xs text-gray-400 font-mono">adb shell / logcat output</span>
+          <span className="text-[10px] text-gray-500 font-mono">
+            {logs.length}/{MAX_LOG_LINES}
+            {isPaused ? " · paused" : ""}
+          </span>
         </div>
-        
-        <div className="flex-1 overflow-y-auto p-4 font-mono text-sm relative">
+
+        <div className="flex-1 overflow-y-auto p-4 font-mono text-sm relative min-h-0">
           {logs.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 italic gap-2">
-                <Terminal size={32} className="opacity-30" />
-                No output yet. Run a command or start logcat.
+              <Terminal size={32} className="opacity-30" />
+              No output yet. Run a command or start logcat.
             </div>
           ) : (
             <div className="flex flex-col min-h-full">
               {logs.map((log, i) => (
-                <div key={i} className={`whitespace-pre-wrap break-all ${log.startsWith('$') ? 'text-green-400 mt-2 mb-1 font-semibold' : log.startsWith('Error:') ? 'text-red-400' : 'text-gray-300'}`}>
+                <div
+                  key={i}
+                  className={`whitespace-pre-wrap break-all ${
+                    log.startsWith("$")
+                      ? "text-green-400 mt-2 mb-1 font-semibold"
+                      : log.startsWith("Error:")
+                        ? "text-red-400"
+                        : "text-gray-300"
+                  }`}
+                >
                   {log}
                 </div>
               ))}
@@ -146,25 +198,28 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
             </div>
           )}
         </div>
-        
+
         <div className="bg-[#252526] border-t border-black/20 p-3">
-          <div className="flex items-center bg-[#1e1e1e] border border-[#3c3c3c] rounded-lg focus-within:border-cyan-500/50 transition-colors overflow-hidden px-4">
-            <span className="text-green-500 font-mono py-3 font-bold mr-3">$</span>
+          <div className="flex items-center gap-2">
+            <span className="text-green-400 font-mono text-sm select-none">$</span>
             <input
               type="text"
               value={command}
               onChange={(e) => setCommand(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isExecuting}
-              className="bg-transparent border-none outline-none text-gray-300 font-mono w-full py-3 placeholder-gray-600 disabled:opacity-50"
-              placeholder="adb shell command (e.g. ls -al /sdcard)"
+              placeholder="shell command…"
+              className="flex-1 bg-transparent text-gray-200 font-mono text-sm outline-none placeholder-gray-600"
+              autoComplete="off"
+              spellCheck={false}
             />
             <button
               onClick={executeCommand}
               disabled={isExecuting || !command.trim()}
-              className="p-2 text-cyan-500 hover:text-cyan-400 disabled:opacity-50 disabled:hover:text-cyan-600 transition-colors"
+              className="p-2 text-gray-400 hover:text-cyan-400 disabled:opacity-40 transition-colors"
+              title="Run command"
             >
-              <CornerDownLeft size={18} />
+              <CornerDownLeft size={16} />
             </button>
           </div>
         </div>

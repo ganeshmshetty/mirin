@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import {
   Square,
   Volume2,
-  VolumeX,
+  Volume1,
   Home,
   ArrowLeft,
   Layers,
@@ -18,9 +18,11 @@ import {
   ChevronRight,
   Edit2,
   Bot,
+  Wifi,
+  Usb,
 } from "lucide-react";
 import { scrcpyService, deviceService } from "../services";
-import type { Device, ConnectionType, DeviceStatus, FrameEvent, DeviceDetails } from "../types";
+import type { Device, ConnectionType, DeviceStatus, DeviceConnection, FrameEvent, DeviceDetails } from "../types";
 import { useToast } from "./ToastProvider";
 import { MirrorButton } from "./MirrorButton";
 import { useInputDialog } from "./InputDialog";
@@ -33,11 +35,15 @@ interface EmbeddedMirrorViewProps {
   deviceModel?: string;
   deviceStatus?: string;
   deviceIp?: string;
+  availableConnections?: DeviceConnection[];
   /** Edge-to-edge workspace layout (no card chrome) */
   fillWorkspace?: boolean;
   /** Whether this component is running inside a popped out standalone window */
   isPopup?: boolean;
+  /** Auto-start streaming on mount (used by quick-mirror button) */
+  autoStart?: boolean;
   onRename?: (newName: string) => void;
+  onTransportChange?: (transportId: string) => void;
 }
 
 function b64ToBytes(b64: string): Uint8Array {
@@ -57,9 +63,12 @@ export function EmbeddedMirrorView({
   deviceModel,
   deviceStatus,
   deviceIp,
+  availableConnections,
   fillWorkspace = false,
   isPopup = false,
+  autoStart = false,
   onRename,
+  onTransportChange,
 }: EmbeddedMirrorViewProps) {
   const toast = useToast();
   const toastRef = useRef(toast);
@@ -70,9 +79,22 @@ export function EmbeddedMirrorView({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 1080, height: 1920 });
   const [isPoppedOut, setIsPoppedOut] = useState(false);
+  const [isAutoRetrying, setIsAutoRetrying] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(true);
   const [details, setDetails] = useState<DeviceDetails | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [effectiveTransportId, setEffectiveTransportId] = useState(deviceId);
+  const transportRef = useRef(deviceId);
+  const retryScheduledRef = useRef(false);
+
+  useEffect(() => {
+    transportRef.current = deviceId;
+    setEffectiveTransportId(deviceId);
+    retryCountRef.current = 0;
+    retryScheduledRef.current = false;
+    setIsAutoRetrying(false);
+    onTransportChange?.(deviceId);
+  }, [deviceId, onTransportChange]);
 
   useEffect(() => {
     let active = true;
@@ -83,7 +105,7 @@ export function EmbeddedMirrorView({
       }
       setIsLoadingDetails(true);
       try {
-        const data = await deviceService.getDeviceDetails(deviceId);
+        const data = await deviceService.getDeviceDetails(effectiveTransportId);
         if (active) {
           setDetails(data);
         }
@@ -99,7 +121,7 @@ export function EmbeddedMirrorView({
     return () => {
       active = false;
     };
-  }, [deviceId, deviceStatus]);
+  }, [effectiveTransportId, deviceStatus]);
 
   const handleRename = async () => {
     const newName = await prompt({
@@ -111,18 +133,21 @@ export function EmbeddedMirrorView({
     if (newName && newName !== deviceName) {
       try {
         const savedDevices = await deviceService.getSavedDevices();
-        const found = savedDevices.find(d => d.id === deviceId);
-        const updatedDevice: Device = found 
-          ? { ...found, name: newName }
+        const hardwareId = details?.serial || deviceId;
+        const found = savedDevices.find(
+          d => d.id === deviceId || d.id === effectiveTransportId || d.hardware_id === hardwareId
+        );
+        const updatedDevice: Device = found
+          ? { ...found, name: newName, hardware_id: found.hardware_id || hardwareId }
           : {
-              hardware_id: deviceId,
-              id: deviceId,
+              hardware_id: hardwareId,
+              id: effectiveTransportId,
               name: newName,
               connection_type: (connectionType as ConnectionType) || "USB",
               model: deviceModel || "",
               status: (deviceStatus as DeviceStatus) || "Connected",
               ip_address: deviceIp,
-              connections: [],
+              connections: availableConnections || [],
             };
         await deviceService.saveDevice(updatedDevice);
         toast.success(`Renamed to ${newName}`);
@@ -146,6 +171,8 @@ export function EmbeddedMirrorView({
   /** Bumps on every start/stop so stale channels never schedule retries or update UI. */
   const connectGenRef = useRef(0);
   const connectingRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const MAX_AUTO_RETRIES = 3;
 
   const cleanupDecoder = useCallback(() => {
     if (rafId.current) {
@@ -173,12 +200,13 @@ export function EmbeddedMirrorView({
     isStoppedByUserRef.current = true;
     connectGenRef.current += 1; // invalidate any in-flight channel
     connectingRef.current = false;
+    retryScheduledRef.current = false;
     clearRetryTimer();
     cleanupDecoder();
     setStatus("idle");
     setIsPoppedOut(false);
     try {
-      await scrcpyService.disconnectEmbeddedMirror(deviceId);
+      await scrcpyService.disconnectEmbeddedMirror(transportRef.current);
     } catch (err) {
       console.error("Disconnect error:", err);
     }
@@ -203,11 +231,24 @@ export function EmbeddedMirrorView({
       !isStoppedByUserRef.current &&
       connectGenRef.current === gen;
 
-    const retry = (delayMs: number) => {
-      if (!isCurrent()) return;
+    const scheduleRetry = (message: string, delayMs: number) => {
+      if (!isCurrent() || retryScheduledRef.current) return;
+      retryScheduledRef.current = true;
+      retryCountRef.current++;
+      if (retryCountRef.current > MAX_AUTO_RETRIES) {
+        setErrorMsg(message);
+        setStatus("error");
+        setIsAutoRetrying(false);
+        retryScheduledRef.current = false;
+        return;
+      }
+
+      setIsAutoRetrying(true);
+      setStatus("connecting");
       clearRetryTimer();
       retryTimerRef.current = setTimeout(() => {
         retryTimerRef.current = null;
+        retryScheduledRef.current = false;
         if (isCurrent()) {
           void handleStart();
         }
@@ -255,11 +296,7 @@ export function EmbeddedMirrorView({
               }
             },
             error: (e: DOMException) => {
-              console.error("Decoder error:", e);
-              if (!isCurrent()) return;
-              setErrorMsg(e.message || "Video decoder error");
-              setStatus("error");
-              retry(2500);
+              scheduleRetry(e.message || "Video decoder error", 2500);
             },
           });
           
@@ -277,16 +314,15 @@ export function EmbeddedMirrorView({
               toastRef.current.error(`Codec ${msg.data.codec} is not supported on your hardware.`);
               setStatus("error");
               // Unsupported codec won't self-heal — do not thrash the device
-              scrcpyService.disconnectEmbeddedMirror(deviceId).catch(() => {});
+              scrcpyService.disconnectEmbeddedMirror(transportRef.current).catch(() => {});
               return;
             }
             decoder.configure(config);
+            retryCountRef.current = 0;
+            setIsAutoRetrying(false);
             setStatus("streaming");
           }).catch((err) => {
-            console.error("Config check failed:", err);
-            if (!isCurrent()) return;
-            setStatus("error");
-            retry(2500);
+            scheduleRetry(err instanceof Error ? err.message : "Video configuration failed", 2500);
           });
         } else if (msg.event === "packet") {
           const decoder = decoderRef.current;
@@ -300,7 +336,6 @@ export function EmbeddedMirrorView({
         } else if (msg.event === "disconnected") {
           cleanupDecoder();
           if (!isCurrent()) return;
-          // Intentional replace/shutdown from a newer connect must not retry
           const reason = msg.data.reason || "Stream disconnected";
           if (reason === "Stream closed cleanly" || reason === "replaced") {
             setStatus("idle");
@@ -311,13 +346,11 @@ export function EmbeddedMirrorView({
             setStatus("error");
             return;
           }
-          setErrorMsg(reason + ". Reconnecting automatically...");
-          setStatus("error");
-          retry(2000);
+          scheduleRetry(reason, 2000);
         }
       };
 
-      const [w, h] = await scrcpyService.connectEmbeddedMirror(deviceId, channel, {
+      const [w, h] = await scrcpyService.connectEmbeddedMirror(transportRef.current, channel, {
         max_size: 1080,
         max_fps: 60,
         video_bit_rate: 8000000,
@@ -336,12 +369,9 @@ export function EmbeddedMirrorView({
         canvasRef.current.height = h;
       }
     } catch (err: any) {
-      console.error("Embedded start error:", err);
       if (!isCurrent()) return;
-      setErrorMsg(typeof err === "string" ? err : err.message || "Failed to start embedded stream");
-      setStatus("error");
       cleanupDecoder();
-      retry(2500);
+      scheduleRetry(typeof err === "string" ? err : err.message || "Failed to start embedded stream", 2500);
     } finally {
       if (connectGenRef.current === gen) {
         connectingRef.current = false;
@@ -349,13 +379,31 @@ export function EmbeddedMirrorView({
     }
   }, [cleanupDecoder, clearRetryTimer, deviceId]);
 
+  const switchTransport = useCallback(async (newTransportId: string) => {
+    isStoppedByUserRef.current = true;
+    connectGenRef.current += 1;
+    connectingRef.current = false;
+    retryScheduledRef.current = false;
+    clearRetryTimer();
+    cleanupDecoder();
+    try {
+      await scrcpyService.disconnectEmbeddedMirror(transportRef.current);
+    } catch {
+      // ignore cleanup errors
+    }
+    transportRef.current = newTransportId;
+    setEffectiveTransportId(newTransportId);
+    onTransportChange?.(newTransportId);
+    setStatus("idle");
+  }, [cleanupDecoder, clearRetryTimer, onTransportChange]);
+
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('mirror-status', { detail: { deviceId, status: isPoppedOut ? "streaming" : status } }));
-  }, [deviceId, status, isPoppedOut]);
+    window.dispatchEvent(new CustomEvent('mirror-status', { detail: { deviceId: effectiveTransportId, status: isPoppedOut ? "streaming" : status } }));
+  }, [effectiveTransportId, status, isPoppedOut]);
 
   useEffect(() => {
     isMountedRef.current = true;
-    if (isPopup) {
+    if (isPopup || autoStart) {
       isStoppedByUserRef.current = false;
       void handleStart();
     } else {
@@ -366,17 +414,18 @@ export function EmbeddedMirrorView({
       isMountedRef.current = false;
       connectGenRef.current += 1;
       connectingRef.current = false;
+      retryScheduledRef.current = false;
       clearRetryTimer();
       cleanupDecoder();
-      scrcpyService.disconnectEmbeddedMirror(deviceId).catch(() => {});
+      scrcpyService.disconnectEmbeddedMirror(transportRef.current).catch(() => {});
     };
-  }, [deviceId, cleanupDecoder, clearRetryTimer, isPopup, handleStart]);
+  }, [deviceId, cleanupDecoder, clearRetryTimer, isPopup, autoStart, handleStart]);
 
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | undefined;
     listen<any>("request_screenshot", async (event) => {
-      if (event.payload.device_id !== deviceId) return;
+      if (event.payload.device_id !== deviceId && event.payload.device_id !== effectiveTransportId) return;
       const canvas = canvasRef.current;
       if (!canvas || !dimensions.width || !dimensions.height) return;
 
@@ -439,7 +488,7 @@ export function EmbeddedMirrorView({
       disposed = true;
       if (unlisten) unlisten();
     };
-  }, [deviceId, dimensions.width, dimensions.height]);
+  }, [deviceId, effectiveTransportId, dimensions.width, dimensions.height]);
 
   // Touch and Mouse interactions
   const rafMoveId = useRef<number>(0);
@@ -461,7 +510,7 @@ export function EmbeddedMirrorView({
       if (!rafMoveId.current) {
         rafMoveId.current = requestAnimationFrame(() => {
           rafMoveId.current = 0;
-          scrcpyService.sendTouch(deviceId, action, x, y).catch(() => {});
+          scrcpyService.sendTouch(transportRef.current, action, x, y).catch(() => {});
         });
       }
     } else {
@@ -470,7 +519,7 @@ export function EmbeddedMirrorView({
         rafMoveId.current = 0;
       }
       try {
-        await scrcpyService.sendTouch(deviceId, action, x, y);
+        await scrcpyService.sendTouch(transportRef.current, action, x, y);
       } catch {
         // Ignore transient touch socket errors
       }
@@ -506,7 +555,7 @@ export function EmbeddedMirrorView({
 
     if (dx !== 0 || dy !== 0) {
       try {
-        await scrcpyService.sendScroll(deviceId, Math.max(0, Math.min(1, x)), Math.max(0, Math.min(1, y)), dx, dy);
+        await scrcpyService.sendScroll(transportRef.current, Math.max(0, Math.min(1, x)), Math.max(0, Math.min(1, y)), dx, dy);
       } catch {}
     }
   };
@@ -518,7 +567,7 @@ export function EmbeddedMirrorView({
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       try {
-        await scrcpyService.sendText(deviceId, e.key);
+        await scrcpyService.sendText(transportRef.current, e.key);
       } catch {}
     } else {
       const keyMap: Record<string, number> = {
@@ -530,22 +579,86 @@ export function EmbeddedMirrorView({
       if (keycode) {
         e.preventDefault();
         try {
-          await scrcpyService.sendKey(deviceId, keycode, "down");
-          await scrcpyService.sendKey(deviceId, keycode, "up");
+          await scrcpyService.sendKey(transportRef.current, keycode, "down");
+          await scrcpyService.sendKey(transportRef.current, keycode, "up");
         } catch {}
       }
     }
   };
 
-  const sendNavigationKey = async (keycode: number) => {
-    if (status !== "streaming") return;
+  const statusRef = useRef(status);
+  statusRef.current = status;
+
+  const sendNavigationKey = useCallback(async (keycode: number) => {
+    if (statusRef.current !== "streaming") return;
     try {
-      await scrcpyService.sendKey(deviceId, keycode, "down");
-      await scrcpyService.sendKey(deviceId, keycode, "up");
+      await scrcpyService.sendKey(transportRef.current, keycode, "down");
+      await scrcpyService.sendKey(transportRef.current, keycode, "up");
     } catch {}
-  };
+  }, []);
+
+  useEffect(() => {
+    if (status !== "streaming") return;
+
+    const handleWindowKeyDown = async (e: KeyboardEvent) => {
+      // Ignore if typing in an input/textarea/contenteditable
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      let keycode: number | null = null;
+
+      // Use Alt (Option on Mac) as modifier to avoid OS-level conflicts
+      // (Cmd+H = hide, Cmd+S = save, Cmd+P = print on macOS)
+      if (e.altKey) {
+        const keyLower = e.key.toLowerCase();
+        if (keyLower === "b" || keyLower === "arrowleft") {
+          keycode = 4; // Back
+        } else if (keyLower === "h") {
+          keycode = 3; // Home
+        } else if (keyLower === "s" || keyLower === "r") {
+          keycode = 187; // Recents / App Switcher
+        } else if (keyLower === "p") {
+          keycode = 26; // Power
+        } else if (e.key === "ArrowUp") {
+          keycode = 24; // Volume Up
+        } else if (e.key === "ArrowDown") {
+          keycode = 25; // Volume Down
+        }
+      } else {
+        if (e.key === "Escape") {
+          keycode = 4; // Back
+        } else if (e.key === "Home") {
+          keycode = 3; // Home
+        }
+      }
+
+      if (keycode !== null) {
+        e.preventDefault();
+        e.stopPropagation();
+        sendNavigationKey(keycode);
+      }
+    };
+
+    window.addEventListener("keydown", handleWindowKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleWindowKeyDown, true);
+    };
+  }, [status, sendNavigationKey]);
 
   const isLandscape = dimensions.width > dimensions.height;
+  const connectedConnections = availableConnections?.filter(connection => connection.status === "Connected") || [];
+  const connectionSummary = [...new Set(connectedConnections.map(connection => connection.connection_type))].join(" + ") || connectionType || "—";
+  const ipSummary = connectedConnections
+    .filter(connection => connection.connection_type === "Wireless")
+    .map(connection => connection.ip_address || (connection.id.includes(":") ? connection.id.slice(0, connection.id.lastIndexOf(":")) : connection.id))
+    .join(", ") || deviceIp || "N/A (USB)";
   const shellClass = fillWorkspace
     ? "flex h-full min-h-0 w-full bg-gray-100 dark:bg-black overflow-hidden focus:outline-none"
     : "flex flex-col h-full bg-app-card rounded-xl border border-app-border shadow-2xl overflow-hidden focus:outline-none";
@@ -562,7 +675,7 @@ export function EmbeddedMirrorView({
         composingRef.current = false;
         if (status === "streaming" && e.data) {
           try {
-            await scrcpyService.sendText(deviceId, e.data);
+            await scrcpyService.sendText(transportRef.current, e.data);
           } catch {}
         }
       }}
@@ -608,7 +721,7 @@ export function EmbeddedMirrorView({
                           )}
                         </div>
                         <p className="text-sm text-app-muted font-medium mt-1">
-                          {deviceStatus || "Connected"} • {connectionType || "USB"}
+                          {deviceStatus || "Connected"} • {connectionSummary}
                         </p>
                       </div>
 
@@ -637,7 +750,7 @@ export function EmbeddedMirrorView({
                               onClick={async () => {
                                 setIsPoppedOut(false);
                                 try {
-                                  await scrcpyService.disconnectEmbeddedMirror(deviceId);
+                                  await scrcpyService.disconnectEmbeddedMirror(transportRef.current);
                                 } catch (err) {
                                   console.error("Error stopping pop-out stream:", err);
                                 }
@@ -650,6 +763,43 @@ export function EmbeddedMirrorView({
                           </>
                         )}
                       </div>
+
+                      {/* Transport toggle when both USB + WiFi available */}
+                      {(() => {
+                        const usbConn = availableConnections?.find(c => c.connection_type === "USB" && c.status === "Connected");
+                        const wifiConn = availableConnections?.find(c => c.connection_type === "Wireless" && c.status === "Connected");
+                        if (!usbConn || !wifiConn) return null;
+                        const isUsb = effectiveTransportId === usbConn.id;
+                        return (
+                          <div className="mt-4">
+                            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-[#2a3036] bg-white dark:bg-[#1d2327] w-fit">
+                              <button
+                                onClick={() => { if (!isUsb) void switchTransport(usbConn.id); }}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                                  isUsb
+                                    ? 'bg-cyan-500 text-white'
+                                    : 'text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]'
+                                }`}
+                              >
+                                <Usb size={13} />
+                                USB
+                              </button>
+                              <div className="w-px bg-gray-200 dark:bg-[#2a3036]" />
+                              <button
+                                onClick={() => { if (isUsb) void switchTransport(wifiConn.id); }}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                                  isUsb
+                                    ? 'text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]'
+                                    : 'bg-cyan-500 text-white'
+                                }`}
+                              >
+                                <Wifi size={13} />
+                                WiFi
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Stats Cards */}
                       <div className="grid grid-cols-2 gap-4 mt-2 max-w-xs">
@@ -702,8 +852,8 @@ export function EmbeddedMirrorView({
                     <div className="flex flex-col text-sm text-app-muted divide-y divide-gray-200/50 dark:divide-[#222629]/50">
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
                         <span className="w-1/3">ID</span>
-                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{deviceId}</span>
-                        <button onClick={() => { navigator.clipboard.writeText(deviceId); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
+                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{effectiveTransportId}</span>
+                        <button onClick={() => { navigator.clipboard.writeText(effectiveTransportId); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
                         <span className="w-1/3">Model</span>
@@ -712,13 +862,13 @@ export function EmbeddedMirrorView({
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
                         <span className="w-1/3">Connection</span>
-                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{connectionType || "—"}</span>
-                        <button onClick={() => { navigator.clipboard.writeText(connectionType || "—"); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
+                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{connectionSummary}</span>
+                        <button onClick={() => { navigator.clipboard.writeText(connectionSummary); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
                         <span className="w-1/3">IP Address</span>
-                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{deviceIp || (connectionType === "USB" ? "N/A (USB)" : "—")}</span>
-                        <button onClick={() => { navigator.clipboard.writeText(deviceIp || (connectionType === "USB" ? "N/A (USB)" : "—")); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
+                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{ipSummary}</span>
+                        <button onClick={() => { navigator.clipboard.writeText(ipSummary); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
                         <span className="w-1/3">Serial Number</span>
@@ -743,31 +893,118 @@ export function EmbeddedMirrorView({
           )
         )}
 
-        {status === "connecting" && (
+        {(status === "connecting") && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-app-card/90 dark:bg-[#0e1012]/90 z-10 text-center p-6 backdrop-blur-sm">
             <div className="w-12 h-12 rounded-full border-2 border-cyan-500/20 border-t-cyan-500 animate-spin mb-4" />
-            <p className="text-app-text font-medium text-sm">Starting mirror…</p>
-            <p className="text-app-muted text-xs mt-1">Pushing server and initializing decoder</p>
+            <p className="text-app-text font-medium text-sm">
+              {isAutoRetrying ? "Reconnecting…" : "Starting mirror…"}
+            </p>
+            {isAutoRetrying && (
+              <>
+                <p className="text-app-muted text-xs mt-1 max-w-sm">
+                  Auto-retrying ({retryCountRef.current}/{MAX_AUTO_RETRIES})
+                </p>
+                <div className="flex flex-col gap-2 w-full max-w-[220px] mt-4">
+                  {(() => {
+                    const otherConns = (availableConnections || []).filter(
+                      c => c.id !== effectiveTransportId && c.status === "Connected"
+                    );
+                    return otherConns.map(conn => (
+                      <button
+                        key={conn.id}
+                        onClick={() => {
+                          clearRetryTimer();
+                          isStoppedByUserRef.current = true;
+                          retryCountRef.current = 0;
+                          retryScheduledRef.current = false;
+                          setIsAutoRetrying(false);
+                          void switchTransport(conn.id);
+                        }}
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                      >
+                        {conn.connection_type === "USB" ? <Usb size={15} /> : <Wifi size={15} />}
+                        Switch to {conn.connection_type === "USB" ? "USB" : "WiFi"}
+                      </button>
+                    ));
+                  })()}
+                  <button
+                    onClick={() => {
+                      clearRetryTimer();
+                      retryScheduledRef.current = false;
+                      setIsAutoRetrying(false);
+                      retryCountRef.current = 0;
+                      setErrorMsg("Auto-retry cancelled");
+                      setStatus("error");
+                    }}
+                    className="px-4 py-2 text-app-muted hover:text-app-text text-xs rounded-lg transition-colors border border-transparent hover:border-app-border"
+                  >
+                    Stop retrying
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {status === "error" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-app-card/95 dark:bg-[#0e1012]/95 z-10 text-center p-6 backdrop-blur-sm">
-            <div className="w-12 h-12 rounded-full border-2 border-amber-500/20 border-t-amber-500 animate-spin mb-4" />
-            <p className="text-app-text font-semibold text-base mb-1">Reconnecting…</p>
-            <p className="text-amber-600 dark:text-amber-400 text-xs max-w-md mb-3">
-              {errorMsg || "Connection interrupted"}
+            <p className="text-app-text font-semibold text-base mb-1">Stream Interrupted</p>
+            <p className="text-app-muted text-xs max-w-md mb-4">
+              {errorMsg || "Connection lost"}
             </p>
-            <button
-              onClick={() => {
-                if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-                isStoppedByUserRef.current = false;
-                handleStart();
-              }}
-              className="px-4 py-2 bg-app-input hover:bg-app-hover text-app-text rounded-lg text-xs font-medium transition-colors border border-app-border"
-            >
-              Retry Now
-            </button>
+
+            <div className="flex flex-col gap-2 w-full max-w-[220px]">
+              {/* Switch transport buttons when multiple connections exist */}
+              {(() => {
+                const otherConns = (availableConnections || []).filter(
+                  c => c.id !== effectiveTransportId && c.status === "Connected"
+                );
+                if (otherConns.length === 0) return null;
+                return otherConns.map(conn => (
+                  <button
+                    key={conn.id}
+                    onClick={() => {
+                      clearRetryTimer();
+                      isStoppedByUserRef.current = true;
+                      retryCountRef.current = 0;
+                      retryScheduledRef.current = false;
+                      void switchTransport(conn.id);
+                    }}
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                  >
+                    {conn.connection_type === "USB" ? <Usb size={15} /> : <Wifi size={15} />}
+                    Switch to {conn.connection_type === "USB" ? "USB" : "WiFi"}
+                  </button>
+                ));
+              })()}
+
+              {/* Retry with current transport */}
+              <button
+                onClick={() => {
+                  if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+                  retryCountRef.current = 0;
+                  retryScheduledRef.current = false;
+                  setIsAutoRetrying(false);
+                  isStoppedByUserRef.current = false;
+                  handleStart();
+                }}
+                className="px-4 py-2.5 bg-app-input hover:bg-app-hover text-app-text text-sm font-medium rounded-lg transition-colors border border-app-border"
+              >
+                Retry
+              </button>
+
+              {/* Close */}
+              <button
+                onClick={() => {
+                  clearRetryTimer();
+                  isStoppedByUserRef.current = true;
+                  handleStop();
+                }}
+                className="px-4 py-2 text-app-muted hover:text-app-text text-xs rounded-lg transition-colors border border-transparent hover:border-app-border"
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
 
@@ -780,7 +1017,7 @@ export function EmbeddedMirrorView({
           onWheel={handleWheel}
           className="max-w-full max-h-full w-auto h-auto object-contain transition-opacity duration-200"
           style={{
-            opacity: status === "streaming" ? 1 : 0.2,
+            opacity: (status === "streaming" || status === "connecting") ? 1 : 0.2,
             // Prefer filling available height in portrait; width in landscape
             maxHeight: "100%",
             maxWidth: "100%",
@@ -805,18 +1042,18 @@ export function EmbeddedMirrorView({
           >
             {(
               [
-                { key: 4, icon: ArrowLeft, label: "Back" },
-                { key: 3, icon: Home, label: "Home" },
-                { key: 187, icon: Layers, label: "Recent" },
-                { key: 24, icon: Volume2, label: "Vol+" },
-                { key: 25, icon: VolumeX, label: "Vol-" },
-                { key: 26, icon: Power, label: "Power" },
+                { key: 4, icon: ArrowLeft, label: "Back", shortcut: "Alt+B" },
+                { key: 3, icon: Home, label: "Home", shortcut: "Alt+H" },
+                { key: 187, icon: Layers, label: "Recent", shortcut: "Alt+R" },
+                { key: 24, icon: Volume2, label: "Vol+", shortcut: "Alt+↑" },
+                { key: 25, icon: Volume1, label: "Vol-", shortcut: "Alt+↓" },
+                { key: 26, icon: Power, label: "Power", shortcut: "Alt+P" },
               ] as const
-            ).map(({ key, icon: Icon, label }) => (
+            ).map(({ key, icon: Icon, label, shortcut }) => (
               <button
                 key={key}
                 onClick={() => sendNavigationKey(key)}
-                title={label}
+                title={`${label} (${shortcut})`}
                 className="w-full flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0"
               >
                 <Icon size={18} className="text-app-muted hover:text-app-text transition-colors" />
@@ -832,7 +1069,7 @@ export function EmbeddedMirrorView({
                   const handlePopOut = async () => {
                     await handleStop();
                     try {
-                      await scrcpyService.openMirrorWindow(deviceId, deviceName);
+                      await scrcpyService.openMirrorWindow(transportRef.current, deviceName);
                       setIsPoppedOut(true);
                     } catch (err) {
                       console.error("Failed to open mirror window:", err);
