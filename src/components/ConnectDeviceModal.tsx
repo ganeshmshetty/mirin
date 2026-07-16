@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Smartphone, Wifi, Usb, ChevronLeft, X, ArrowRight, RefreshCw } from "lucide-react";
-import { deviceService } from "../services";
+import { deviceService, scrcpyService } from "../services";
 import type { Device } from "../types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { emit } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
 
 type Step = "instructions" | "search-wireless" | "search-usb" | "manual-wireless" | "manual-connect";
 
@@ -248,7 +247,7 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
         });
         await emit("device-connected");
       } else {
-        await invoke("open_mirror_window", { deviceId: device.id, deviceName: device.name }).catch((err) => {
+        await scrcpyService.openMirrorWindow(device.id, device.name).catch((err) => {
           console.error("Failed to open quick mirror window:", err);
         });
       }
@@ -282,7 +281,7 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
         await deviceService.saveDevice(usbDeviceToSave);
         await emit("device-connected");
       } else {
-        await invoke("open_mirror_window", { deviceId: device.id, deviceName: device.name }).catch((err) => {
+        await scrcpyService.openMirrorWindow(device.id, device.name).catch((err) => {
           console.error("Failed to open quick mirror window:", err);
         });
       }

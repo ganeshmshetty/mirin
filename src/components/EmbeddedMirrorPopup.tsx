@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { invoke } from "@tauri-apps/api/core";
 import { EmbeddedMirrorView } from "./EmbeddedMirrorView";
-import { scrcpyService } from "../services";
+import { scrcpyService, windowService } from "../services";
 
 export function EmbeddedMirrorPopup() {
   const { id } = useParams<{ id: string }>();
@@ -39,7 +38,7 @@ export function EmbeddedMirrorPopup() {
         deviceName={name}
         onClose={async () => {
           try {
-            await invoke("close_current_window");
+            await windowService.closeCurrentWindow();
           } catch {
             await getCurrentWindow().close();
           }

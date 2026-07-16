@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Channel, invoke } from "@tauri-apps/api/core";
+import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
   Square,
@@ -21,7 +21,7 @@ import {
   Wifi,
   Usb,
 } from "lucide-react";
-import { scrcpyService, deviceService } from "../services";
+import { scrcpyService, deviceService, mcpService } from "../services";
 import type { Device, ConnectionType, DeviceStatus, DeviceConnection, FrameEvent, DeviceDetails } from "../types";
 import { useToast } from "./ToastProvider";
 import { MirrorButton } from "./MirrorButton";
@@ -471,13 +471,13 @@ export function EmbeddedMirrorView({
       }
 
       if (dataBase64) {
-        invoke("submit_screenshot", {
-          reqId: event.payload.req_id,
+        mcpService.submitScreenshot(
+          event.payload.req_id,
           dataBase64,
-          width: dimensions.width,
-          height: dimensions.height,
-          annotatedElements: event.payload.elements || [],
-        }).catch(() => {});
+          dimensions.width,
+          dimensions.height,
+          event.payload.elements || []
+        ).catch(() => {});
       }
     }).then((un) => {
       if (disposed) un();

@@ -5,3 +5,5 @@ export * from "./settingsService";
 export * from "./appService";
 export * from "./fileService";
 export * from "./consoleService";
+export * from "./windowService";
+export * from "./mcpService";

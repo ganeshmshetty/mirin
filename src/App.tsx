@@ -11,9 +11,8 @@ import { InputDialogProvider } from "./components/InputDialog";
 import { ConnectDeviceModal } from "./components/ConnectDeviceModal";
 import { EmbeddedMirrorPopup } from "./components/EmbeddedMirrorPopup";
 import { ThemeProvider } from "./components/ThemeProvider";
-import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { settingsService } from "./services";
+import { settingsService, windowService } from "./services";
 
 function AppContent() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -108,7 +107,7 @@ function AppContent() {
 
   const handleConnectClick = async () => {
     try {
-      await invoke("open_connect_window");
+      await windowService.openConnectWindow();
     } catch (err) {
       console.error("Failed to open connect window:", err);
     }
@@ -116,7 +115,7 @@ function AppContent() {
 
   const handleQuickMirrorClick = async () => {
     try {
-      await invoke("open_connect_window", { mode: "quick-mirror" });
+      await windowService.openConnectWindow("quick-mirror");
     } catch (err) {
       console.error("Failed to open quick mirror window:", err);
     }
