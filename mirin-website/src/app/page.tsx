@@ -300,69 +300,11 @@ export default function LandingPage() {
             stick to the device, keeping your phone and tablet experiences separate.
           </p>
         </div>
-        <div className="feature-mockup flex-1 w-full relative">
-          <AppMockup className="h-[360px]">
-            {/* SETUP STATE PANEL */}
-            <div className="setup-panel-container absolute inset-0 flex flex-col items-center justify-center p-8 bg-app-bg text-center transition-all duration-300">
-              <div className="w-12 h-12 rounded-full bg-app-active-tab-bg flex items-center justify-center mb-4">
-                <Search className="text-app-primary" size={24} />
-              </div>
-              <div className="text-app-text font-medium text-base mb-1">Searching for wireless devices...</div>
-              <div className="text-app-text-muted text-xs mb-4">Ensure your phone and computer are on the same Wi-Fi network.</div>
-              
-              <div className="setup-device-item w-full max-w-sm bg-app-card border border-app-border rounded-lg p-3 flex justify-between items-center text-left relative">
-                 <div>
-                   <div className="text-app-text font-medium text-sm">Pixel 8 Pro</div>
-                   <div className="text-app-text-muted text-[10px]">192.168.1.104:42315</div>
-                 </div>
-                 <div className="relative w-16 h-8 flex items-center justify-end">
-                   <button className="setup-btn-pair bg-app-primary text-[#000] px-2.5 py-1.5 rounded-md text-[10px] font-medium absolute right-0">Pair</button>
-                   <button className="setup-btn-paired bg-app-active-bg text-app-primary px-2.5 py-1.5 rounded-md text-[10px] font-medium absolute right-0 opacity-0 pointer-events-none">Paired</button>
-                 </div>
-              </div>
-            </div>
-
-            {/* CONFIGURATION STATE PANEL */}
-            <div className="config-panel-container absolute inset-0 flex bg-app-bg opacity-0 pointer-events-none transition-all duration-300">
-              {/* Settings Sidebar */}
-              <div className="w-40 bg-app-sidebar border-r border-app-border p-3 flex flex-col gap-1 hidden sm:flex shrink-0">
-                <div className="px-2 py-1 text-app-text-muted text-[10px] font-semibold uppercase">Settings</div>
-                <div className="px-2 py-1.5 rounded bg-app-active-tab-bg text-app-primary text-xs font-medium">Profiles</div>
-                <div className="px-2 py-1.5 rounded hover:bg-app-hover text-app-text-muted text-xs font-medium">Display</div>
-                <div className="px-2 py-1.5 rounded hover:bg-app-hover text-app-text-muted text-xs font-medium">Advanced</div>
-              </div>
-              
-              {/* Configuration Panel Content */}
-              <div className="flex-1 p-5 flex flex-col gap-4 text-left">
-                <div>
-                  <div className="text-app-text font-medium text-xs mb-0.5">Performance Profile</div>
-                  <div className="text-app-text-muted text-[10px] mb-2">Select a preset for this device</div>
-                  <div className="flex gap-2">
-                    <div className="config-profile-gaming flex-1 border border-app-primary bg-app-active-tab-bg rounded-md p-2 cursor-pointer transition-all">
-                       <div className="config-profile-gaming-text text-app-primary text-xs font-medium mb-0.5">Gaming</div>
-                       <div className="text-app-text-muted text-[9px]">60 FPS • 16 Mbps</div>
-                    </div>
-                    <div className="config-profile-latency flex-1 border border-app-border rounded-md p-2 cursor-pointer transition-all">
-                       <div className="config-profile-latency-text text-app-text text-xs font-medium mb-0.5">Low Latency</div>
-                       <div className="text-app-text-muted text-[9px]">480p • 2 Mbps</div>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                   <div className="flex justify-between items-center border-b border-app-border pb-2">
-                     <div>
-                       <div className="text-app-text text-xs font-medium">Show touches</div>
-                       <div className="text-app-text-muted text-[9px]">Display physical touches on screen</div>
-                     </div>
-                     {/* Toggle switch mock */}
-                     <div className="config-toggle-bg w-8 h-5 bg-app-border rounded-full relative">
-                       <div className="config-toggle-knob w-4 h-4 bg-white rounded-full absolute left-0.5 top-0.5 shadow-sm"></div>
-                     </div>
-                   </div>
-                </div>
-              </div>
-            </div>
-          </AppMockup>
+        <div className="feature-mockup flex-1 w-full">
+          <img 
+            src="/setup-config-screenshot.png" 
+            alt="Mirin Setup & Configuration" 
+          />
         </div>
       </section>
 

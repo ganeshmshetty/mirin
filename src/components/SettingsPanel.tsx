@@ -514,11 +514,11 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
           {/* MCP TAB ITEMS */}
           {activeTab === 'mcp' && (
             <div className="space-y-6 animate-fade-in">
-              <div className="bg-cyan-50 dark:bg-cyan-900/10 border border-cyan-200/50 dark:border-cyan-800/30 rounded-xl p-4 flex gap-3 items-start">
-                <Terminal className="text-cyan-600 dark:text-cyan-400 mt-0.5 flex-shrink-0" size={18} />
+              <div className="bg-slate-50 dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl p-4 flex gap-3 items-start">
+                <Terminal className="text-gray-500 dark:text-slate-400 mt-0.5 flex-shrink-0" size={18} />
                 <div>
-                  <h5 className="text-sm font-semibold text-cyan-800 dark:text-cyan-300">Model Context Protocol</h5>
-                  <p className="text-[13px] text-cyan-700 dark:text-cyan-500/80 mt-1 leading-relaxed">
+                  <h5 className="text-sm font-semibold text-gray-900 dark:text-slate-100">Model Context Protocol</h5>
+                  <p className="text-[13px] text-gray-500 dark:text-slate-400 mt-1 leading-relaxed">
                     The MCP server allows external AI agents and workflows to securely interact with your connected Android devices. 
                     When enabled, agents can request screenshots, send touches, and execute shell commands programmatically.
                   </p>
