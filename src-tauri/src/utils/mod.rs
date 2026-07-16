@@ -22,7 +22,7 @@ fn get_resource_base_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .join("..").join("..").join("..").join("resources");
     
     if dev_path.exists() {
-        return Ok(dev_path.canonicalize().map_err(|e| format!("Failed to canonicalize path: {}", e))?);
+        return dev_path.canonicalize().map_err(|e| format!("Failed to canonicalize path: {}", e));
     }
     
     // Another fallback: check relative to manifest dir (Cargo.toml location)
@@ -129,8 +129,6 @@ pub fn get_scrcpy_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     // Note: These tests require a Tauri app instance and are mainly for documentation
     // Real testing should be done in integration tests or manually
 }

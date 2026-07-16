@@ -15,13 +15,23 @@ export enum DeviceStatus {
   Offline = "Offline",
 }
 
+
+export interface DeviceConnection {
+  id: string;
+  connection_type: ConnectionType;
+  status: DeviceStatus;
+  ip_address?: string;
+}
+
 export interface Device {
+  hardware_id: string;
   id: string;
   name: string;
   model: string;
   connection_type: ConnectionType;
   status: DeviceStatus;
   ip_address?: string;
+  connections: DeviceConnection[];
 }
 
 export interface ScrcpyOptions {
@@ -48,4 +58,17 @@ export interface MirrorSession {
   device_id: string;
   status: SessionStatus;
   started_at: string;
+}
+
+export interface FrameEvent {
+  event: "config" | "packet" | "disconnected";
+  data: any;
+}
+
+export interface EmbeddedStreamSettings {
+  max_size: number;
+  max_fps: number;
+  video_bit_rate: number;
+  video_codec: string;
+  audio: boolean;
 }

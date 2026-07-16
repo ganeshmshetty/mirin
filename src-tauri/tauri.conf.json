@@ -10,11 +10,14 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "Mirin",
         "width": 900,
-        "height": 650
+        "height": 650,
+        "minWidth": 720,
+        "minHeight": 500
       }
     ],
     "security": {

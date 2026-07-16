@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+:root {
+  /* Marketing-site-specific tokens (light editorial) */
+  --page-bg: #ffffff;
+  --page-bg-alt: #f7f8f8;
+  --text-primary: #1a1b1d;
+  --text-muted: #6b7075;
+  --border: #e7e8e9;
+  --accent: #0891b2; /* cyan-600 */
+  --accent-soft: #e0f7fb;
+
+  /* App tokens (dark mode only, for mockups) */
+  --app-bg: #121315;
+  --app-sidebar: #16191b;
+  --app-card: #191c1f;
+  --app-input: #1c2023;
+  --app-border: #222629;
+  --app-primary: #22d3ee; /* cyan-400 */
+  --app-primary-hover: #06b6d4;
+  --app-text: #f1f5f9;
+  --app-text-muted: #94a3b8;
+  --app-active-tab-bg: #1a262b;
+}
+
+@theme {
+  --color-page-bg: var(--page-bg);
+  --color-page-bg-alt: var(--page-bg-alt);
+  --color-text-primary: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-app-bg: var(--app-bg);
+  --color-app-sidebar: var(--app-sidebar);
+  --color-app-card: var(--app-card);
+  --color-app-input: var(--app-input);
+  --color-app-border: var(--app-border);
+  --color-app-primary: var(--app-primary);
+  --color-app-primary-hover: var(--app-primary-hover);
+  --color-app-text: var(--app-text);
+  --color-app-text-muted: var(--app-text-muted);
+  --color-app-active-tab-bg: var(--app-active-tab-bg);
+
+  --font-sans: var(--font-inter), sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}
+
+body {
+  background: var(--page-bg);
+  color: var(--text-primary);
+}
+
+/* Scrollbar styling for the page */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

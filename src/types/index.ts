@@ -5,13 +5,22 @@ export type ConnectionType = 'USB' | 'Wireless';
 
 export type DeviceStatus = 'Connected' | 'Disconnected' | 'Unauthorized' | 'Offline';
 
+export interface DeviceConnection {
+  id: string;
+  connection_type: ConnectionType;
+  status: DeviceStatus;
+  ip_address?: string;
+}
+
 export interface Device {
+  hardware_id: string;
   id: string;
   name: string;
   model: string;
   connection_type: ConnectionType;
   status: DeviceStatus;
   ip_address?: string;
+  connections: DeviceConnection[];
 }
 
 export interface MdnsService {
@@ -39,6 +48,11 @@ export interface Settings {
   stayAwake: boolean;
   turnScreenOff: boolean;
   theme: 'light' | 'dark' | 'system';
+  
+  mcpEnabled: boolean;
+  mcpPort: number;
+  mcpRequireAuth: boolean;
+  mcpLogLevel: 'error' | 'info' | 'debug';
 }
 
 // Default settings
@@ -50,4 +64,30 @@ export const DEFAULT_SETTINGS: Settings = {
   stayAwake: true,
   turnScreenOff: false,
   theme: 'system',
+  mcpEnabled: true,
+  mcpPort: 48484,
+  mcpRequireAuth: true,
+  mcpLogLevel: 'info',
 };
+
+export interface DeviceDetails {
+  serial: string;
+  manufacturer: string;
+  android_version: string;
+  battery_level: number;
+  storage_used_gb: number;
+  storage_total_gb: number;
+}
+
+export interface AppInfo {
+  package_name: string;
+  is_system: boolean;
+}
+
+export interface FileInfo {
+  name: string;
+  is_dir: boolean;
+  size: string;
+  modified_at: string;
+  permissions: string;
+}

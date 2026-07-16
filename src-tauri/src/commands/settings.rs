@@ -16,6 +16,16 @@ pub struct Settings {
     #[serde(rename = "turnScreenOff")]
     pub turn_screen_off: bool,
     pub theme: String,
+    
+    // MCP Settings
+    #[serde(rename = "mcpEnabled")]
+    pub mcp_enabled: bool,
+    #[serde(rename = "mcpPort")]
+    pub mcp_port: u16,
+    #[serde(rename = "mcpRequireAuth")]
+    pub mcp_require_auth: bool,
+    #[serde(rename = "mcpLogLevel")]
+    pub mcp_log_level: String,
 }
 
 impl Default for Settings {
@@ -28,6 +38,10 @@ impl Default for Settings {
             stay_awake: true,
             turn_screen_off: false,
             theme: "system".to_string(),
+            mcp_enabled: true,
+            mcp_port: 48484,
+            mcp_require_auth: true,
+            mcp_log_level: "info".to_string(),
         }
     }
 }
