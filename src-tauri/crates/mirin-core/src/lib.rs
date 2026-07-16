@@ -4,3 +4,6 @@ pub mod device_registry;
 pub mod utils;
 pub mod ui_extractor;
 pub mod screenshot;
+pub mod apps;
+pub mod files;
+pub mod settings;
