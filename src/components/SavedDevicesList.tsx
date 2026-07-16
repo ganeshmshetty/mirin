@@ -4,18 +4,7 @@ import { deviceService } from "../services";
 import { useConfirmDialog } from "./ConfirmDialog";
 import type { Device } from "../types";
 
-const getErrorMessage = (err: unknown): string => {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  if (err && typeof err === "object" && "message" in err && typeof (err as any).message === "string") {
-    return (err as any).message;
-  }
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return String(err);
-  }
-};
+import { getErrorMessage } from "../utils";
 
 const isWirelessDevice = (device: Device) => device.connection_type === "Wireless" || device.id.includes(":");
 

@@ -6,20 +6,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { emit } from "@tauri-apps/api/event";
 
-type Step = "instructions" | "search-wireless" | "search-usb" | "manual-wireless" | "manual-connect";
+import { getErrorMessage } from "../utils";
 
-const getErrorMessage = (err: unknown): string => {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  if (err && typeof err === "object" && "message" in err && typeof (err as any).message === "string") {
-    return (err as any).message;
-  }
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return String(err);
-  }
-};
+type Step = "instructions" | "search-wireless" | "search-usb" | "manual-wireless" | "manual-connect";
 
 interface ConnectDeviceModalProps {
   mode?: string;
