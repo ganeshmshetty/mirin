@@ -427,3 +427,91 @@ exit 0
     let result = adb.get_device_ip(Some("LINK_LOCAL")).await;
     assert!(result.is_err(), "Expected Err when only link-local IP exists, got: {:?}", result);
 }
+
+// ---------------------------------------------------------------------------
+// Test 21 – socket execution: host command mock exchange
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn test_adb_socket_execution_success() {
+    use tokio::net::TcpListener;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    // 1. Bind to a random local port
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    // 2. Spawn a background mock TCP server to simulate the ADB protocol
+    let server_task = tokio::spawn(async move {
+        // Handle client connection
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut buf = [0u8; 1024];
+
+        // First expected request: host:devices-l
+        let bytes_read = socket.read(&mut buf).await.unwrap();
+        let req = String::from_utf8_lossy(&buf[..bytes_read]);
+        assert!(req.contains("host:devices-l"));
+
+        // Respond with OKAY followed by response length (4 hex) and data
+        let response_data = "List of devices attached\ndevice123          device product:mock model:mock_phone\n";
+        let hex_len = format!("{:04x}", response_data.len());
+        socket.write_all(b"OKAY").await.unwrap();
+        socket.write_all(hex_len.as_bytes()).await.unwrap();
+        socket.write_all(response_data.as_bytes()).await.unwrap();
+        socket.flush().await.unwrap();
+    });
+
+    // 3. Create Adb wrapper pointing to the custom port
+    let dummy_path = std::path::PathBuf::from("/bin/true");
+    let adb = Adb::new(dummy_path).with_port(port);
+
+    // 4. Execute the command and assert
+    let devices = adb.devices().await;
+    assert!(devices.is_ok(), "Failed to get devices: {:?}", devices);
+    let dev_list = devices.unwrap();
+    assert_eq!(dev_list.len(), 1);
+    assert_eq!(dev_list[0].serial, "device123");
+
+    server_task.await.unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// Test 22 – socket execution: device transport command mock exchange
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn test_adb_socket_device_command_success() {
+    use tokio::net::TcpListener;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+
+    let server_task = tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut buf = [0u8; 1024];
+
+        // Step 1: expect transport route: "0018host:transport:SERIAL123"
+        let bytes_read = socket.read(&mut buf).await.unwrap();
+        let req = String::from_utf8_lossy(&buf[..bytes_read]);
+        assert!(req.contains("host:transport:SERIAL123"), "Expected host:transport request, got: {}", req);
+        socket.write_all(b"OKAY").await.unwrap();
+        socket.flush().await.unwrap();
+
+        // Step 2: expect device command: "exec:getprop ro.product.model"
+        let bytes_read = socket.read(&mut buf).await.unwrap();
+        let req = String::from_utf8_lossy(&buf[..bytes_read]);
+        assert!(req.contains("exec:getprop ro.product.model"), "Expected exec getprop, got: {}", req);
+        
+        socket.write_all(b"OKAY").await.unwrap();
+        socket.write_all(b"Pixel 8 PRO\n").await.unwrap();
+        socket.flush().await.unwrap();
+    });
+
+    let dummy_path = std::path::PathBuf::from("/bin/true");
+    let adb = Adb::new(dummy_path).with_device("SERIAL123").with_port(port);
+
+    let model = adb.get_model(Some("SERIAL123")).await;
+    assert!(model.is_ok(), "Failed to get model: {:?}", model);
+    assert_eq!(model.unwrap(), "Pixel 8 PRO");
+
+    server_task.await.unwrap();
+}
