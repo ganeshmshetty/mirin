@@ -145,9 +145,15 @@ impl ScreenshotRegistry {
                 }
             }
 
-            // Badge box corner
-            let badge_w = 36.min(ux2.saturating_sub(ux1));
-            let badge_h = 20.min(uy2.saturating_sub(uy1));
+            // Badge box corner with number
+            let num = idx + 1;
+            let num_str = num.to_string();
+            let digit_count = num_str.len() as u32;
+            let char_w = 7u32;
+            let char_h = 11u32;
+            let pad = 4u32;
+            let badge_w = (char_w * digit_count + pad * 2).min(ux2.saturating_sub(ux1));
+            let badge_h = (char_h + pad * 2).min(uy2.saturating_sub(uy1));
             for bx in ux1..ux1.saturating_add(badge_w) {
                 for by in uy1..uy1.saturating_add(badge_h) {
                     if bx < width && by < height {
@@ -156,6 +162,27 @@ impl ScreenshotRegistry {
                             by,
                             image::Rgba([color.0[0] / 2, color.0[1] / 2, color.0[2] / 2, 230]),
                         );
+                    }
+                }
+            }
+            // Draw number into badge
+            let dot_x = ux1 + pad;
+            let dot_y = uy1 + pad;
+            for (ci, ch) in num_str.chars().enumerate() {
+                if ch.is_ascii_digit() {
+                    if let Some(rows) = digit_bitmap(ch as u8 - b'0') {
+                        let cx = dot_x + ci as u32 * char_w;
+                        for (row, &row_bits) in rows.iter().enumerate() {
+                            for col_bit in 0..char_w {
+                                if row_bits & (1 << (char_w - 1 - col_bit)) != 0 {
+                                    let px = cx + col_bit;
+                                    let py = dot_y + row as u32;
+                                    if px < width && py < height {
+                                        img.put_pixel(px, py, image::Rgba([255, 255, 255, 255]));
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -185,5 +212,22 @@ impl ScreenshotRegistry {
         } else {
             Err(format!("Screenshot request {} not found or timed out", req_id))
         }
+    }
+}
+
+/// 7x11 pixel bitmap font for digits 0-9. Each entry is [row0, row1, ..., row10].
+fn digit_bitmap(d: u8) -> Option<[u8; 11]> {
+    match d {
+        0 => Some([0b0111110, 0b1111111, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1100011, 0b1111111, 0b0111110]),
+        1 => Some([0b0011000, 0b0111000, 0b1111000, 0b0011000, 0b0011000, 0b0011000, 0b0011000, 0b0011000, 0b0011000, 0b0011000, 0b1111111]),
+        2 => Some([0b0111110, 0b1111111, 0b1100011, 0b0000011, 0b0000111, 0b0001110, 0b0011100, 0b0111000, 0b1110000, 0b1111111, 0b1111111]),
+        3 => Some([0b0111110, 0b1111111, 0b1100011, 0b0000011, 0b0001111, 0b0001111, 0b0000011, 0b1100011, 0b1100011, 0b1111111, 0b0111110]),
+        4 => Some([0b0000110, 0b0001110, 0b0011110, 0b0110110, 0b1100110, 0b1100110, 0b1111111, 0b1111111, 0b0000110, 0b0000110, 0b0000110]),
+        5 => Some([0b1111111, 0b1111111, 0b1100000, 0b1111110, 0b1111111, 0b0000011, 0b0000011, 0b0000011, 0b1100011, 0b1111111, 0b0111110]),
+        6 => Some([0b0011110, 0b0111111, 0b1110000, 0b1100000, 0b1111110, 0b1111111, 0b1100011, 0b1100011, 0b1100011, 0b1111111, 0b0111110]),
+        7 => Some([0b1111111, 0b1111111, 0b0000011, 0b0000110, 0b0001100, 0b0011000, 0b0110000, 0b0110000, 0b0110000, 0b0110000, 0b0110000]),
+        8 => Some([0b0111110, 0b1111111, 0b1100011, 0b1100011, 0b1111111, 0b0111110, 0b1100011, 0b1100011, 0b1100011, 0b1111111, 0b0111110]),
+        9 => Some([0b0111110, 0b1111111, 0b1100011, 0b1100011, 0b1100011, 0b1111111, 0b0111111, 0b0000011, 0b0000111, 0b1111110, 0b0111100]),
+        _ => None,
     }
 }

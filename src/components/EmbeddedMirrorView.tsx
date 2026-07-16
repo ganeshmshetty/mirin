@@ -850,7 +850,10 @@ export function EmbeddedMirrorView({
 
             {/* Stop */}
             <button
-              onClick={handleStop}
+              onClick={() => {
+                handleStop();
+                if (isPopup && onClose) onClose();
+              }}
               title="Stop Mirroring"
               className="w-full flex items-center justify-center py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors flex-shrink-0"
             >

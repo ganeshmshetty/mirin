@@ -131,6 +131,14 @@ async fn open_mirror_window(
     device_id: String,
     device_name: String,
 ) -> Result<(), String> {
+    open_mirror_window_impl(app, device_id, device_name).await
+}
+
+pub(crate) async fn open_mirror_window_impl(
+    app: tauri::AppHandle,
+    device_id: String,
+    device_name: String,
+) -> Result<(), String> {
     use tauri::Manager;
 
     let window_label = format!("mirror_{}", device_id.replace(':', "_").replace('.', "_"));
