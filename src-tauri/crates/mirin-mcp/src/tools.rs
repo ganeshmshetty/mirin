@@ -24,9 +24,9 @@ pub struct ScriptStep {
     pub duration_ms: Option<u64>,
 }
 
-pub type OpenMirrorWindowCallback = Arc<
+pub type OpenMirrorWindowCallback<R = tauri::Wry> = Arc<
     dyn Fn(
-        tauri::AppHandle,
+        tauri::AppHandle<R>,
         String,
         String,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send>>
@@ -35,24 +35,24 @@ pub type OpenMirrorWindowCallback = Arc<
 >;
 
 #[derive(Clone)]
-pub struct ToolDispatcher {
-    app: AppHandle,
+pub struct ToolDispatcher<R: tauri::Runtime = tauri::Wry> {
+    app: AppHandle<R>,
     state: EmbeddedScrcpyState,
     pub ui_extractor: UiExtractor,
     pub screenshot_registry: ScreenshotRegistry,
     pub current_device: Arc<Mutex<Option<String>>>,
     pub device_registry: mirin_core::device_registry::DeviceRegistry,
-    pub open_mirror_window_fn: Option<OpenMirrorWindowCallback>,
+    pub open_mirror_window_fn: Option<OpenMirrorWindowCallback<R>>,
 }
 
-impl ToolDispatcher {
+impl<R: tauri::Runtime> ToolDispatcher<R> {
     pub fn new(
-        app: AppHandle,
+        app: AppHandle<R>,
         state: EmbeddedScrcpyState,
         ui_extractor: UiExtractor,
         screenshot_registry: ScreenshotRegistry,
         device_registry: mirin_core::device_registry::DeviceRegistry,
-        open_mirror_window_fn: Option<OpenMirrorWindowCallback>,
+        open_mirror_window_fn: Option<OpenMirrorWindowCallback<R>>,
     ) -> Self {
         Self {
             app,

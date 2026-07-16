@@ -4,7 +4,7 @@ use tauri::Manager;
 
 
 /// Get the base resource path, with fallback for development mode
-fn get_resource_base_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+fn get_resource_base_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     // First, try the standard resource directory (for production builds)
     if let Ok(resource_path) = app.path().resource_dir() {
         let prod_path = resource_path.join("resources");
@@ -47,7 +47,7 @@ fn get_platform_subpath() -> Result<&'static str, String> {
 }
 
 /// Get the path to the bundled ADB executable
-pub fn get_adb_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub fn get_adb_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     let adb_dir = get_adb_dir(app)?;
     
     let exe_name = if cfg!(target_os = "windows") {
@@ -66,7 +66,7 @@ pub fn get_adb_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 /// Get the path to the bundled scrcpy executable
-pub fn get_scrcpy_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub fn get_scrcpy_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     let scrcpy_dir = get_scrcpy_dir(app)?;
     
     let exe_name = if cfg!(target_os = "windows") {
@@ -86,7 +86,7 @@ pub fn get_scrcpy_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 /// Get the path to the scrcpy-server file
 #[allow(dead_code)]
-pub fn get_scrcpy_server_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub fn get_scrcpy_server_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     let scrcpy_dir = get_scrcpy_dir(app)?;
     
     let server_path = scrcpy_dir.join("scrcpy-server");
@@ -99,7 +99,7 @@ pub fn get_scrcpy_server_path(app: &tauri::AppHandle) -> Result<PathBuf, String>
 }
 
 /// Get the directory containing ADB executables and libraries
-pub fn get_adb_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub fn get_adb_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     let resource_path = get_resource_base_path(app)?;
     let platform_subpath = get_platform_subpath()?;
     
@@ -113,7 +113,7 @@ pub fn get_adb_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 /// Get the directory containing scrcpy executables and libraries
-pub fn get_scrcpy_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub fn get_scrcpy_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     let resource_path = get_resource_base_path(app)?;
     let platform_subpath = get_platform_subpath()?;
     

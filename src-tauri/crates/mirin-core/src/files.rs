@@ -206,3 +206,24 @@ pub async fn create_directory_impl(adb_path: PathBuf, device_id: String, path: S
     adb.execute(&["shell", "mkdir", "-p", &path]).await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_shell_metacharacters() {
+        assert!(validate_device_path("").is_err());
+        assert!(validate_device_path("/sdcard/$(rm)").is_err());
+        assert!(validate_device_path("/sdcard/a;b").is_err());
+        assert!(validate_device_path("/sdcard/foo bar").is_ok());
+        assert!(validate_device_path("/sdcard/file:name.txt").is_ok());
+    }
+
+    #[test]
+    fn normalize_collapses_slashes() {
+        assert_eq!(normalize_device_path("/sdcard//DCIM/"), "/sdcard/DCIM");
+        assert_eq!(normalize_device_path("/"), "/");
+        assert_eq!(normalize_device_path("  /sdcard  "), "/sdcard");
+    }
+}

@@ -618,9 +618,9 @@ SERIAL123          device product:P model:Pixel_6 device:D transport_id:1
         let output3 = "172.16.0.0/16 dev wlan0 scope link src 172.16.0.1";
         assert_eq!(adb.parse_ip_route(output3).unwrap(), "172.16.0.1");
 
-        // No wlan interface
+        // Falls back to eth0 interface (or any non-wlan interface with src)
         let output4 = "192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.100";
-        assert!(adb.parse_ip_route(output4).is_err());
+        assert_eq!(adb.parse_ip_route(output4).unwrap(), "192.168.1.100");
 
         // No src field
         let output5 = "192.168.1.0/24 dev wlan0 proto kernel scope link";

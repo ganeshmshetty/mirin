@@ -275,6 +275,34 @@ pub struct DeviceRegistry {
     forgotten_hw_ids: Arc<Mutex<HashSet<String>>>,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_brand() {
+        assert_eq!(format_brand("google"), "Google");
+        assert_eq!(format_brand("samsung"), "Samsung");
+        assert_eq!(format_brand("  xiaomi  "), "Xiaomi");
+        assert_eq!(format_brand(""), "");
+        assert_eq!(format_brand("oneplus co"), "Oneplus Co");
+    }
+
+    #[test]
+    fn test_device_registry_forgotten_state() {
+        let registry = DeviceRegistry::new();
+        let hw_id = "hw_serial_123".to_string();
+
+        assert!(!registry.is_forgotten(&hw_id));
+        
+        registry.mark_forgotten(hw_id.clone());
+        assert!(registry.is_forgotten(&hw_id));
+
+        registry.clear_forgotten(&hw_id);
+        assert!(!registry.is_forgotten(&hw_id));
+    }
+}
+
 impl DeviceRegistry {
     pub fn new() -> Self {
         Self {

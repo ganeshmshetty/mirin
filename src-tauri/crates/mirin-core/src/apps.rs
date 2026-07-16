@@ -135,3 +135,28 @@ pub async fn stop_app_impl(adb_path: PathBuf, device_id: String, package_name: S
     adb.execute(&["shell", "am", "force-stop", package_name.trim()]).await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_empty_and_metachar_packages() {
+        assert!(validate_package_name("").is_err());
+        assert!(validate_package_name("   ").is_err());
+        assert!(validate_package_name("com.evil;rm -rf").is_err());
+        assert!(validate_package_name("com.ok.app").is_ok());
+        assert!(validate_package_name("com.ok/app.Main").is_ok());
+        assert!(validate_package_name("a.b.c.d_1.2").is_ok());
+    }
+
+    #[test]
+    fn test_parse_package_list() {
+        let output = "package:com.android.settings\npackage:com.example.app\npackage:\n";
+        let parsed = parse_package_list(output, false);
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].package_name, "com.android.settings");
+        assert!(!parsed[0].is_system);
+        assert_eq!(parsed[1].package_name, "com.example.app");
+    }
+}

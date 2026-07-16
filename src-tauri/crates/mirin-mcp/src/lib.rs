@@ -18,19 +18,19 @@ use mirin_core::scrcpy::EmbeddedScrcpyState;
 pub const MCP_LOOPBACK_PORT: u16 = 48484;
 
 #[derive(Clone)]
-pub struct McpBridge {
-    tool_dispatcher: ToolDispatcher,
-    resource_dispatcher: ResourceDispatcher,
+pub struct McpBridge<R: tauri::Runtime = tauri::Wry> {
+    tool_dispatcher: ToolDispatcher<R>,
+    resource_dispatcher: ResourceDispatcher<R>,
 }
 
-impl McpBridge {
+impl<R: tauri::Runtime> McpBridge<R> {
     pub fn new(
-        app: AppHandle,
+        app: AppHandle<R>,
         state: EmbeddedScrcpyState,
         ui_extractor: UiExtractor,
         screenshot_registry: ScreenshotRegistry,
         device_registry: mirin_core::device_registry::DeviceRegistry,
-        open_mirror_window_fn: Option<crate::tools::OpenMirrorWindowCallback>,
+        open_mirror_window_fn: Option<crate::tools::OpenMirrorWindowCallback<R>>,
     ) -> Self {
         Self {
             tool_dispatcher: ToolDispatcher::new(app.clone(), state, ui_extractor, screenshot_registry, device_registry, open_mirror_window_fn),
@@ -59,7 +59,7 @@ impl McpBridge {
                 // Per JSON-RPC/MCP spec, notifications MUST NOT receive a response.
                 return Value::Null;
             }
-            "tools/list" => Ok(json!({ "tools": ToolDispatcher::get_tools_list() })),
+            "tools/list" => Ok(json!({ "tools": ToolDispatcher::<R>::get_tools_list() })),
             "tools/call" => {
                 let name = params.get("name").and_then(|n| n.as_str()).unwrap_or("");
                 let args = params.get("arguments").cloned().unwrap_or(json!({}));
@@ -79,7 +79,7 @@ impl McpBridge {
                     })),
                 }
             }
-            "resources/list" => Ok(json!({ "resources": ResourceDispatcher::get_resources_list() })),
+            "resources/list" => Ok(json!({ "resources": ResourceDispatcher::<R>::get_resources_list() })),
             "resources/read" => {
                 let uri = params.get("uri").and_then(|u| u.as_str()).unwrap_or("");
                 match self.resource_dispatcher.read_resource(uri).await {

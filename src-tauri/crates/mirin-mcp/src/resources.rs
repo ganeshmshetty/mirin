@@ -4,12 +4,12 @@ use tauri::AppHandle;
 use mirin_core::adb::Adb;
 
 #[derive(Clone)]
-pub struct ResourceDispatcher {
-    app: AppHandle,
+pub struct ResourceDispatcher<R: tauri::Runtime = tauri::Wry> {
+    app: AppHandle<R>,
 }
 
-impl ResourceDispatcher {
-    pub fn new(app: AppHandle) -> Self {
+impl<R: tauri::Runtime> ResourceDispatcher<R> {
+    pub fn new(app: AppHandle<R>) -> Self {
         Self { app }
     }
 

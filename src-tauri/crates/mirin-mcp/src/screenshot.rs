@@ -37,9 +37,9 @@ impl ScreenshotRegistry {
         }
     }
 
-    pub async fn capture(
+    pub async fn capture<R: tauri::Runtime>(
         &self,
-        app: &AppHandle,
+        app: &AppHandle<R>,
         ui_extractor: &UiExtractor,
         serial: &str,
         annotate: bool,

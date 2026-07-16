@@ -299,3 +299,44 @@ impl UiExtractor {
         Err(format!("Element matching selector '{}' not found on screen", selector))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_bounds() {
+        assert_eq!(UiExtractor::parse_bounds("[0,0][1080,1920]"), Some((0, 0, 1080, 1920)));
+        assert_eq!(UiExtractor::parse_bounds("[100,200][300,400]"), Some((100, 200, 300, 400)));
+        assert_eq!(UiExtractor::parse_bounds("invalid"), None);
+        assert_eq!(UiExtractor::parse_bounds("[0,0]"), None);
+        assert_eq!(UiExtractor::parse_bounds("[0,0] [100,100]"), None);
+    }
+
+    #[test]
+    fn test_parse_xml() {
+        let xml = r#"<?xml version="1.0" encoding="utf-8"?>
+        <hierarchy rotation="0">
+            <node index="0" text="" resource-id="" class="android.widget.FrameLayout" bounds="[0,0][1080,1920]">
+                <node index="0" text="Submit" resource-id="com.example:id/btn_submit" class="android.widget.Button" bounds="[100,200][300,300]" clickable="true" enabled="true" focused="false" scrollable="false" />
+                <node index="1" text="" content-desc="Profile Picture" resource-id="" class="android.widget.ImageView" bounds="[400,100][500,200]" clickable="false" enabled="true" focused="false" scrollable="false" />
+                <node index="2" text="" resource-id="" class="android.view.View" bounds="[0,0][10,10]" clickable="false" enabled="true" focused="false" scrollable="false" />
+            </node>
+        </hierarchy>"#;
+
+        let elements = UiExtractor::parse_xml(xml).unwrap();
+        // node 2 should be filtered out because it has no text/desc/id and is not interactive (clickable/scrollable/focused).
+        assert_eq!(elements.len(), 2);
+
+        assert_eq!(elements[0].id, 1);
+        assert_eq!(elements[0].text, Some("Submit".to_string()));
+        assert_eq!(elements[0].resource_id, Some("com.example:id/btn_submit".to_string()));
+        assert_eq!(elements[0].bounds, (100, 200, 300, 300));
+        assert!(elements[0].clickable);
+
+        assert_eq!(elements[1].id, 2);
+        assert_eq!(elements[1].content_desc, Some("Profile Picture".to_string()));
+        assert_eq!(elements[1].bounds, (400, 100, 500, 200));
+        assert!(!elements[1].clickable);
+    }
+}
