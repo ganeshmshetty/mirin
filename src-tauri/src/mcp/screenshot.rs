@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{oneshot, Mutex as TokioMutex};
-use crate::adb::Adb;
+use crate::core::adb::Adb;
 use crate::mcp::ui_extractor::{UiElement, UiExtractor};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,7 +49,7 @@ impl ScreenshotRegistry {
         let req_id = uuid::Uuid::new_v4().to_string();
         
         let elements = if annotate {
-            match ui_extractor.get_tree(&Adb::new(crate::utils::get_adb_path(app)?).with_device(serial), serial, false, false).await {
+            match ui_extractor.get_tree(&Adb::new(crate::core::utils::get_adb_path(app)?).with_device(serial), serial, false, false).await {
                 Ok(tree) => tree.elements,
                 Err(_) => Vec::new(),
             }
@@ -84,7 +84,7 @@ impl ScreenshotRegistry {
         }
 
         // Fallback: adb exec-out screencap -p
-        let adb_path = crate::utils::get_adb_path(app)?;
+        let adb_path = crate::core::utils::get_adb_path(app)?;
         let adb = Adb::new(adb_path).with_device(serial);
         let png_bytes = adb.execute_bytes(&["exec-out", "screencap", "-p"]).await?;
 

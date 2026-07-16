@@ -1,8 +1,7 @@
 mod commands;
-mod utils;
-mod scrcpy;
-mod adb;
+pub mod core;
 pub mod mcp;
+use crate::core::{scrcpy, utils, device_registry};
 
 use tauri::Manager;
 use std::sync::Arc;
@@ -207,6 +206,8 @@ pub fn run() {
     let ui_extractor = mcp::ui_extractor::UiExtractor::new();
     let screenshot_registry = mcp::screenshot::ScreenshotRegistry::new();
     let logcat_state = commands::LogcatState::new();
+    let device_registry = device_registry::DeviceRegistry::new();
+    let device_registry_clone = device_registry.clone();
     
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -215,6 +216,7 @@ pub fn run() {
         .manage(ui_extractor.clone())
         .manage(screenshot_registry.clone())
         .manage(logcat_state)
+        .manage(device_registry)
         .setup(move |app| {
             #[cfg(target_os = "macos")]
             {
@@ -241,6 +243,7 @@ pub fn run() {
                 embedded_state,
                 ui_extractor,
                 screenshot_registry,
+                device_registry_clone,
             ));
             tauri::async_runtime::spawn(async move {
                 mcp::start_loopback_server(bridge).await;
@@ -271,6 +274,8 @@ pub fn run() {
             commands::get_saved_devices,
             commands::remove_saved_device,
             commands::get_device_details,
+            commands::get_resolved_devices,
+            commands::forget_device,
             // Scrcpy commands
             commands::check_scrcpy_available,
             commands::get_scrcpy_version,

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use crate::adb::Adb;
-use crate::utils;
+use crate::core::adb::Adb;
+use crate::core::utils;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileInfo {

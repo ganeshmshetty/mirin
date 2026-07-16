@@ -13,7 +13,7 @@ use crate::mcp::resources::ResourceDispatcher;
 use crate::mcp::screenshot::ScreenshotRegistry;
 use crate::mcp::tools::ToolDispatcher;
 use crate::mcp::ui_extractor::UiExtractor;
-use crate::scrcpy::EmbeddedScrcpyState;
+use crate::core::scrcpy::EmbeddedScrcpyState;
 
 pub const MCP_LOOPBACK_PORT: u16 = 48484;
 
@@ -29,9 +29,10 @@ impl McpBridge {
         state: EmbeddedScrcpyState,
         ui_extractor: UiExtractor,
         screenshot_registry: ScreenshotRegistry,
+        device_registry: crate::device_registry::DeviceRegistry,
     ) -> Self {
         Self {
-            tool_dispatcher: ToolDispatcher::new(app.clone(), state, ui_extractor, screenshot_registry),
+            tool_dispatcher: ToolDispatcher::new(app.clone(), state, ui_extractor, screenshot_registry, device_registry),
             resource_dispatcher: ResourceDispatcher::new(app),
         }
     }

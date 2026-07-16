@@ -83,6 +83,20 @@ export const deviceService = {
   },
 
   /**
+   * Get resolved physical devices (merges connected and saved devices on backend)
+   */
+  async getResolvedDevices(): Promise<Device[]> {
+    return await invoke<Device[]>("get_resolved_devices");
+  },
+
+  /**
+   * Forget a device (backend handles disconnect, saved file cleanup, and auto-save suppression)
+   */
+  async forgetDevice(deviceId: string): Promise<boolean> {
+    return await invoke<boolean>("forget_device", { deviceId });
+  },
+
+  /**
    * One-click switch a USB-connected device to wireless mode and connect
    */
   async switchToWireless(deviceId: string): Promise<Device> {

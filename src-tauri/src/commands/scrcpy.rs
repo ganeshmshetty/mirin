@@ -1,13 +1,13 @@
 use tauri::{State, ipc::Channel};
-use crate::scrcpy::{
+use crate::core::scrcpy::{
     self,
     EmbeddedScrcpyState, EmbeddedSessionInfo,
     stream::{self, EmbeddedStreamSettings},
     video::{self, FrameEvent, VideoCodec},
     control,
 };
-use crate::adb::Adb;
-use crate::utils;
+use crate::core::adb::Adb;
+use crate::core::utils;
 use std::sync::Arc;
 use tokio::sync::{Mutex as TokioMutex, Notify};
 

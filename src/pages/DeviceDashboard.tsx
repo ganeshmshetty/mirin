@@ -45,41 +45,18 @@ export function DeviceDashboard({ activeTool: controlledTool, onDeviceMeta }: De
     const loadDevice = async () => {
       if (!id) return;
       try {
-        const connectedDevices = await deviceService.getConnectedDevices();
-        // Try direct id match first, then fallback to hardware_id (supports
-        // navigation from merged entries where id may be wireless IP:port or USB serial)
-        let found = connectedDevices.find((d) => d.id === id);
-        if (!found) {
-          found = connectedDevices.find((d) => d.hardware_id === id);
-        }
+        const resolvedDevices = await deviceService.getResolvedDevices();
+        const found = resolvedDevices.find(
+          (d) => d.id === id || d.hardware_id === id || d.connections?.some((c) => c.id === id)
+        );
 
         if (found) {
-          // Gather all sibling connections sharing the same hardware_id
-          const siblings = connectedDevices.filter(
-            d => d.hardware_id && d.hardware_id === found!.hardware_id && d.id !== found!.id
-          );
-          if (siblings.length > 0) {
-            found = {
-              ...found,
-              connections: [
-                ...(found.connections || []),
-                ...siblings.flatMap(s => s.connections || []),
-              ],
-            };
-          }
           setDevice(found);
-          setActiveTransportId(found.id);
+          const matchingConn = found.connections?.find((c) => c.id === id);
+          setActiveTransportId(matchingConn ? matchingConn.id : found.id);
         } else {
-          const savedDevices = await deviceService.getSavedDevices();
-          const savedFound = savedDevices.find((d) => d.id === id)
-            || savedDevices.find((d) => d.hardware_id === id);
-          if (savedFound) {
-            setDevice({ ...savedFound, status: "Offline" });
-            setActiveTransportId(savedFound.id);
-          } else {
-            toast.error("Device not found");
-            navigate("/");
-          }
+          toast.error("Device not found");
+          navigate("/");
         }
       } catch (err) {
         console.error("Failed to load device details:", err);
@@ -88,7 +65,7 @@ export function DeviceDashboard({ activeTool: controlledTool, onDeviceMeta }: De
       }
     };
 
-    if (id) loadDevice();
+    loadDevice();
   }, [id, navigate, toast]);
 
   useEffect(() => {

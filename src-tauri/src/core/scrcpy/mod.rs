@@ -5,7 +5,7 @@ pub mod video;
 use std::process::Command;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use crate::utils;
+use crate::core::utils;
 use tokio::sync::{Mutex as TokioMutex, Notify};
 use tokio::net::TcpStream;
 

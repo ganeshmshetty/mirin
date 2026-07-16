@@ -4,8 +4,8 @@ use tokio::sync::Mutex;
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use std::process::Stdio;
-use crate::adb::Adb;
-use crate::utils;
+use crate::core::adb::Adb;
+use crate::core::utils;
 use serde::Serialize;
 
 pub struct LogcatState(pub Arc<Mutex<HashMap<String, tokio::task::JoinHandle<()>>>>);
