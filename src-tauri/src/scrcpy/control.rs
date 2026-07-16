@@ -1,6 +1,7 @@
 use anyhow::Result;
 use byteorder::{BigEndian, WriteBytesExt};
-use tokio::io::AsyncWriteExt;
+use std::time::Duration;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 
@@ -10,6 +11,8 @@ const MSG_TYPE_INJECT_TOUCH: u8 = 2;
 const MSG_TYPE_INJECT_SCROLL: u8 = 3;
 #[allow(dead_code)]
 const MSG_TYPE_BACK_OR_SCREEN_ON: u8 = 4;
+const MSG_TYPE_GET_CLIPBOARD: u8 = 8;
+const MSG_TYPE_SET_CLIPBOARD: u8 = 9;
 const MSG_TYPE_ROTATE_DEVICE: u8 = 11;
 
 #[allow(dead_code)]
@@ -109,6 +112,50 @@ pub async fn rotate_device(socket: &Mutex<TcpStream>) -> Result<()> {
     let mut stream = socket.lock().await;
     stream.write_all(&buf).await?;
     Ok(())
+}
+
+pub async fn set_clipboard(socket: &Mutex<TcpStream>, text: &str) -> Result<()> {
+    let bytes = text.as_bytes();
+    let mut buf: Vec<u8> = Vec::with_capacity(14 + bytes.len());
+    WriteBytesExt::write_u8(&mut buf, MSG_TYPE_SET_CLIPBOARD).unwrap();
+    WriteBytesExt::write_u64::<BigEndian>(&mut buf, 0).unwrap(); // sequence = 0 (no ack)
+    WriteBytesExt::write_u8(&mut buf, 0).unwrap(); // paste = false
+    WriteBytesExt::write_u32::<BigEndian>(&mut buf, bytes.len() as u32).unwrap();
+    std::io::Write::write_all(&mut buf, bytes).unwrap();
+
+    let mut stream = socket.lock().await;
+    stream.write_all(&buf).await?;
+    Ok(())
+}
+
+pub async fn get_clipboard(socket: &Mutex<TcpStream>) -> Result<String> {
+    let mut buf: Vec<u8> = Vec::with_capacity(2);
+    WriteBytesExt::write_u8(&mut buf, MSG_TYPE_GET_CLIPBOARD).unwrap();
+    WriteBytesExt::write_u8(&mut buf, 0).unwrap(); // copy_key = NONE
+
+    let mut stream = socket.lock().await;
+    stream.write_all(&buf).await?;
+
+    // Read the 5-byte response header with a timeout to avoid hanging
+    let mut header = [0u8; 5];
+    tokio::time::timeout(Duration::from_secs(3), stream.read_exact(&mut header))
+        .await
+        .map_err(|_| anyhow::anyhow!("Clipboard get timed out (scrcpy server did not respond)"))?
+        .map_err(|e| anyhow::anyhow!("Clipboard read error: {}", e))?;
+
+    if header[0] != 0 {
+        return Err(anyhow::anyhow!("Unexpected device message type: {}", header[0]));
+    }
+    let len = u32::from_be_bytes([header[1], header[2], header[3], header[4]]) as usize;
+    let mut text_bytes = vec![0u8; len];
+    if len > 0 {
+        tokio::time::timeout(Duration::from_secs(3), stream.read_exact(&mut text_bytes))
+            .await
+            .map_err(|_| anyhow::anyhow!("Clipboard content read timed out"))?
+            .map_err(|e| anyhow::anyhow!("Clipboard content read error: {}", e))?;
+    }
+    let text = String::from_utf8_lossy(&text_bytes).to_string();
+    Ok(text)
 }
 
 pub async fn inject_scroll(

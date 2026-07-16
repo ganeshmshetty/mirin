@@ -194,6 +194,7 @@ impl UiExtractor {
                 let content = adb
                     .execute(&["exec-out", "cat", "/data/local/tmp/uidump.xml"])
                     .await?;
+                let _ = adb.execute(&["shell", "rm", "/data/local/tmp/uidump.xml"]).await;
                 let start = content
                     .find("<?xml")
                     .or_else(|| content.find("<hierarchy"))
@@ -259,8 +260,9 @@ impl UiExtractor {
         let tree = self.get_tree(adb, serial, false, false).await?;
         let sel = selector.trim();
 
-        // 1. Try numeric ID
-        if let Ok(num_id) = sel.parse::<u32>() {
+        // 1. Try numeric ID (supports both "18" and "[18]" formats)
+        let stripped = sel.strip_prefix('[').and_then(|s| s.strip_suffix(']')).unwrap_or(sel);
+        if let Ok(num_id) = stripped.parse::<u32>() {
             if let Some(el) = tree.elements.iter().find(|e| e.id == num_id) {
                 let center_x = (el.bounds.0 + el.bounds.2) / 2;
                 let center_y = (el.bounds.1 + el.bounds.3) / 2;
