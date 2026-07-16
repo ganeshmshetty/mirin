@@ -1,6 +1,6 @@
 import "./App.css";
 import { useState, useEffect, useCallback } from "react";
-import { Routes, Route, useLocation, useSearchParams } from "react-router-dom";
+import { Routes, Route, useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { Sidebar, type DeviceRailInfo } from "./components/Sidebar";
 import { Home } from "./pages/Home";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -20,6 +20,8 @@ function AppContent() {
   const [deviceRail, setDeviceRail] = useState<DeviceRailInfo | null>(null);
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const navigate = useNavigate();
 
   const isDeviceRoute = location.pathname.startsWith("/device/");
   const deviceIdFromPath = isDeviceRoute
@@ -73,6 +75,18 @@ function AppContent() {
       document.documentElement.style.removeProperty("background");
     }
   }, [location.pathname]);
+
+  // Cmd+, to open settings (macOS convention)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "," && e.metaKey) {
+        e.preventDefault();
+        navigate("/settings");
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [navigate]);
 
   // Clear device rail when leaving device routes
   useEffect(() => {

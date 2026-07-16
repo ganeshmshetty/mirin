@@ -90,9 +90,9 @@ export function DeviceTable({
     }
 
     return (
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col min-h-0">
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col min-h-0 bg-slate-100 dark:bg-[#111315]">
             <div className="max-w-xl mx-auto w-full flex-1 flex flex-col min-h-0">
-            <div className="space-y-3">
+            <div className="flex flex-col">
             {devices.map((device) => {
                 const isMenuOpen = openMenuId === device.id;
                 const isOffline = device.status === "Offline";
@@ -109,7 +109,7 @@ export function DeviceTable({
                                 navigate(`/device/${encodeURIComponent(device.id)}?tab=screen`);
                             }
                         }}
-                        className="cursor-pointer group relative flex items-center gap-4 py-5 px-5 rounded-xl bg-white dark:bg-[#16191b] hover:bg-gray-50 dark:hover:bg-[#1d2327]/50 transition-colors shadow-md shadow-black/5 dark:shadow-none"
+                        className="group relative flex items-center gap-4 py-5 px-5 bg-white dark:bg-[#16191b] hover:bg-gray-50 dark:hover:bg-[#1d2327]/50 transition-colors border border-gray-200 dark:border-[#222629] rounded-none first:rounded-t-xl last:rounded-b-xl -mb-px last:mb-0"
                     >
                         {/* 1. Icon */}
                         <div className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors bg-gray-50 dark:bg-[#1d2327] text-gray-500 dark:text-slate-400 group-hover:bg-gray-100 dark:group-hover:bg-[#252c31]">
@@ -201,8 +201,9 @@ export function DeviceTable({
             {/* Quick Mirror Button at the bottom */}
             {devices.length > 0 && (
                 <>
-                    <div className="flex-1 min-h-[32px]" />
-                    <div className="flex justify-center flex-shrink-0">
+                    <div className="flex-1" />
+                    <div className="border-t border-dashed border-gray-300 dark:border-[#2f353a]" />
+                    <div className="flex items-center justify-center pt-6">
                         <button
                             onClick={onQuickMirrorClick}
                             className="px-6 py-3 bg-cyan-50 dark:bg-cyan-900/20 hover:bg-cyan-100 dark:hover:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400 font-semibold rounded-xl transition-all shadow-sm active:scale-95 text-sm flex items-center gap-2 border border-cyan-200 dark:border-cyan-800"
@@ -211,7 +212,6 @@ export function DeviceTable({
                             Quick Mirror
                         </button>
                     </div>
-                    <div className="flex-1 min-h-[32px]" />
                 </>
             )}
             </div>
