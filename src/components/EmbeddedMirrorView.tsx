@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
   Square,
@@ -22,7 +21,8 @@ import {
   Usb,
 } from "lucide-react";
 import { scrcpyService, deviceService, mcpService } from "../services";
-import type { Device, ConnectionType, DeviceStatus, DeviceConnection, FrameEvent, DeviceDetails } from "../types";
+import { useMirrorDecoder } from "../hooks/useMirrorDecoder";
+import type { Device, ConnectionType, DeviceStatus, DeviceConnection, DeviceDetails } from "../types";
 import { useToast } from "./ToastProvider";
 import { MirrorButton } from "./MirrorButton";
 import { useInputDialog } from "./InputDialog";
@@ -46,15 +46,6 @@ interface EmbeddedMirrorViewProps {
   onTransportChange?: (transportId: string) => void;
 }
 
-function b64ToBytes(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) {
-    bytes[i] = bin.charCodeAt(i);
-  }
-  return bytes;
-}
-
 export function EmbeddedMirrorView({
   deviceId,
   deviceName,
@@ -71,30 +62,38 @@ export function EmbeddedMirrorView({
   onTransportChange,
 }: EmbeddedMirrorViewProps) {
   const toast = useToast();
-  const toastRef = useRef(toast);
-  toastRef.current = toast;
   const { prompt } = useInputDialog();
 
-  const [status, setStatus] = useState<"idle" | "connecting" | "streaming" | "error">("idle");
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 1080, height: 1920 });
-  const [isPoppedOut, setIsPoppedOut] = useState(false);
-  const [isAutoRetrying, setIsAutoRetrying] = useState(false);
+  const {
+    status,
+    errorMsg,
+    isAutoRetrying,
+    setIsAutoRetrying,
+    effectiveTransportId,
+    dimensions,
+    isPoppedOut,
+    setIsPoppedOut,
+    canvasRef,
+    transportRef,
+    retryCountRef,
+    MAX_AUTO_RETRIES,
+    handleStop,
+    switchTransport,
+    startMirroring,
+    retryMirroring,
+    cancelRetry,
+  } = useMirrorDecoder({
+    deviceId,
+    autoStart,
+    isPopup,
+    onTransportChange,
+    toast,
+  });
+
   const [isDetailsOpen, setIsDetailsOpen] = useState(true);
   const [details, setDetails] = useState<DeviceDetails | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
-  const [effectiveTransportId, setEffectiveTransportId] = useState(deviceId);
-  const transportRef = useRef(deviceId);
-  const retryScheduledRef = useRef(false);
-
-  useEffect(() => {
-    transportRef.current = deviceId;
-    setEffectiveTransportId(deviceId);
-    retryCountRef.current = 0;
-    retryScheduledRef.current = false;
-    setIsAutoRetrying(false);
-    onTransportChange?.(deviceId);
-  }, [deviceId, onTransportChange]);
+  const isMouseDownRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -158,268 +157,10 @@ export function EmbeddedMirrorView({
       }
     }
   };
-  
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const decoderRef = useRef<VideoDecoder | null>(null);
-  const pendingFrame = useRef<VideoFrame | null>(null);
-  const rafId = useRef<number>(0);
-  const isMouseDownRef = useRef(false);
-
-  const isMountedRef = useRef(true);
-  const isStoppedByUserRef = useRef(false);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Bumps on every start/stop so stale channels never schedule retries or update UI. */
-  const connectGenRef = useRef(0);
-  const connectingRef = useRef(false);
-  const retryCountRef = useRef(0);
-  const MAX_AUTO_RETRIES = 3;
-
-  const cleanupDecoder = useCallback(() => {
-    if (rafId.current) {
-      cancelAnimationFrame(rafId.current);
-      rafId.current = 0;
-    }
-    if (pendingFrame.current) {
-      pendingFrame.current.close();
-      pendingFrame.current = null;
-    }
-    if (decoderRef.current && decoderRef.current.state !== "closed") {
-      decoderRef.current.close();
-      decoderRef.current = null;
-    }
-  }, []);
-
-  const clearRetryTimer = useCallback(() => {
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
-  }, []);
-
-  const handleStop = useCallback(async () => {
-    isStoppedByUserRef.current = true;
-    connectGenRef.current += 1; // invalidate any in-flight channel
-    connectingRef.current = false;
-    retryScheduledRef.current = false;
-    clearRetryTimer();
-    cleanupDecoder();
-    setStatus("idle");
-    setIsPoppedOut(false);
-    try {
-      await scrcpyService.disconnectEmbeddedMirror(transportRef.current);
-    } catch (err) {
-      console.error("Disconnect error:", err);
-    }
-  }, [cleanupDecoder, clearRetryTimer, deviceId]);
-
-  const handleStart = useCallback(async () => {
-    if (!isMountedRef.current || isStoppedByUserRef.current) return;
-    // One in-flight connect at a time (stale disconnects must not stack)
-    if (connectingRef.current) return;
-
-    clearRetryTimer();
-    const gen = ++connectGenRef.current;
-    connectingRef.current = true;
-
-    cleanupDecoder();
-    setStatus("connecting");
-    setErrorMsg(null);
-    setIsPoppedOut(false);
-
-    const isCurrent = () =>
-      isMountedRef.current &&
-      !isStoppedByUserRef.current &&
-      connectGenRef.current === gen;
-
-    const scheduleRetry = (message: string, delayMs: number) => {
-      if (!isCurrent() || retryScheduledRef.current) return;
-      retryScheduledRef.current = true;
-      retryCountRef.current++;
-      if (retryCountRef.current > MAX_AUTO_RETRIES) {
-        setErrorMsg(message);
-        setStatus("error");
-        setIsAutoRetrying(false);
-        retryScheduledRef.current = false;
-        return;
-      }
-
-      setIsAutoRetrying(true);
-      setStatus("connecting");
-      clearRetryTimer();
-      retryTimerRef.current = setTimeout(() => {
-        retryTimerRef.current = null;
-        retryScheduledRef.current = false;
-        if (isCurrent()) {
-          void handleStart();
-        }
-      }, delayMs);
-    };
-
-    try {
-      const channel = new Channel<FrameEvent>();
-      channel.onmessage = (msg) => {
-        if (!isCurrent()) return;
-
-        if (msg.event === "config") {
-          cleanupDecoder();
-          const descBytes = b64ToBytes(msg.data.description);
-          const description = descBytes.buffer.slice(
-            descBytes.byteOffset,
-            descBytes.byteOffset + descBytes.byteLength
-          );
-          const decoder = new VideoDecoder({
-            output: (frame: VideoFrame) => {
-              if (!isCurrent()) {
-                frame.close();
-                return;
-              }
-
-              if (pendingFrame.current) pendingFrame.current.close();
-              pendingFrame.current = frame;
-              if (!rafId.current) {
-                rafId.current = requestAnimationFrame(() => {
-                  rafId.current = 0;
-                  const f = pendingFrame.current;
-                  if (!f) return;
-                  pendingFrame.current = null;
-                  const canvas = canvasRef.current;
-                  if (!canvas) { f.close(); return; }
-                  if (canvas.width !== f.displayWidth || canvas.height !== f.displayHeight) {
-                    canvas.width = f.displayWidth;
-                    canvas.height = f.displayHeight;
-                    setDimensions({ width: f.displayWidth, height: f.displayHeight });
-                  }
-                  const ctx = canvas.getContext("2d");
-                  if (ctx) ctx.drawImage(f, 0, 0);
-                  f.close();
-                });
-              }
-            },
-            error: (e: DOMException) => {
-              scheduleRetry(e.message || "Video decoder error", 2500);
-            },
-          });
-          
-          decoderRef.current = decoder;
-
-          const config: VideoDecoderConfig = {
-            codec: msg.data.codec,
-            description,
-            hardwareAcceleration: "prefer-hardware",
-          };
-
-          VideoDecoder.isConfigSupported(config).then((result) => {
-            if (!isCurrent()) return;
-            if (!result.supported) {
-              toastRef.current.error(`Codec ${msg.data.codec} is not supported on your hardware.`);
-              setStatus("error");
-              // Unsupported codec won't self-heal — do not thrash the device
-              scrcpyService.disconnectEmbeddedMirror(transportRef.current).catch(() => {});
-              return;
-            }
-            decoder.configure(config);
-            retryCountRef.current = 0;
-            setIsAutoRetrying(false);
-            setStatus("streaming");
-          }).catch((err) => {
-            scheduleRetry(err instanceof Error ? err.message : "Video configuration failed", 2500);
-          });
-        } else if (msg.event === "packet") {
-          const decoder = decoderRef.current;
-          if (!decoder || decoder.state !== "configured") return;
-          const bytes = b64ToBytes(msg.data.data);
-          decoder.decode(new EncodedVideoChunk({
-            type: msg.data.key ? "key" : "delta",
-            timestamp: msg.data.timestamp,
-            data: bytes,
-          }));
-        } else if (msg.event === "disconnected") {
-          cleanupDecoder();
-          if (!isCurrent()) return;
-          const reason = msg.data.reason || "Stream disconnected";
-          if (reason === "Stream closed cleanly" || reason === "replaced") {
-            setStatus("idle");
-            return;
-          }
-          if (isPopup) {
-            setErrorMsg(reason + " (Stream moved to main window or ended)");
-            setStatus("error");
-            return;
-          }
-          scheduleRetry(reason, 2000);
-        }
-      };
-
-      const [w, h] = await scrcpyService.connectEmbeddedMirror(transportRef.current, channel, {
-        max_size: 1080,
-        max_fps: 60,
-        video_bit_rate: 8000000,
-        video_codec: "h264",
-        audio: false,
-      });
-
-      if (!isCurrent()) {
-        // Stale generation: a newer connect or unmount owns lifecycle now.
-        // Do NOT disconnect here — that would kill a newer session on the same deviceId.
-        return;
-      }
-      setDimensions({ width: w, height: h });
-      if (canvasRef.current) {
-        canvasRef.current.width = w;
-        canvasRef.current.height = h;
-      }
-    } catch (err: any) {
-      if (!isCurrent()) return;
-      cleanupDecoder();
-      scheduleRetry(typeof err === "string" ? err : err.message || "Failed to start embedded stream", 2500);
-    } finally {
-      if (connectGenRef.current === gen) {
-        connectingRef.current = false;
-      }
-    }
-  }, [cleanupDecoder, clearRetryTimer, deviceId]);
-
-  const switchTransport = useCallback(async (newTransportId: string) => {
-    isStoppedByUserRef.current = true;
-    connectGenRef.current += 1;
-    connectingRef.current = false;
-    retryScheduledRef.current = false;
-    clearRetryTimer();
-    cleanupDecoder();
-    try {
-      await scrcpyService.disconnectEmbeddedMirror(transportRef.current);
-    } catch {
-      // ignore cleanup errors
-    }
-    transportRef.current = newTransportId;
-    setEffectiveTransportId(newTransportId);
-    onTransportChange?.(newTransportId);
-    setStatus("idle");
-  }, [cleanupDecoder, clearRetryTimer, onTransportChange]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('mirror-status', { detail: { deviceId: effectiveTransportId, status: isPoppedOut ? "streaming" : status } }));
   }, [effectiveTransportId, status, isPoppedOut]);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    if (isPopup || autoStart) {
-      isStoppedByUserRef.current = false;
-      void handleStart();
-    } else {
-      isStoppedByUserRef.current = true;
-    }
-
-    return () => {
-      isMountedRef.current = false;
-      connectGenRef.current += 1;
-      connectingRef.current = false;
-      retryScheduledRef.current = false;
-      clearRetryTimer();
-      cleanupDecoder();
-      scrcpyService.disconnectEmbeddedMirror(transportRef.current).catch(() => {});
-    };
-  }, [deviceId, cleanupDecoder, clearRetryTimer, isPopup, autoStart, handleStart]);
 
   useEffect(() => {
     let disposed = false;
@@ -730,8 +471,7 @@ export function EmbeddedMirrorView({
                           <MirrorButton
                             size="md"
                             onClick={() => {
-                              isStoppedByUserRef.current = false;
-                              handleStart();
+                              startMirroring();
                             }}
                           />
                         ) : (
@@ -739,8 +479,7 @@ export function EmbeddedMirrorView({
                             <button
                               onClick={() => {
                                 setIsPoppedOut(false);
-                                isStoppedByUserRef.current = false;
-                                handleStart();
+                                startMirroring();
                               }}
                               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-app-input border border-app-border hover:bg-app-hover text-app-text font-medium text-sm transition-all shadow-sm active:scale-[0.98]"
                             >
@@ -749,11 +488,7 @@ export function EmbeddedMirrorView({
                             <button
                               onClick={async () => {
                                 setIsPoppedOut(false);
-                                try {
-                                  await scrcpyService.disconnectEmbeddedMirror(transportRef.current);
-                                } catch (err) {
-                                  console.error("Error stopping pop-out stream:", err);
-                                }
+                                await handleStop();
                               }}
                               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 font-medium text-sm transition-all shadow-sm active:scale-[0.98]"
                             >
@@ -913,10 +648,6 @@ export function EmbeddedMirrorView({
                       <button
                         key={conn.id}
                         onClick={() => {
-                          clearRetryTimer();
-                          isStoppedByUserRef.current = true;
-                          retryCountRef.current = 0;
-                          retryScheduledRef.current = false;
                           setIsAutoRetrying(false);
                           void switchTransport(conn.id);
                         }}
@@ -929,12 +660,7 @@ export function EmbeddedMirrorView({
                   })()}
                   <button
                     onClick={() => {
-                      clearRetryTimer();
-                      retryScheduledRef.current = false;
-                      setIsAutoRetrying(false);
-                      retryCountRef.current = 0;
-                      setErrorMsg("Auto-retry cancelled");
-                      setStatus("error");
+                      cancelRetry();
                     }}
                     className="px-4 py-2 text-app-muted hover:text-app-text text-xs rounded-lg transition-colors border border-transparent hover:border-app-border"
                   >
@@ -964,10 +690,6 @@ export function EmbeddedMirrorView({
                   <button
                     key={conn.id}
                     onClick={() => {
-                      clearRetryTimer();
-                      isStoppedByUserRef.current = true;
-                      retryCountRef.current = 0;
-                      retryScheduledRef.current = false;
                       void switchTransport(conn.id);
                     }}
                     className="flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
@@ -981,12 +703,7 @@ export function EmbeddedMirrorView({
               {/* Retry with current transport */}
               <button
                 onClick={() => {
-                  if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-                  retryCountRef.current = 0;
-                  retryScheduledRef.current = false;
-                  setIsAutoRetrying(false);
-                  isStoppedByUserRef.current = false;
-                  handleStart();
+                  retryMirroring();
                 }}
                 className="px-4 py-2.5 bg-app-input hover:bg-app-hover text-app-text text-sm font-medium rounded-lg transition-colors border border-app-border"
               >
@@ -996,9 +713,7 @@ export function EmbeddedMirrorView({
               {/* Close */}
               <button
                 onClick={() => {
-                  clearRetryTimer();
-                  isStoppedByUserRef.current = true;
-                  handleStop();
+                  void handleStop();
                 }}
                 className="px-4 py-2 text-app-muted hover:text-app-text text-xs rounded-lg transition-colors border border-transparent hover:border-app-border"
               >
@@ -1073,7 +788,7 @@ export function EmbeddedMirrorView({
                       setIsPoppedOut(true);
                     } catch (err) {
                       console.error("Failed to open mirror window:", err);
-                      toastRef.current.error("Failed to open mirror window.");
+                      toast.error("Failed to open mirror window.");
                     }
                   };
                   handlePopOut();
