@@ -8,7 +8,7 @@ use tokio::sync::Mutex as TokioMutex;
 use tokio::time::sleep;
 use crate::core::adb::Adb;
 use crate::mcp::screenshot::ScreenshotRegistry;
-use crate::mcp::ui_extractor::UiExtractor;
+use crate::core::ui_extractor::UiExtractor;
 use crate::core::scrcpy::{control, EmbeddedScrcpyState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

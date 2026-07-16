@@ -1,7 +1,6 @@
 pub mod resources;
 pub mod screenshot;
 pub mod tools;
-pub mod ui_extractor;
 
 use serde_json::{json, Value};
 use std::io::Write;
@@ -12,7 +11,7 @@ use tokio::net::{TcpListener, TcpStream};
 use crate::mcp::resources::ResourceDispatcher;
 use crate::mcp::screenshot::ScreenshotRegistry;
 use crate::mcp::tools::ToolDispatcher;
-use crate::mcp::ui_extractor::UiExtractor;
+use crate::core::ui_extractor::UiExtractor;
 use crate::core::scrcpy::EmbeddedScrcpyState;
 
 pub const MCP_LOOPBACK_PORT: u16 = 48484;
