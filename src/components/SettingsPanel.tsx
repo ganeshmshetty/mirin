@@ -1,94 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings, DEFAULT_SETTINGS } from '../types';
 import { settingsService } from '../services';
 import { useTheme } from './ThemeProvider';
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { ChevronDown, Monitor, Sliders, ChevronRight, Settings as SettingsIcon, Terminal, RefreshCw } from 'lucide-react';
+import { Monitor, Sliders, ChevronRight, Settings as SettingsIcon, Terminal, RefreshCw } from 'lucide-react';
 import { useToast } from './ToastProvider';
+import { ToggleSwitch } from './ui/ToggleSwitch';
+import { CustomSelect } from './ui/CustomSelect';
 
 interface SettingsPanelProps {
   onSettingsChange?: (settings: Settings) => void;
 }
-
-// 1. Reusable Toggle Switch Component
-function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors duration-200 outline-none ${
-        checked ? "bg-cyan-500" : "bg-gray-300 dark:bg-[#252b30]"
-      }`}
-    >
-      <div
-        className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${
-          checked ? "translate-x-4" : "translate-x-0"
-        }`}
-      />
-    </button>
-  );
-}
-
-// 2. Reusable Themed Custom Select Component
-interface SelectOption {
-  value: string;
-  label: string;
-}
-
-interface CustomSelectProps {
-  value: string;
-  options: SelectOption[];
-  onChange: (value: any) => void;
-}
-
-function CustomSelect({ value, options, onChange }: CustomSelectProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const selectedOption = options.find(o => o.value === value);
-
-  return (
-    <div className="relative w-48 text-left" ref={containerRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-3 py-1.5 border border-gray-300 dark:border-app-border rounded-lg shadow-sm bg-white dark:bg-app-input text-gray-900 dark:text-app-text text-sm hover:border-gray-400 dark:hover:border-[#2f353a] transition-all outline-none"
-      >
-        <span className="truncate">{selectedOption ? selectedOption.label : value}</span>
-        <ChevronDown size={14} className={`text-gray-400 dark:text-slate-500 transition-transform duration-200 shrink-0 ml-1 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 mt-1 w-full dropdown-menu z-50 animate-scale-in origin-top-right">
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => {
-                onChange(opt.value);
-                setIsOpen(false);
-              }}
-              className={`dropdown-item ${opt.value === value ? 'bg-cyan-50/50 dark:bg-[#1a262b] text-cyan-600 dark:text-[#22d3ee] font-semibold' : ''}`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 
 type TabType = 'general' | 'interface' | 'performance' | 'mcp';
 
@@ -398,7 +320,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                         { value: 'light', label: 'Light Mode' },
                         { value: 'dark', label: 'Dark Mode' }
                       ]}
-                      onChange={(val) => updateSetting('theme', val)}
+                      onChange={(val) => updateSetting('theme', val as any)}
                     />,
                     true
                   )}
