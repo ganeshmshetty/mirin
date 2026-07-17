@@ -420,6 +420,7 @@ export function EmbeddedMirrorView({
 
   const isLandscape = dimensions.width > dimensions.height;
   const targetOrientation = isLandscape ? "portrait" : "landscape";
+  const toolbarButtonSize = isLandscape ? "w-10 h-10" : "w-full";
 
   const handleOrientationToggle = async () => {
     if (isChangingOrientation || status !== "streaming") return;
@@ -786,15 +787,15 @@ export function EmbeddedMirrorView({
       {/* Right Action Toolbar */}
       {status === "streaming" && (
         <aside
-          className={`flex-shrink-0 bg-app-sidebar border-app-border flex flex-col gap-2 overflow-y-auto ${
+          className={`flex-shrink-0 bg-app-sidebar border-app-border flex gap-2 overflow-y-auto ${
             isLandscape
-              ? "w-full max-h-16 border-t flex-row items-center justify-center px-3 py-1.5"
-              : "w-[68px] border-l px-2 py-3"
+              ? "w-full h-16 border-t flex-row items-center justify-center px-3 py-1.5"
+              : "w-[68px] h-full border-l flex-col px-2 py-3"
           }`}
         >
           {/* Action Buttons */}
           <div
-            className={`flex flex-col gap-1.5 flex-1 overflow-y-auto ${
+            className={`flex gap-1.5 overflow-y-auto ${
               isLandscape ? "flex-row items-center flex-wrap justify-center" : ""
             }`}
           >
@@ -812,7 +813,7 @@ export function EmbeddedMirrorView({
                 key={key}
                 onClick={() => sendNavigationKey(key)}
                 title={`${label} (${shortcut})`}
-                className="w-full flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0"
+                className={`${toolbarButtonSize} flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0`}
               >
                 <Icon size={18} className="text-app-muted hover:text-app-text transition-colors" />
               </button>
@@ -824,7 +825,7 @@ export function EmbeddedMirrorView({
               onClick={() => void handleOrientationToggle()}
               disabled={isChangingOrientation}
               title={`Switch to ${targetOrientation}`}
-              className="w-full flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0 disabled:opacity-50"
+              className={`${toolbarButtonSize} flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0 disabled:opacity-50`}
             >
               <RotateCw size={18} className={isChangingOrientation ? "animate-spin text-cyan-400" : "text-app-muted"} />
             </button>
@@ -846,7 +847,7 @@ export function EmbeddedMirrorView({
                   handlePopOut();
                 }}
                 title="Pop out in separate window"
-                className="w-full flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0"
+                className={`${toolbarButtonSize} flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0`}
               >
                 <ExternalLink size={18} className="text-app-muted hover:text-app-text transition-colors" />
               </button>
@@ -859,7 +860,7 @@ export function EmbeddedMirrorView({
                 if (isPopup && onClose) onClose();
               }}
               title="Stop Mirroring"
-              className="w-full flex items-center justify-center py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors flex-shrink-0"
+              className={`${toolbarButtonSize} flex items-center justify-center py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors flex-shrink-0`}
             >
               <Square size={18} fill="currentColor" />
             </button>
@@ -872,7 +873,7 @@ export function EmbeddedMirrorView({
                   onClose();
                 }}
                 title="Close"
-                className="w-full flex items-center justify-center py-1.5 rounded-lg text-app-muted hover:text-app-text hover:bg-app-hover transition-colors text-base flex-shrink-0"
+                className={`${toolbarButtonSize} flex items-center justify-center py-1.5 rounded-lg text-app-muted hover:text-app-text hover:bg-app-hover transition-colors text-base flex-shrink-0`}
               >
                 ×
               </button>
