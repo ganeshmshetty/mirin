@@ -9,11 +9,76 @@ use mirin_core::ui_extractor::UiExtractor;
 use mirin_mcp::resources::ResourceDispatcher;
 use mirin_mcp::screenshot::ScreenshotRegistry;
 use mirin_mcp::server::{McpServer, ToolExecutor};
-use mirin_mcp::tools::{OpenMirrorWindowCallback, ToolDispatcher};
+use mirin_mcp::tools::{RuntimeHost, ToolDispatcher};
+use std::future::Future;
+use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Arc;
 use tauri::AppHandle;
 
 pub use mirin_mcp::server::serve;
+
+type OpenMirrorWindowCallback = Arc<
+    dyn Fn(AppHandle, String, String) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send>>
+        + Send
+        + Sync,
+>;
+
+struct TauriRuntimeHost {
+    app: AppHandle,
+    screenshot_registry: ScreenshotRegistry,
+    open_mirror_window_fn: Option<OpenMirrorWindowCallback>,
+}
+
+impl RuntimeHost for TauriRuntimeHost {
+    fn adb_path(&self) -> Result<PathBuf, String> {
+        mirin_mcp::utils::get_adb_path(&self.app)
+    }
+
+    fn scrcpy_path(&self) -> Result<PathBuf, String> {
+        mirin_mcp::utils::get_scrcpy_path(&self.app)
+    }
+
+    fn scrcpy_server_path(&self) -> Result<PathBuf, String> {
+        mirin_mcp::utils::get_scrcpy_server_path(&self.app)
+    }
+
+    fn scrcpy_dir(&self) -> Result<PathBuf, String> {
+        mirin_mcp::utils::get_scrcpy_dir(&self.app)
+    }
+
+    fn capture_screenshot<'a>(
+        &'a self,
+        ui_extractor: &'a UiExtractor,
+        serial: &'a str,
+        annotate: bool,
+    ) -> Pin<
+        Box<
+            dyn Future<Output = Result<mirin_core::screenshot::ScreenshotResult, String>>
+                + Send
+                + 'a,
+        >,
+    > {
+        Box::pin(async move {
+            self.screenshot_registry
+                .capture(&self.app, ui_extractor, serial, annotate)
+                .await
+        })
+    }
+
+    fn open_mirror_window<'a>(
+        &'a self,
+        serial: String,
+        model: String,
+    ) -> Pin<Box<dyn Future<Output = Result<(), String>> + Send + 'a>> {
+        Box::pin(async move {
+            match &self.open_mirror_window_fn {
+                Some(callback) => callback(self.app.clone(), serial, model).await,
+                None => Err("Mirror window support is unavailable".to_string()),
+            }
+        })
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub fn build_server(
@@ -24,13 +89,16 @@ pub fn build_server(
     device_registry: DeviceRegistry,
     open_mirror_window_fn: Option<OpenMirrorWindowCallback>,
 ) -> McpServer {
+    let host = Arc::new(TauriRuntimeHost {
+        app: app.clone(),
+        screenshot_registry,
+        open_mirror_window_fn,
+    });
     let dispatcher = Arc::new(ToolDispatcher::new(
-        app.clone(),
+        host,
         state,
         ui_extractor,
-        screenshot_registry,
         device_registry,
-        open_mirror_window_fn,
     ));
     let resource_dispatcher = Arc::new(ResourceDispatcher::new(app));
 

@@ -25,3 +25,5 @@ plan.md
 *.sw?
 homebrew-tap/
 
+# Generated codebase graph reports
+graphify-out/

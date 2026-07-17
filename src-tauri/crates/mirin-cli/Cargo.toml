@@ -1,0 +1,15 @@
+[package]
+name = "mirin-cli"
+version = "0.2.0"
+edition = "2021"
+
+[[bin]]
+name = "mirin-cli"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+mirin-core = { path = "../mirin-core" }
+mirin-mcp = { path = "../mirin-mcp", default-features = false }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }

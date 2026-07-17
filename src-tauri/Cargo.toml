@@ -42,5 +42,6 @@ mirin-mcp = { path = "crates/mirin-mcp" }
 members = [
     ".",
     "crates/mirin-core",
-    "crates/mirin-mcp"
+    "crates/mirin-mcp",
+    "crates/mirin-cli"
 ]

@@ -8,7 +8,7 @@ use rmcp::{
         Resource, ResourceContents, ServerCapabilities, ServerInfo,
     },
     schemars,
-    service::{RequestContext, RoleServer},
+    service::{RequestContext, RoleServer, ServiceExt},
     tool, tool_router,
     transport::streamable_http_server::{
         session::local::LocalSessionManager, StreamableHttpService,
@@ -675,6 +675,14 @@ pub async fn serve_on(
 
     eprintln!("[MCP] Streamable HTTP server listening on http://{address}/mcp");
     axum::serve(listener, http_router(server)).await?;
+    Ok(())
+}
+
+pub async fn serve_stdio(
+    server: McpServer,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let service = server.serve(rmcp::transport::stdio()).await?;
+    service.waiting().await?;
     Ok(())
 }
 

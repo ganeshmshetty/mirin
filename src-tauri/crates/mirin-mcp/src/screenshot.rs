@@ -8,14 +8,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{oneshot, Mutex as TokioMutex};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScreenshotResult {
-    pub data_base64: String,
-    pub mime_type: String,
-    pub width: u32,
-    pub height: u32,
-    pub annotated_elements: Vec<UiElement>,
-}
+pub use mirin_core::screenshot::ScreenshotResult;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScreenshotPayload {
