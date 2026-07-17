@@ -15,6 +15,7 @@ import {
   HardDrive,
   ChevronDown,
   ChevronRight,
+  RotateCw,
   Edit2,
   Bot,
   Wifi,
@@ -93,6 +94,7 @@ export function EmbeddedMirrorView({
   const [isDetailsOpen, setIsDetailsOpen] = useState(true);
   const [details, setDetails] = useState<DeviceDetails | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [isChangingOrientation, setIsChangingOrientation] = useState(false);
   const isMouseDownRef = useRef(false);
 
   useEffect(() => {
@@ -417,6 +419,22 @@ export function EmbeddedMirrorView({
   }, [status, sendNavigationKey]);
 
   const isLandscape = dimensions.width > dimensions.height;
+  const targetOrientation = isLandscape ? "portrait" : "landscape";
+
+  const handleOrientationToggle = async () => {
+    if (isChangingOrientation || status !== "streaming") return;
+    setIsChangingOrientation(true);
+    try {
+      await scrcpyService.setOrientation(transportRef.current, targetOrientation);
+      await handleStop();
+      startMirroring();
+    } catch (err) {
+      console.error("Failed to change orientation:", err);
+      toast.error(`Failed to switch to ${targetOrientation}`);
+    } finally {
+      setIsChangingOrientation(false);
+    }
+  };
   const connectedConnections = availableConnections?.filter(connection => connection.status === "Connected") || [];
   const connectionSummary = [...new Set(connectedConnections.map(connection => connection.connection_type))].join(" + ") || connectionType || "—";
   const ipSummary = connectedConnections
@@ -801,6 +819,15 @@ export function EmbeddedMirrorView({
             ))}
 
             <div className={isLandscape ? "w-px h-6 bg-app-border mx-1" : "h-px bg-app-border my-0.5 flex-shrink-0"} />
+
+            <button
+              onClick={() => void handleOrientationToggle()}
+              disabled={isChangingOrientation}
+              title={`Switch to ${targetOrientation}`}
+              className="w-full flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0 disabled:opacity-50"
+            >
+              <RotateCw size={18} className={isChangingOrientation ? "animate-spin text-cyan-400" : "text-app-muted"} />
+            </button>
 
             {/* Pop Out */}
             {!isPopup && (

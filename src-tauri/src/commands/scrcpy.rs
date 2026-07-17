@@ -124,6 +124,73 @@ pub async fn disconnect_embedded_mirror(
     Ok(())
 }
 
+/// Lock the device to portrait or landscape orientation. The mirror is
+/// restarted by the frontend so the new stream dimensions are negotiated.
+#[tauri::command]
+pub async fn set_orientation(
+    app: tauri::AppHandle,
+    ui_extractor: State<'_, mirin_core::ui_extractor::UiExtractor>,
+    device_id: String,
+    orientation: String,
+) -> Result<(), String> {
+    let orientation = orientation.trim().to_lowercase();
+    if orientation != "portrait" && orientation != "landscape" {
+        return Err("orientation must be 'portrait' or 'landscape'".to_string());
+    }
+
+    let adb_path = utils::get_adb_path(&app)?;
+    let adb = Adb::new(adb_path).with_device(&device_id);
+    let (width, height) = ui_extractor
+        .get_device_size(&adb, &device_id)
+        .await
+        .unwrap_or((1, 1));
+    let rotation = match orientation.as_str() {
+        "portrait" if height >= width => 0,
+        "portrait" => 1,
+        "landscape" if width >= height => 0,
+        "landscape" => 1,
+        _ => unreachable!(),
+    };
+    let rotation_string = rotation.to_string();
+
+    let _ = adb
+        .execute(&[
+            "shell",
+            "settings",
+            "put",
+            "system",
+            "accelerometer_rotation",
+            "0",
+        ])
+        .await;
+
+    let applied = adb
+        .execute(&["shell", "wm", "set-user-rotation", "lock", &rotation_string])
+        .await
+        .is_ok()
+        || adb
+            .execute(&["shell", "wm", "user-rotation", "lock", &rotation_string])
+            .await
+            .is_ok()
+        || adb
+            .execute(&[
+                "shell",
+                "settings",
+                "put",
+                "system",
+                "user_rotation",
+                &rotation_string,
+            ])
+            .await
+            .is_ok();
+
+    if applied {
+        Ok(())
+    } else {
+        Err("Failed to set orientation through WindowManager or system settings".to_string())
+    }
+}
+
 #[tauri::command]
 pub async fn send_touch(
     state: State<'_, EmbeddedScrcpyState>,

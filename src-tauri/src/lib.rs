@@ -298,6 +298,7 @@ pub fn run() {
             // Embedded scrcpy commands
             commands::connect_embedded_mirror,
             commands::disconnect_embedded_mirror,
+            commands::set_orientation,
             commands::send_touch,
             commands::send_key,
             commands::send_text,

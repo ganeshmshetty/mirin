@@ -55,6 +55,11 @@ export const scrcpyService = {
     return await invoke("disconnect_embedded_mirror", { deviceId });
   },
 
+  /** Lock the Android display to portrait or landscape. */
+  async setOrientation(deviceId: string, orientation: "portrait" | "landscape"): Promise<void> {
+    return await invoke("set_orientation", { deviceId, orientation });
+  },
+
   /**
    * Send touch event to embedded control socket
    */
