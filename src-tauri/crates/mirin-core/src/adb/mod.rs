@@ -1,8 +1,5 @@
-
-use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
-use tokio::net::TcpStream;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdbDevice {
@@ -26,7 +23,6 @@ pub struct MdnsService {
 pub struct Adb {
     adb_path: PathBuf,
     transport_id: Option<String>,
-    server_port: u16,
 }
 
 impl Adb {
@@ -35,7 +31,6 @@ impl Adb {
         Self {
             adb_path,
             transport_id: None,
-            server_port: 5037,
         }
     }
 
@@ -46,32 +41,14 @@ impl Adb {
         clone
     }
 
-    /// Set a custom ADB server port (useful for testing)
-    #[allow(dead_code)]
-    pub fn with_port(&self, port: u16) -> Self {
-        let mut clone = self.clone();
-        clone.server_port = port;
-        clone
-    }
-
-
     /// Raw execution helper
     async fn execute_raw(&self, args: &[&str]) -> Result<String, String> {
-        match self.try_execute_via_socket(args).await {
-            Ok(Some(res)) => {
-                return Ok(String::from_utf8_lossy(&res).to_string());
-            }
-            Ok(None) => {}
-            Err(e) => {
-                println!("ADB socket execution failed: {}. Falling back to process execution.", e);
-            }
-        }
         let mut std_cmd = std::process::Command::new(&self.adb_path);
-        
+
         if let Some(ref id) = self.transport_id {
             std_cmd.arg("-s").arg(id);
         }
-        
+
         std_cmd.args(args);
 
         #[cfg(target_os = "windows")]
@@ -81,9 +58,10 @@ impl Adb {
         }
 
         let mut command = tokio::process::Command::from(std_cmd);
-        
+
         // Wrap execution in a timeout (e.g., 10 seconds) to prevent hanging
-        let output_result = tokio::time::timeout(std::time::Duration::from_secs(10), command.output()).await;
+        let output_result =
+            tokio::time::timeout(std::time::Duration::from_secs(10), command.output()).await;
 
         let output = match output_result {
             Ok(Ok(out)) => out,
@@ -103,17 +81,19 @@ impl Adb {
     /// Execute an ADB command and return the output asynchronously (with self-healing fallback)
     pub async fn execute(&self, args: &[&str]) -> Result<String, String> {
         let res = self.execute_raw(args).await;
-        
+
         if let Err(ref e) = res {
             // Avoid retrying if the command was already a server control command to prevent recursion
-            let is_control_cmd = args.iter().any(|&arg| arg == "kill-server" || arg == "start-server");
-            let is_daemon_error = e.contains("could not connect to daemon") 
-                || e.contains("daemon not running") 
-                || e.contains("cannot connect to daemon") 
-                || e.contains("ADB server didn't ACK") 
-                || e.contains("timed out") 
+            let is_control_cmd = args
+                .iter()
+                .any(|&arg| arg == "kill-server" || arg == "start-server");
+            let is_daemon_error = e.contains("could not connect to daemon")
+                || e.contains("daemon not running")
+                || e.contains("cannot connect to daemon")
+                || e.contains("ADB server didn't ACK")
+                || e.contains("timed out")
                 || e.contains("connection refused");
-            
+
             // Only restart daemon if ADB server crashed, NOT when a regular command exits non-zero
             if !is_control_cmd && is_daemon_error {
                 println!("ADB daemon error ({:?}): {}. Restarting daemon...", args, e);
@@ -127,15 +107,6 @@ impl Adb {
 
     /// Raw execution helper returning raw byte output
     async fn execute_bytes_raw(&self, args: &[&str]) -> Result<Vec<u8>, String> {
-        match self.try_execute_via_socket(args).await {
-            Ok(Some(res)) => {
-                return Ok(res);
-            }
-            Ok(None) => {}
-            Err(e) => {
-                println!("ADB socket execution failed: {}. Falling back to process execution.", e);
-            }
-        }
         let mut std_cmd = std::process::Command::new(&self.adb_path);
         if let Some(ref id) = self.transport_id {
             std_cmd.arg("-s").arg(id);
@@ -149,7 +120,8 @@ impl Adb {
         }
 
         let mut command = tokio::process::Command::from(std_cmd);
-        let output_result = tokio::time::timeout(std::time::Duration::from_secs(10), command.output()).await;
+        let output_result =
+            tokio::time::timeout(std::time::Duration::from_secs(10), command.output()).await;
 
         let output = match output_result {
             Ok(Ok(out)) => out,
@@ -169,12 +141,14 @@ impl Adb {
     pub async fn execute_bytes(&self, args: &[&str]) -> Result<Vec<u8>, String> {
         let res = self.execute_bytes_raw(args).await;
         if let Err(ref e) = res {
-            let is_control_cmd = args.iter().any(|&arg| arg == "kill-server" || arg == "start-server");
-            let is_daemon_error = e.contains("could not connect to daemon") 
-                || e.contains("daemon not running") 
-                || e.contains("cannot connect to daemon") 
-                || e.contains("ADB server didn't ACK") 
-                || e.contains("timed out") 
+            let is_control_cmd = args
+                .iter()
+                .any(|&arg| arg == "kill-server" || arg == "start-server");
+            let is_daemon_error = e.contains("could not connect to daemon")
+                || e.contains("daemon not running")
+                || e.contains("cannot connect to daemon")
+                || e.contains("ADB server didn't ACK")
+                || e.contains("timed out")
                 || e.contains("connection refused");
             if !is_control_cmd && is_daemon_error {
                 println!("ADB daemon error ({:?}): {}. Restarting daemon...", args, e);
@@ -264,17 +238,17 @@ impl Adb {
     /// Discover mDNS services (Android 11+)
     pub async fn get_mdns_services(&self) -> Result<Vec<MdnsService>, String> {
         let output = self.execute(&["mdns", "services"]).await?;
-        
+
         let mut services = Vec::new();
         let lines: Vec<&str> = output.lines().collect();
-        
+
         // Skip the first line which is usually "List of discovered mDNS services"
         for line in lines.iter().skip(1) {
             let line = line.trim();
             if line.is_empty() {
                 continue;
             }
-            
+
             // Format: instance_name service_type address
             // e.g. "pixel_7    _adb-tls-pairing._tcp.    192.168.1.100:38475"
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -282,7 +256,7 @@ impl Adb {
                 let address = parts[parts.len() - 1].to_string();
                 let service_type = parts[parts.len() - 2].to_string();
                 let instance_name = parts[..parts.len() - 2].join(" ");
-                
+
                 // Tighten parsing: ensure it's an ADB service and address looks like IP:Port
                 if service_type.contains("_adb") && address.contains(':') {
                     services.push(MdnsService {
@@ -293,7 +267,7 @@ impl Adb {
                 }
             }
         }
-        
+
         Ok(services)
     }
 
@@ -348,7 +322,7 @@ impl Adb {
         // Parse the IP address from the output
         // Looking for lines like: "192.168.1.0/24 dev wlan0 proto kernel scope link src 192.168.1.100"
         // Some devices use different interface names: wlan0, wlan1, wifi0, etc.
-        
+
         // First try to find WiFi interface
         for line in output.lines() {
             let line_lower = line.to_lowercase();
@@ -358,7 +332,7 @@ impl Adb {
                 }
             }
         }
-        
+
         // Fallback: look for any "src" IP that's not localhost
         for line in output.lines() {
             if let Some(ip) = self.extract_src_ip(line) {
@@ -369,9 +343,12 @@ impl Adb {
             }
         }
 
-        Err("Could not determine device IP address. Make sure the device is connected to WiFi.".to_string())
+        Err(
+            "Could not determine device IP address. Make sure the device is connected to WiFi."
+                .to_string(),
+        )
     }
-    
+
     /// Extract the source IP from an ip route line
     fn extract_src_ip(&self, line: &str) -> Option<String> {
         if let Some(src_pos) = line.find("src ") {
@@ -387,7 +364,11 @@ impl Adb {
     }
 
     /// Execute a shell command on a device
-    pub async fn shell(&self, device_serial: Option<&str>, command: &str) -> Result<String, String> {
+    pub async fn shell(
+        &self,
+        device_serial: Option<&str>,
+        command: &str,
+    ) -> Result<String, String> {
         let args = if let Some(serial) = device_serial {
             vec!["-s", serial, "shell", command]
         } else {
@@ -397,7 +378,11 @@ impl Adb {
     }
 
     /// Get device properties
-    pub async fn get_prop(&self, device_serial: Option<&str>, property: &str) -> Result<String, String> {
+    pub async fn get_prop(
+        &self,
+        device_serial: Option<&str>,
+        property: &str,
+    ) -> Result<String, String> {
         let command = format!("getprop {}", property);
         let result = self.shell(device_serial, &command).await?;
         Ok(result.trim().to_string())
@@ -411,20 +396,21 @@ impl Adb {
     /// Get device manufacturer
     #[allow(dead_code)]
     pub async fn get_manufacturer(&self, device_serial: Option<&str>) -> Result<String, String> {
-        self.get_prop(device_serial, "ro.product.manufacturer").await
+        self.get_prop(device_serial, "ro.product.manufacturer")
+            .await
     }
 
     /// Get Android version
     #[allow(dead_code)]
     pub async fn get_android_version(&self, device_serial: Option<&str>) -> Result<String, String> {
-        self.get_prop(device_serial, "ro.build.version.release").await
+        self.get_prop(device_serial, "ro.build.version.release")
+            .await
     }
-
 
     /// Enable wireless debugging and wait for the device to reconnect on IP
     pub async fn enable_wireless_mode_and_wait(&self, device_id: &str) -> Result<String, String> {
         let device_model = self.get_model(Some(device_id)).await.unwrap_or_default();
-        
+
         let tcpip_result = self.tcpip(Some(device_id), 5555).await;
         if let Err(ref e) = tcpip_result {
             if e.contains("not found") {
@@ -441,15 +427,21 @@ impl Adb {
         for attempt in 0..5 {
             let wait_ms = if attempt == 0 { 1500 } else { 500 };
             tokio::time::sleep(std::time::Duration::from_millis(wait_ms)).await;
-            
+
             if let Ok(devices) = self.devices().await {
                 for dev in &devices {
-                    if dev.serial.contains(':') { continue; }
-                    
-                    if dev.serial == device_id || 
-                       dev.model.as_ref().map(|m| m == &device_model).unwrap_or(false) ||
-                       devices.len() == 1 {
-                        
+                    if dev.serial.contains(':') {
+                        continue;
+                    }
+
+                    if dev.serial == device_id
+                        || dev
+                            .model
+                            .as_ref()
+                            .map(|m| m == &device_model)
+                            .unwrap_or(false)
+                        || devices.len() == 1
+                    {
                         if let Ok(ip) = self.get_device_ip(Some(&dev.serial)).await {
                             ip_address = Some(ip);
                             break;
@@ -457,21 +449,27 @@ impl Adb {
                     }
                 }
             }
-            if ip_address.is_some() { break; }
+            if ip_address.is_some() {
+                break;
+            }
         }
-        
+
         match ip_address {
             Some(ip) => Ok(ip),
-            None => Err(
-                "Wireless mode enabled but couldn't retrieve IP address.\n\
+            None => Err("Wireless mode enabled but couldn't retrieve IP address.\n\
                 Check your phone's WiFi settings for the IP address,\n\
-                then use 'IP Connect' to connect wirelessly.".to_string()
-            )
+                then use 'IP Connect' to connect wirelessly."
+                .to_string()),
         }
     }
 
     /// Push a local file to a remote device path
-    pub async fn push(&self, device_serial: &str, local_path: &str, remote_path: &str) -> Result<String, String> {
+    pub async fn push(
+        &self,
+        device_serial: &str,
+        local_path: &str,
+        remote_path: &str,
+    ) -> Result<String, String> {
         let mut std_cmd = std::process::Command::new(&self.adb_path);
         if let Some(ref id) = self.transport_id {
             std_cmd.arg("-s").arg(id);
@@ -487,7 +485,8 @@ impl Adb {
         }
 
         let mut command = tokio::process::Command::from(std_cmd);
-        let output_result = tokio::time::timeout(std::time::Duration::from_secs(60), command.output()).await;
+        let output_result =
+            tokio::time::timeout(std::time::Duration::from_secs(60), command.output()).await;
 
         let output = match output_result {
             Ok(Ok(out)) => out,
@@ -504,30 +503,63 @@ impl Adb {
     }
 
     /// Reverse port forwarding (Android device connects to local port)
-    pub async fn reverse(&self, device_serial: &str, remote: &str, local_port: u16) -> Result<String, String> {
+    pub async fn reverse(
+        &self,
+        device_serial: &str,
+        remote: &str,
+        local_port: u16,
+    ) -> Result<String, String> {
         if self.transport_id.is_some() {
-            self.execute(&["reverse", remote, &format!("tcp:{}", local_port)]).await
+            self.execute(&["reverse", remote, &format!("tcp:{}", local_port)])
+                .await
         } else {
-            self.execute(&["-s", device_serial, "reverse", remote, &format!("tcp:{}", local_port)]).await
+            self.execute(&[
+                "-s",
+                device_serial,
+                "reverse",
+                remote,
+                &format!("tcp:{}", local_port),
+            ])
+            .await
         }
     }
 
     /// Remove reverse port forwarding
-    pub async fn remove_reverse(&self, device_serial: &str, remote: &str) -> Result<String, String> {
+    pub async fn remove_reverse(
+        &self,
+        device_serial: &str,
+        remote: &str,
+    ) -> Result<String, String> {
         if self.transport_id.is_some() {
             let _ = self.execute_raw(&["reverse", "--remove", remote]).await;
         } else {
-            let _ = self.execute_raw(&["-s", device_serial, "reverse", "--remove", remote]).await;
+            let _ = self
+                .execute_raw(&["-s", device_serial, "reverse", "--remove", remote])
+                .await;
         }
         Ok("".to_string())
     }
 
     /// Remove port forwarding
-    pub async fn remove_forward(&self, device_serial: &str, local_port: u16) -> Result<String, String> {
+    pub async fn remove_forward(
+        &self,
+        device_serial: &str,
+        local_port: u16,
+    ) -> Result<String, String> {
         if self.transport_id.is_some() {
-            let _ = self.execute_raw(&["forward", "--remove", &format!("tcp:{}", local_port)]).await;
+            let _ = self
+                .execute_raw(&["forward", "--remove", &format!("tcp:{}", local_port)])
+                .await;
         } else {
-            let _ = self.execute_raw(&["-s", device_serial, "forward", "--remove", &format!("tcp:{}", local_port)]).await;
+            let _ = self
+                .execute_raw(&[
+                    "-s",
+                    device_serial,
+                    "forward",
+                    "--remove",
+                    &format!("tcp:{}", local_port),
+                ])
+                .await;
         }
         Ok("".to_string())
     }
@@ -535,15 +567,28 @@ impl Adb {
     /// Kill any running scrcpy server on the remote device
     pub async fn kill_scrcpy_server(&self, device_serial: &str) {
         if self.transport_id.is_some() {
-            let _ = self.execute_raw(&["shell", "pkill -f com.genymobile.scrcpy.Server"]).await;
+            let _ = self
+                .execute_raw(&["shell", "pkill -f com.genymobile.scrcpy.Server"])
+                .await;
         } else {
-            let _ = self.execute_raw(&["-s", device_serial, "shell", "pkill -f com.genymobile.scrcpy.Server"]).await;
+            let _ = self
+                .execute_raw(&[
+                    "-s",
+                    device_serial,
+                    "shell",
+                    "pkill -f com.genymobile.scrcpy.Server",
+                ])
+                .await;
         }
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     }
 
     /// Spawn a continuous shell command (returning child process without waiting)
-    pub fn spawn_shell(&self, device_serial: &str, cmd: &str) -> Result<tokio::process::Child, String> {
+    pub fn spawn_shell(
+        &self,
+        device_serial: &str,
+        cmd: &str,
+    ) -> Result<tokio::process::Child, String> {
         let mut std_cmd = std::process::Command::new(&self.adb_path);
         if let Some(ref id) = self.transport_id {
             std_cmd.arg("-s").arg(id);
@@ -558,189 +603,13 @@ impl Adb {
             std_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
         }
 
-        std_cmd.stdout(std::process::Stdio::piped())
+        std_cmd
+            .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
 
         tokio::process::Command::from(std_cmd)
             .spawn()
             .map_err(|e| format!("Failed to spawn shell child: {}", e))
-    }
-
-    /// Try executing a command directly via ADB TCP socket to 127.0.0.1:port
-    async fn try_execute_via_socket(&self, args: &[&str]) -> Result<Option<Vec<u8>>, String> {
-        // Automatically bypass socket logic if running inside cargo test runner,
-        // UNLESS we explicitly set a non-standard port for testing the socket client itself.
-        if self.server_port == 5037 {
-            if let Ok(exe) = std::env::current_exe() {
-                let path_str = exe.to_string_lossy();
-                if path_str.contains("/deps/") 
-                    || path_str.contains("\\deps\\") 
-                    || path_str.contains("target/debug") 
-                    || path_str.contains("target\\debug") 
-                {
-                    return Ok(None);
-                }
-            }
-        }
-
-        if args.is_empty() {
-            return Ok(None);
-        }
-
-        let mut target_serial = self.transport_id.as_deref();
-        let mut cmd_args = args;
-
-        // Extract serial if passed via -s in the arguments slice
-        if args[0] == "-s" {
-            if args.len() < 3 {
-                return Ok(None);
-            }
-            target_serial = Some(args[1]);
-            cmd_args = &args[2..];
-        }
-
-        if cmd_args.is_empty() {
-            return Ok(None);
-        }
-
-        // Map CLI commands to ADB protocol service commands
-        let socket_cmd = match cmd_args[0] {
-            "devices" => {
-                if cmd_args.len() == 2 && cmd_args[1] == "-l" {
-                    Some(("host:devices-l".to_string(), false))
-                } else if cmd_args.len() == 1 {
-                    Some(("host:devices".to_string(), false))
-                } else {
-                    None
-                }
-            }
-            "connect" => {
-                if cmd_args.len() == 2 {
-                    Some((format!("host:connect:{}", cmd_args[1]), false))
-                } else {
-                    None
-                }
-            }
-            "disconnect" => {
-                if cmd_args.len() == 2 {
-                    Some((format!("host:disconnect:{}", cmd_args[1]), false))
-                } else if cmd_args.len() == 1 {
-                    Some(("host:disconnect-all".to_string(), false))
-                } else {
-                    None
-                }
-            }
-            "shell" => {
-                if cmd_args.len() > 1 {
-                    let shell_cmd = cmd_args[1..].join(" ");
-                    Some((format!("exec:{}", shell_cmd), true))
-                } else {
-                    None
-                }
-            }
-            "tcpip" => {
-                if cmd_args.len() == 2 {
-                    Some((format!("tcpip:{}", cmd_args[1]), true))
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
-
-        let Some((command, is_device_command)) = socket_cmd else {
-            return Ok(None);
-        };
-
-        // Try connecting to the local ADB server TCP port
-        let addr = format!("127.0.0.1:{}", self.server_port);
-        let mut stream = match TcpStream::connect(&addr).await {
-            Ok(s) => s,
-            Err(e) => {
-                // If TCP connection fails, return Ok(None) to fallback to process execution
-                println!("ADB socket connection to {} failed: {}. Falling back to process execution.", addr, e);
-                return Ok(None);
-            }
-        };
-
-        // Execute the protocol exchange
-        let res = if is_device_command {
-            // For device commands, we must route the connection to the transport first
-            let Some(serial) = target_serial else {
-                return Err("Device serial is required for device-specific commands".to_string());
-            };
-            let route_cmd = format!("host:transport:{}", serial);
-            if let Err(e) = write_request(&mut stream, &route_cmd).await {
-                return Err(format!("Failed to write transport route request: {}", e));
-            }
-            if let Err(e) = read_response(&mut stream).await {
-                return Err(format!("Device transport routing failed: {}", e));
-            }
-
-            // Send actual device command
-            if let Err(e) = write_request(&mut stream, &command).await {
-                return Err(format!("Failed to write device command: {}", e));
-            }
-            if let Err(e) = read_response(&mut stream).await {
-                return Err(format!("Device command rejected: {}", e));
-            }
-
-            // Read all output until the connection closes
-            let mut output = Vec::new();
-            if let Err(e) = stream.read_to_end(&mut output).await {
-                return Err(format!("Failed to read command output: {}", e));
-            }
-            output
-        } else {
-            // Host command
-            if let Err(e) = write_request(&mut stream, &command).await {
-                return Err(format!("Failed to write host command: {}", e));
-            }
-            if let Err(e) = read_response(&mut stream).await {
-                return Err(format!("Host command rejected: {}", e));
-            }
-
-            // Host queries return length-prefixed data (4 hex digits)
-            let mut len_bytes = [0u8; 4];
-            if let Err(e) = stream.read_exact(&mut len_bytes).await {
-                return Err(format!("Failed to read response length: {}", e));
-            }
-            let len_str = std::str::from_utf8(&len_bytes).map_err(|e| e.to_string())?;
-            let len = usize::from_str_radix(len_str, 16).map_err(|e| e.to_string())?;
-
-            let mut output = vec![0u8; len];
-            if let Err(e) = stream.read_exact(&mut output).await {
-                return Err(format!("Failed to read response data: {}", e));
-            }
-            output
-        };
-
-        Ok(Some(res))
-    }
-}
-
-async fn write_request(stream: &mut TcpStream, req: &str) -> Result<(), String> {
-    let len = req.len();
-    let formatted = format!("{:04x}{}", len, req);
-    stream.write_all(formatted.as_bytes()).await.map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-async fn read_response(stream: &mut TcpStream) -> Result<(), String> {
-    let mut status = [0u8; 4];
-    stream.read_exact(&mut status).await.map_err(|e| e.to_string())?;
-    if &status == b"OKAY" {
-        Ok(())
-    } else if &status == b"FAIL" {
-        let mut len_bytes = [0u8; 4];
-        stream.read_exact(&mut len_bytes).await.map_err(|e| e.to_string())?;
-        let len_str = std::str::from_utf8(&len_bytes).map_err(|e| e.to_string())?;
-        let len = usize::from_str_radix(len_str, 16).map_err(|e| e.to_string())?;
-        let mut err_msg = vec![0u8; len];
-        stream.read_exact(&mut err_msg).await.map_err(|e| e.to_string())?;
-        Err(String::from_utf8_lossy(&err_msg).into_owned())
-    } else {
-        Err(format!("Unexpected ADB response status: {}", String::from_utf8_lossy(&status)))
     }
 }
 
@@ -755,7 +624,7 @@ mod tests {
 emulator-5554          device product:sdk_gphone64_arm64 model:sdk_gphone64_arm64 device:emu64a transport_id:1
 192.168.1.100:5555     device product:OnePlus9 model:LE2115 device:OnePlus9 transport_id:2
 "#;
-        
+
         let devices = adb.parse_devices(output).unwrap();
         assert_eq!(devices.len(), 2);
         assert_eq!(devices[0].serial, "emulator-5554");
@@ -767,7 +636,7 @@ emulator-5554          device product:sdk_gphone64_arm64 model:sdk_gphone64_arm6
     fn test_parse_usb_device() {
         let adb = Adb::new(PathBuf::from("adb.exe"));
         let output = "List of devices attached\nSERIAL123\tdevice product:P model:Pixel_6 device:D transport_id:1";
-        
+
         let devices = adb.parse_devices(output).unwrap();
         assert_eq!(devices.len(), 1);
         assert_eq!(devices[0].serial, "SERIAL123");
@@ -779,7 +648,7 @@ emulator-5554          device product:sdk_gphone64_arm64 model:sdk_gphone64_arm6
     fn test_parse_wireless_device() {
         let adb = Adb::new(PathBuf::from("adb.exe"));
         let output = "List of devices attached\n192.168.1.5:5555\tdevice product:P model:Galaxy_S21 device:D transport_id:2";
-        
+
         let devices = adb.parse_devices(output).unwrap();
         assert_eq!(devices.len(), 1);
         assert_eq!(devices[0].serial, "192.168.1.5:5555");
@@ -794,7 +663,7 @@ emulator-5554          device product:sdk_gphone64_arm64 model:sdk_gphone64_arm6
 SERIAL123          device product:P model:Pixel_6 device:D transport_id:1
 192.168.1.5:5555   device product:P model:Galaxy_S21 device:D transport_id:2
 "#;
-        
+
         let devices = adb.parse_devices(output).unwrap();
         assert_eq!(devices.len(), 2);
         assert_eq!(devices[0].serial, "SERIAL123");
@@ -805,7 +674,7 @@ SERIAL123          device product:P model:Pixel_6 device:D transport_id:1
     fn test_parse_unauthorized_device() {
         let adb = Adb::new(PathBuf::from("adb.exe"));
         let output = "List of devices attached\nSERIAL123\tunauthorized transport_id:1";
-        
+
         let devices = adb.parse_devices(output).unwrap();
         assert_eq!(devices.len(), 1);
         assert_eq!(devices[0].serial, "SERIAL123");
@@ -815,7 +684,7 @@ SERIAL123          device product:P model:Pixel_6 device:D transport_id:1
     #[test]
     fn test_parse_ip_route() {
         let adb = Adb::new(PathBuf::from("adb.exe"));
-        
+
         // Standard output format
         let output1 = "192.168.1.0/24 dev wlan0 proto kernel scope link src 192.168.1.100";
         assert_eq!(adb.parse_ip_route(output1).unwrap(), "192.168.1.100");
@@ -843,25 +712,34 @@ SERIAL123          device product:P model:Pixel_6 device:D transport_id:1
         let adb = Adb::new(PathBuf::from("non_existent_adb_executable"));
         let result = adb.execute(&["version"]).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Failed to execute ADB command"));
+        assert!(result
+            .unwrap_err()
+            .contains("Failed to execute ADB command"));
     }
 
     #[test]
     fn test_parse_performance() {
         let adb = Adb::new(PathBuf::from("adb.exe"));
-        
+
         // Generate a large output string simulating 1000 devices
         let mut output = String::from("List of devices attached\n");
         for i in 0..1000 {
-            output.push_str(&format!("device-{} device product:p model:m device:d transport_id:{}\n", i, i));
+            output.push_str(&format!(
+                "device-{} device product:p model:m device:d transport_id:{}\n",
+                i, i
+            ));
         }
-        
+
         let start = std::time::Instant::now();
         let devices = adb.parse_devices(&output).unwrap();
         let duration = start.elapsed();
-        
+
         assert_eq!(devices.len(), 1000);
         // Parsing 1000 devices should be very fast (under 50ms)
-        assert!(duration.as_millis() < 50, "Parsing took too long: {}ms", duration.as_millis());
+        assert!(
+            duration.as_millis() < 50,
+            "Parsing took too long: {}ms",
+            duration.as_millis()
+        );
     }
 }

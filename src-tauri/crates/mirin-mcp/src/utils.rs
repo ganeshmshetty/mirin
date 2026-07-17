@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 use tauri::Manager;
 
-
-
 /// Get the base resource path, with fallback for development mode
 fn get_resource_base_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     // First, try the standard resource directory (for production builds)
@@ -12,24 +10,29 @@ fn get_resource_base_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Resul
             return Ok(prod_path);
         }
     }
-    
+
     // Fallback for development mode: use src-tauri/resources
     let dev_path = std::env::current_exe()
         .map_err(|e| format!("Failed to get current exe path: {}", e))?
         .parent()
         .ok_or_else(|| "Failed to get parent directory".to_string())?
-        .join("..").join("..").join("..").join("resources");
-    
+        .join("..")
+        .join("..")
+        .join("..")
+        .join("resources");
+
     if dev_path.exists() {
-        return dev_path.canonicalize().map_err(|e| format!("Failed to canonicalize path: {}", e));
+        return dev_path
+            .canonicalize()
+            .map_err(|e| format!("Failed to canonicalize path: {}", e));
     }
-    
+
     // Another fallback: check relative to manifest dir (Cargo.toml location)
     let manifest_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources");
     if manifest_path.exists() {
         return Ok(manifest_path);
     }
-    
+
     Err("Could not find resources directory".to_string())
 }
 
@@ -49,52 +52,54 @@ fn get_platform_subpath() -> Result<&'static str, String> {
 /// Get the path to the bundled ADB executable
 pub fn get_adb_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     let adb_dir = get_adb_dir(app)?;
-    
+
     let exe_name = if cfg!(target_os = "windows") {
         "adb.exe"
     } else {
         "adb"
     };
-    
+
     let adb_path = adb_dir.join(exe_name);
-    
+
     if !adb_path.exists() {
         return Err(format!("ADB executable not found at: {:?}", adb_path));
     }
-    
+
     Ok(adb_path)
 }
 
 /// Get the path to the bundled scrcpy executable
 pub fn get_scrcpy_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     let scrcpy_dir = get_scrcpy_dir(app)?;
-    
+
     let exe_name = if cfg!(target_os = "windows") {
         "scrcpy.exe"
     } else {
         "scrcpy"
     };
-    
+
     let scrcpy_path = scrcpy_dir.join(exe_name);
-    
+
     if !scrcpy_path.exists() {
         return Err(format!("Scrcpy executable not found at: {:?}", scrcpy_path));
     }
-    
+
     Ok(scrcpy_path)
 }
 
 /// Get the path to the scrcpy-server file
 #[allow(dead_code)]
-pub fn get_scrcpy_server_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
+pub fn get_scrcpy_server_path<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<PathBuf, String> {
     let scrcpy_dir = get_scrcpy_dir(app)?;
-    
+
     let server_path = scrcpy_dir.join("scrcpy-server");
-    
+
     if !server_path.exists() {
         return Err(format!("Scrcpy server not found at: {:?}", server_path));
     }
-    
+
     Ok(server_path)
 }
 
@@ -102,13 +107,13 @@ pub fn get_scrcpy_server_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> R
 pub fn get_adb_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     let resource_path = get_resource_base_path(app)?;
     let platform_subpath = get_platform_subpath()?;
-    
+
     let adb_dir = resource_path.join("adb").join(platform_subpath);
-    
+
     if !adb_dir.exists() {
         return Err(format!("ADB directory not found at: {:?}", adb_dir));
     }
-    
+
     Ok(adb_dir)
 }
 
@@ -116,13 +121,13 @@ pub fn get_adb_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathB
 pub fn get_scrcpy_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     let resource_path = get_resource_base_path(app)?;
     let platform_subpath = get_platform_subpath()?;
-    
+
     let scrcpy_dir = resource_path.join("scrcpy").join(platform_subpath);
-    
+
     if !scrcpy_dir.exists() {
         return Err(format!("Scrcpy directory not found at: {:?}", scrcpy_dir));
     }
-    
+
     Ok(scrcpy_dir)
 }
 

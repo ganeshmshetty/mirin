@@ -284,6 +284,35 @@ pub async fn disconnect_device_impl(adb_path: PathBuf, device_id: String) -> Res
     }
 }
 
+fn forgotten_devices_path() -> Result<PathBuf, String> {
+    let config_dir =
+        dirs::config_dir().ok_or_else(|| "Failed to get config directory".to_string())?;
+    let app_dir = config_dir.join("mirin");
+    if !app_dir.exists() {
+        fs::create_dir_all(&app_dir)
+            .map_err(|e| format!("Failed to create config directory: {}", e))?;
+    }
+    Ok(app_dir.join("forgotten_devices.json"))
+}
+
+fn load_forgotten_set() -> HashSet<String> {
+    match forgotten_devices_path() {
+        Ok(path) if path.exists() => fs::read_to_string(&path)
+            .ok()
+            .and_then(|c| serde_json::from_str(&c).ok())
+            .unwrap_or_default(),
+        _ => HashSet::new(),
+    }
+}
+
+fn persist_forgotten_set(identifiers: &HashSet<String>) {
+    if let Ok(path) = forgotten_devices_path() {
+        if let Ok(json) = serde_json::to_string(identifiers) {
+            let _ = fs::write(&path, json);
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct DeviceRegistry {
     forgotten_identifiers: Arc<Mutex<HashSet<String>>>,
@@ -320,13 +349,14 @@ mod tests {
 impl DeviceRegistry {
     pub fn new() -> Self {
         Self {
-            forgotten_identifiers: Arc::new(Mutex::new(HashSet::new())),
+            forgotten_identifiers: Arc::new(Mutex::new(load_forgotten_set())),
         }
     }
 
     pub fn mark_forgotten(&self, identifier: String) {
         if let Ok(mut forgotten) = self.forgotten_identifiers.lock() {
             forgotten.insert(identifier);
+            persist_forgotten_set(&forgotten);
         }
     }
 
@@ -341,6 +371,7 @@ impl DeviceRegistry {
     pub fn clear_forgotten(&self, identifier: &str) {
         if let Ok(mut forgotten) = self.forgotten_identifiers.lock() {
             forgotten.remove(identifier);
+            persist_forgotten_set(&forgotten);
         }
     }
 

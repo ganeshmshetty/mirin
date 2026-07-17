@@ -144,7 +144,10 @@ pub async fn get_clipboard(socket: &Mutex<TcpStream>) -> Result<String> {
         .map_err(|e| anyhow::anyhow!("Clipboard read error: {}", e))?;
 
     if header[0] != 0 {
-        return Err(anyhow::anyhow!("Unexpected device message type: {}", header[0]));
+        return Err(anyhow::anyhow!(
+            "Unexpected device message type: {}",
+            header[0]
+        ));
     }
     let len = u32::from_be_bytes([header[1], header[2], header[3], header[4]]) as usize;
     let mut text_bytes = vec![0u8; len];

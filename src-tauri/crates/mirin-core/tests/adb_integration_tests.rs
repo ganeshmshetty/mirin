@@ -1,8 +1,8 @@
+use mirin_core::adb::Adb;
 use std::fs::{self, File};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use tempfile::tempdir;
-use mirin_core::adb::Adb;
 
 #[tokio::test]
 async fn test_mock_adb_execution_integration() {
@@ -80,10 +80,16 @@ esac
     assert_eq!(devices[0].model.as_deref(), Some("mock_model"));
 
     // 5. Test calling `get_prop()`
-    let brand = adb.get_prop(Some("mock_serial_123"), "ro.product.brand").await.unwrap();
+    let brand = adb
+        .get_prop(Some("mock_serial_123"), "ro.product.brand")
+        .await
+        .unwrap();
     assert_eq!(brand, "Google");
 
-    let model = adb.get_prop(Some("mock_serial_123"), "ro.product.model").await.unwrap();
+    let model = adb
+        .get_prop(Some("mock_serial_123"), "ro.product.model")
+        .await
+        .unwrap();
     assert_eq!(model, "Pixel 8");
 
     // 6. Test parsing IP route via execution

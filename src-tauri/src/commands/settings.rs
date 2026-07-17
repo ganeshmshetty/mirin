@@ -1,7 +1,7 @@
+pub use mirin_core::settings::Settings;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::Manager;
-pub use mirin_core::settings::Settings;
 
 fn get_settings_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
     app_handle
@@ -251,7 +251,10 @@ pub async fn clear_app_cache(app_handle: tauri::AppHandle) -> Result<String, Str
 
     if total_items == 0 && total_bytes == 0 {
         if !errors.is_empty() {
-            return Err("Could not clear cache — some files are in use. Try again after closing popups.".into());
+            return Err(
+                "Could not clear cache — some files are in use. Try again after closing popups."
+                    .into(),
+            );
         }
         return Ok("Cache is already empty".into());
     }

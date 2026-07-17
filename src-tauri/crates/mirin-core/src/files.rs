@@ -1,6 +1,6 @@
+use crate::adb::Adb;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use crate::adb::Adb;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileInfo {
@@ -60,7 +60,11 @@ pub fn normalize_device_path(path: &str) -> String {
     }
 }
 
-pub async fn list_files_impl(adb_path: PathBuf, device_id: String, path: String) -> Result<Vec<FileInfo>, String> {
+pub async fn list_files_impl(
+    adb_path: PathBuf,
+    device_id: String,
+    path: String,
+) -> Result<Vec<FileInfo>, String> {
     let path = normalize_device_path(&path);
     validate_device_path(&path)?;
     let adb = Adb::new(adb_path).with_device(&device_id);
@@ -167,7 +171,8 @@ pub async fn pull_file_impl(
         return Err("Local path must not be empty".to_string());
     }
     let adb = Adb::new(adb_path).with_device(&device_id);
-    adb.execute(&["pull", &remote_path, local_path.trim()]).await?;
+    adb.execute(&["pull", &remote_path, local_path.trim()])
+        .await?;
     Ok(())
 }
 
@@ -183,11 +188,16 @@ pub async fn push_file_impl(
         return Err("Local path must not be empty".to_string());
     }
     let adb = Adb::new(adb_path).with_device(&device_id);
-    adb.execute(&["push", local_path.trim(), &remote_path]).await?;
+    adb.execute(&["push", local_path.trim(), &remote_path])
+        .await?;
     Ok(())
 }
 
-pub async fn delete_file_impl(adb_path: PathBuf, device_id: String, path: String) -> Result<(), String> {
+pub async fn delete_file_impl(
+    adb_path: PathBuf,
+    device_id: String,
+    path: String,
+) -> Result<(), String> {
     let path = normalize_device_path(&path);
     validate_device_path(&path)?;
     // Block accidental deletion of critical roots
@@ -199,7 +209,11 @@ pub async fn delete_file_impl(adb_path: PathBuf, device_id: String, path: String
     Ok(())
 }
 
-pub async fn create_directory_impl(adb_path: PathBuf, device_id: String, path: String) -> Result<(), String> {
+pub async fn create_directory_impl(
+    adb_path: PathBuf,
+    device_id: String,
+    path: String,
+) -> Result<(), String> {
     let path = normalize_device_path(&path);
     validate_device_path(&path)?;
     let adb = Adb::new(adb_path).with_device(&device_id);

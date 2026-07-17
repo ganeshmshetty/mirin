@@ -3,17 +3,17 @@ pub mod screenshot;
 pub mod tools;
 pub mod utils;
 
+use crate::resources::ResourceDispatcher;
+use crate::screenshot::ScreenshotRegistry;
+use crate::tools::ToolDispatcher;
+use mirin_core::scrcpy::EmbeddedScrcpyState;
+use mirin_core::ui_extractor::UiExtractor;
 use serde_json::{json, Value};
 use std::io::Write;
 use std::sync::Arc;
 use tauri::AppHandle;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader as TokioBufReader};
 use tokio::net::{TcpListener, TcpStream};
-use crate::resources::ResourceDispatcher;
-use crate::screenshot::ScreenshotRegistry;
-use crate::tools::ToolDispatcher;
-use mirin_core::ui_extractor::UiExtractor;
-use mirin_core::scrcpy::EmbeddedScrcpyState;
 
 pub const MCP_LOOPBACK_PORT: u16 = 48484;
 
@@ -33,7 +33,14 @@ impl<R: tauri::Runtime> McpBridge<R> {
         open_mirror_window_fn: Option<crate::tools::OpenMirrorWindowCallback<R>>,
     ) -> Self {
         Self {
-            tool_dispatcher: ToolDispatcher::new(app.clone(), state, ui_extractor, screenshot_registry, device_registry, open_mirror_window_fn),
+            tool_dispatcher: ToolDispatcher::new(
+                app.clone(),
+                state,
+                ui_extractor,
+                screenshot_registry,
+                device_registry,
+                open_mirror_window_fn,
+            ),
             resource_dispatcher: ResourceDispatcher::new(app),
         }
     }
@@ -79,17 +86,23 @@ impl<R: tauri::Runtime> McpBridge<R> {
                     })),
                 }
             }
-            "resources/list" => Ok(json!({ "resources": ResourceDispatcher::<R>::get_resources_list() })),
+            "resources/list" => {
+                Ok(json!({ "resources": ResourceDispatcher::<R>::get_resources_list() }))
+            }
             "resources/read" => {
                 let uri = params.get("uri").and_then(|u| u.as_str()).unwrap_or("");
                 match self.resource_dispatcher.read_resource(uri).await {
-                    Ok(res) => return json!({
-                        "jsonrpc": "2.0", "id": id, "result": res
-                    }),
-                    Err(e) => return json!({
-                        "jsonrpc": "2.0", "id": id,
-                        "error": { "code": -32002, "message": e }
-                    }),
+                    Ok(res) => {
+                        return json!({
+                            "jsonrpc": "2.0", "id": id, "result": res
+                        })
+                    }
+                    Err(e) => {
+                        return json!({
+                            "jsonrpc": "2.0", "id": id,
+                            "error": { "code": -32002, "message": e }
+                        })
+                    }
                 }
             }
             "ping" => Ok(json!({})),
@@ -142,7 +155,10 @@ pub async fn start_loopback_server(bridge: Arc<McpBridge>) {
     let listener = match TcpListener::bind(format!("127.0.0.1:{}", MCP_LOOPBACK_PORT)).await {
         Ok(l) => l,
         Err(e) => {
-            eprintln!("[MCP] Failed to bind loopback server on port {}: {}", MCP_LOOPBACK_PORT, e);
+            eprintln!(
+                "[MCP] Failed to bind loopback server on port {}: {}",
+                MCP_LOOPBACK_PORT, e
+            );
             return;
         }
     };
@@ -155,7 +171,7 @@ pub async fn start_loopback_server(bridge: Arc<McpBridge>) {
                 tokio::spawn(async move {
                     let (reader, mut writer) = socket.split();
                     let mut buf_reader = TokioBufReader::new(reader);
-                    
+
                     // First line must be AUTH: <secret>
                     let mut auth_line = String::new();
                     if buf_reader.read_line(&mut auth_line).await.is_err() {
@@ -198,8 +214,10 @@ pub async fn start_loopback_server(bridge: Arc<McpBridge>) {
                                 if let Ok(req) = serde_json::from_slice::<Value>(&payload) {
                                     let res = bridge_clone.handle_rpc_request(req).await;
                                     if !res.is_null() {
-                                        let res_bytes = serde_json::to_vec(&res).unwrap_or_default();
-                                        let header = format!("Content-Length: {}\r\n\r\n", res_bytes.len());
+                                        let res_bytes =
+                                            serde_json::to_vec(&res).unwrap_or_default();
+                                        let header =
+                                            format!("Content-Length: {}\r\n\r\n", res_bytes.len());
                                         let _ = writer.write_all(header.as_bytes()).await;
                                         let _ = writer.write_all(&res_bytes).await;
                                         let _ = writer.flush().await;
@@ -210,7 +228,8 @@ pub async fn start_loopback_server(bridge: Arc<McpBridge>) {
                             if let Ok(req) = serde_json::from_str::<Value>(trimmed) {
                                 let res = bridge_clone.handle_rpc_request(req).await;
                                 if !res.is_null() {
-                                    let res_str = serde_json::to_string(&res).unwrap_or_default() + "\n";
+                                    let res_str =
+                                        serde_json::to_string(&res).unwrap_or_default() + "\n";
                                     let _ = writer.write_all(res_str.as_bytes()).await;
                                     let _ = writer.flush().await;
                                 }

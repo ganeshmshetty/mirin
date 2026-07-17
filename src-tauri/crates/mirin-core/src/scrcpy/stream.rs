@@ -1,10 +1,10 @@
+use crate::adb::Adb;
 use anyhow::{anyhow, Result};
 use serde::Deserialize;
 use socket2::{Domain, Socket, Type};
 use std::net::SocketAddr;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::net::{TcpListener, TcpStream};
-use crate::adb::Adb;
 
 const SCRCPY_SERVER_REMOTE_PATH: &str = "/data/local/tmp/scrcpy-server.jar";
 
@@ -49,7 +49,9 @@ pub async fn start_server(
 ) -> Result<ConnectedStreams> {
     adb.kill_scrcpy_server(serial).await;
 
-    let server_path_str = server_path.to_str().ok_or_else(|| anyhow!("Invalid server path"))?;
+    let server_path_str = server_path
+        .to_str()
+        .ok_or_else(|| anyhow!("Invalid server path"))?;
     adb.push(serial, server_path_str, SCRCPY_SERVER_REMOTE_PATH)
         .await
         .map_err(|e| anyhow!("Failed to push scrcpy-server: {}", e))?;
@@ -99,7 +101,8 @@ pub async fn start_server(
         bitrate = settings.video_bit_rate,
     );
 
-    let mut server_process = adb.spawn_shell(serial, &server_cmd)
+    let mut server_process = adb
+        .spawn_shell(serial, &server_cmd)
         .map_err(|e| anyhow!("Failed to spawn scrcpy server shell: {}", e))?;
 
     if let Some(stdout) = server_process.stdout.take() {
@@ -122,22 +125,18 @@ pub async fn start_server(
         });
     }
 
-    let (mut video_socket, _) = tokio::time::timeout(
-        tokio::time::Duration::from_secs(12),
-        listener.accept(),
-    )
-    .await
-    .map_err(|_| anyhow!("Timeout waiting for video socket connection from scrcpy server"))?
-    .map_err(|e| anyhow!("Accept failed for video socket: {}", e))?;
+    let (mut video_socket, _) =
+        tokio::time::timeout(tokio::time::Duration::from_secs(12), listener.accept())
+            .await
+            .map_err(|_| anyhow!("Timeout waiting for video socket connection from scrcpy server"))?
+            .map_err(|e| anyhow!("Accept failed for video socket: {}", e))?;
 
     let audio_socket = if settings.audio {
-        let (mut audio_sock, _) = tokio::time::timeout(
-            tokio::time::Duration::from_secs(5),
-            listener.accept(),
-        )
-        .await
-        .map_err(|_| anyhow!("Timeout waiting for audio socket connection"))?
-        .map_err(|e| anyhow!("Accept failed for audio socket: {}", e))?;
+        let (mut audio_sock, _) =
+            tokio::time::timeout(tokio::time::Duration::from_secs(5), listener.accept())
+                .await
+                .map_err(|_| anyhow!("Timeout waiting for audio socket connection"))?
+                .map_err(|e| anyhow!("Accept failed for audio socket: {}", e))?;
 
         let mut audio_codec_buf = [0u8; 4];
         audio_sock.read_exact(&mut audio_codec_buf).await?;
@@ -147,13 +146,11 @@ pub async fn start_server(
         None
     };
 
-    let (control_socket, _) = tokio::time::timeout(
-        tokio::time::Duration::from_secs(5),
-        listener.accept(),
-    )
-    .await
-    .map_err(|_| anyhow!("Timeout waiting for control socket connection"))?
-    .map_err(|e| anyhow!("Accept failed for control socket: {}", e))?;
+    let (control_socket, _) =
+        tokio::time::timeout(tokio::time::Duration::from_secs(5), listener.accept())
+            .await
+            .map_err(|_| anyhow!("Timeout waiting for control socket connection"))?
+            .map_err(|e| anyhow!("Accept failed for control socket: {}", e))?;
 
     let mut device_name_buf = [0u8; 64];
     video_socket.read_exact(&mut device_name_buf).await?;

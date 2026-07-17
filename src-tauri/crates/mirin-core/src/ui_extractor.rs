@@ -1,3 +1,4 @@
+use crate::adb::Adb;
 use anyhow::Result;
 use quick_xml::events::Event;
 use quick_xml::Reader;
@@ -5,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
-use crate::adb::Adb;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UiElement {
@@ -145,7 +145,13 @@ impl UiExtractor {
                     }
                 }
                 Ok(Event::Eof) => break,
-                Err(e) => return Err(format!("XML parse error at position {}: {:?}", reader.buffer_position(), e)),
+                Err(e) => {
+                    return Err(format!(
+                        "XML parse error at position {}: {:?}",
+                        reader.buffer_position(),
+                        e
+                    ))
+                }
                 _ => {}
             }
             buf.clear();
@@ -181,9 +187,15 @@ impl UiExtractor {
         }
 
         // First attempt: direct exec-out stream
-        let xml_output = match adb.execute(&["exec-out", "uiautomator", "dump", "/dev/tty"]).await {
+        let xml_output = match adb
+            .execute(&["exec-out", "uiautomator", "dump", "/dev/tty"])
+            .await
+        {
             Ok(out) if out.contains("<?xml") || out.contains("<hierarchy") => {
-                let start = out.find("<?xml").or_else(|| out.find("<hierarchy")).unwrap_or(0);
+                let start = out
+                    .find("<?xml")
+                    .or_else(|| out.find("<hierarchy"))
+                    .unwrap_or(0);
                 out[start..].to_string()
             }
             _ => {
@@ -194,18 +206,25 @@ impl UiExtractor {
                 let content = adb
                     .execute(&["exec-out", "cat", "/data/local/tmp/uidump.xml"])
                     .await?;
-                let _ = adb.execute(&["shell", "rm", "/data/local/tmp/uidump.xml"]).await;
+                let _ = adb
+                    .execute(&["shell", "rm", "/data/local/tmp/uidump.xml"])
+                    .await;
                 let start = content
                     .find("<?xml")
                     .or_else(|| content.find("<hierarchy"))
-                    .ok_or_else(|| "Failed to extract valid XML from uiautomator dump".to_string())?;
+                    .ok_or_else(|| {
+                        "Failed to extract valid XML from uiautomator dump".to_string()
+                    })?;
                 content[start..].to_string()
             }
         };
 
         let elements = Self::parse_xml(&xml_output)?;
-        
-        let size_out = adb.execute(&["shell", "wm", "size"]).await.unwrap_or_default();
+
+        let size_out = adb
+            .execute(&["shell", "wm", "size"])
+            .await
+            .unwrap_or_default();
         let mut max_w = 0;
         let mut max_h = 0;
         for line in size_out.lines() {
@@ -261,7 +280,10 @@ impl UiExtractor {
         let sel = selector.trim();
 
         // 1. Try numeric ID (supports both "18" and "[18]" formats)
-        let stripped = sel.strip_prefix('[').and_then(|s| s.strip_suffix(']')).unwrap_or(sel);
+        let stripped = sel
+            .strip_prefix('[')
+            .and_then(|s| s.strip_suffix(']'))
+            .unwrap_or(sel);
         if let Ok(num_id) = stripped.parse::<u32>() {
             if let Some(el) = tree.elements.iter().find(|e| e.id == num_id) {
                 let center_x = (el.bounds.0 + el.bounds.2) / 2;
@@ -296,7 +318,10 @@ impl UiExtractor {
             }
         }
 
-        Err(format!("Element matching selector '{}' not found on screen", selector))
+        Err(format!(
+            "Element matching selector '{}' not found on screen",
+            selector
+        ))
     }
 }
 
@@ -306,8 +331,14 @@ mod tests {
 
     #[test]
     fn test_parse_bounds() {
-        assert_eq!(UiExtractor::parse_bounds("[0,0][1080,1920]"), Some((0, 0, 1080, 1920)));
-        assert_eq!(UiExtractor::parse_bounds("[100,200][300,400]"), Some((100, 200, 300, 400)));
+        assert_eq!(
+            UiExtractor::parse_bounds("[0,0][1080,1920]"),
+            Some((0, 0, 1080, 1920))
+        );
+        assert_eq!(
+            UiExtractor::parse_bounds("[100,200][300,400]"),
+            Some((100, 200, 300, 400))
+        );
         assert_eq!(UiExtractor::parse_bounds("invalid"), None);
         assert_eq!(UiExtractor::parse_bounds("[0,0]"), None);
         assert_eq!(UiExtractor::parse_bounds("[0,0] [100,100]"), None);
@@ -330,12 +361,18 @@ mod tests {
 
         assert_eq!(elements[0].id, 1);
         assert_eq!(elements[0].text, Some("Submit".to_string()));
-        assert_eq!(elements[0].resource_id, Some("com.example:id/btn_submit".to_string()));
+        assert_eq!(
+            elements[0].resource_id,
+            Some("com.example:id/btn_submit".to_string())
+        );
         assert_eq!(elements[0].bounds, (100, 200, 300, 300));
         assert!(elements[0].clickable);
 
         assert_eq!(elements[1].id, 2);
-        assert_eq!(elements[1].content_desc, Some("Profile Picture".to_string()));
+        assert_eq!(
+            elements[1].content_desc,
+            Some("Profile Picture".to_string())
+        );
         assert_eq!(elements[1].bounds, (400, 100, 500, 200));
         assert!(!elements[1].clickable);
     }

@@ -1,9 +1,9 @@
 pub mod adb;
-pub mod scrcpy;
-pub mod device_registry;
-pub mod utils;
-pub mod ui_extractor;
-pub mod screenshot;
 pub mod apps;
+pub mod device_registry;
 pub mod files;
+pub mod scrcpy;
+pub mod screenshot;
 pub mod settings;
+pub mod ui_extractor;
+pub mod utils;

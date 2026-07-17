@@ -1,14 +1,13 @@
-use tauri::{State, ipc::Channel};
+use crate::utils;
+use mirin_core::adb::Adb;
 use mirin_core::scrcpy::{
-    self,
-    EmbeddedScrcpyState, EmbeddedSessionInfo,
+    self, control,
     stream::{self, EmbeddedStreamSettings},
     video::{self, FrameEvent, VideoCodec},
-    control,
+    EmbeddedScrcpyState, EmbeddedSessionInfo,
 };
-use mirin_core::adb::Adb;
-use crate::utils;
 use std::sync::Arc;
+use tauri::{ipc::Channel, State};
 use tokio::sync::{Mutex as TokioMutex, Notify};
 
 /// Check if scrcpy is installed/available
@@ -46,9 +45,10 @@ pub async fn connect_embedded_mirror(
     let scrcpy_server_path = utils::get_scrcpy_server_path(&app)?;
     let scrcpy_path = utils::get_scrcpy_path(&app)?;
     let scrcpy_dir = utils::get_scrcpy_dir(&app)?;
-    let scrcpy_version = tokio::task::spawn_blocking(move || {
-        scrcpy::get_version_number(&scrcpy_path, &scrcpy_dir)
-    }).await.map_err(|e| e.to_string())?;
+    let scrcpy_version =
+        tokio::task::spawn_blocking(move || scrcpy::get_version_number(&scrcpy_path, &scrcpy_dir))
+            .await
+            .map_err(|e| e.to_string())?;
 
     // If an embedded session is already active for this device, stop it cleanly first.
     // Shutdown notify returns from stream_video without emitting a "disconnected"
@@ -63,7 +63,13 @@ pub async fn connect_embedded_mirror(
 
     let streams = tokio::time::timeout(
         std::time::Duration::from_secs(10),
-        stream::start_server(&adb, &device_id, &scrcpy_server_path, &scrcpy_version, &opts)
+        stream::start_server(
+            &adb,
+            &device_id,
+            &scrcpy_server_path,
+            &scrcpy_version,
+            &opts,
+        ),
     )
     .await
     .map_err(|_| "Timeout starting embedded server".to_string())?
@@ -75,9 +81,15 @@ pub async fn connect_embedded_mirror(
     let codec = VideoCodec::from_str(&opts.video_codec);
     let video_socket = streams.video_socket;
     tokio::spawn(async move {
-        video::stream_video(video_socket, move |event| {
-            let _ = on_frame.send(event);
-        }, shutdown_clone, codec).await;
+        video::stream_video(
+            video_socket,
+            move |event| {
+                let _ = on_frame.send(event);
+            },
+            shutdown_clone,
+            codec,
+        )
+        .await;
     });
 
     let session = EmbeddedSessionInfo {

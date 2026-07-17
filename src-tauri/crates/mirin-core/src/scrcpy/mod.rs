@@ -2,11 +2,11 @@ pub mod control;
 pub mod stream;
 pub mod video;
 
-use std::process::Command;
 use std::collections::HashMap;
+use std::process::Command;
 use std::sync::{Arc, Mutex};
-use tokio::sync::{Mutex as TokioMutex, Notify};
 use tokio::net::TcpStream;
+use tokio::sync::{Mutex as TokioMutex, Notify};
 
 pub struct EmbeddedSessionInfo {
     pub control_socket: Arc<TokioMutex<TcpStream>>,
@@ -58,14 +58,19 @@ impl EmbeddedScrcpyState {
 
     pub fn get_control_socket(&self, serial: &str) -> Result<Arc<TokioMutex<TcpStream>>, String> {
         let sessions = self.sessions.lock().map_err(|e| e.to_string())?;
-        sessions.get(serial)
+        sessions
+            .get(serial)
             .map(|s| s.control_socket.clone())
             .ok_or_else(|| format!("No embedded session found for device {}", serial))
     }
 
-    pub fn get_session_info(&self, serial: &str) -> Result<(Arc<TokioMutex<TcpStream>>, u32, u32), String> {
+    pub fn get_session_info(
+        &self,
+        serial: &str,
+    ) -> Result<(Arc<TokioMutex<TcpStream>>, u32, u32), String> {
         let sessions = self.sessions.lock().map_err(|e| e.to_string())?;
-        sessions.get(serial)
+        sessions
+            .get(serial)
             .map(|s| (s.control_socket.clone(), s.screen_width, s.screen_height))
             .ok_or_else(|| format!("No embedded session found for device {}", serial))
     }
@@ -81,20 +86,23 @@ impl EmbeddedScrcpyState {
 }
 
 /// Get scrcpy version
-pub fn get_version(scrcpy_path: &std::path::Path, scrcpy_dir: &std::path::Path) -> Result<String, String> {
+pub fn get_version(
+    scrcpy_path: &std::path::Path,
+    scrcpy_dir: &std::path::Path,
+) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     use std::os::windows::process::CommandExt;
-    
+
     let mut cmd = Command::new(scrcpy_path);
-    cmd.current_dir(scrcpy_dir)
-       .arg("--version");
+    cmd.current_dir(scrcpy_dir).arg("--version");
 
     #[cfg(target_os = "windows")]
     cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
 
-    let output = cmd.output()
+    let output = cmd
+        .output()
         .map_err(|e| format!("Failed to execute scrcpy: {}", e))?;
-    
+
     if output.status.success() {
         let version = String::from_utf8_lossy(&output.stdout).to_string();
         Ok(version.trim().to_string())

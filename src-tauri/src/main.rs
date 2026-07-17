@@ -9,4 +9,3 @@ fn main() {
         mirin_lib::run()
     }
 }
-

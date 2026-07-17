@@ -1,6 +1,6 @@
+use crate::adb::Adb;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use crate::adb::Adb;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppInfo {
@@ -67,7 +67,11 @@ pub async fn list_apps_impl(adb_path: PathBuf, device_id: String) -> Result<Vec<
     Ok(apps)
 }
 
-pub async fn install_app_impl(adb_path: PathBuf, device_id: String, apk_path: String) -> Result<(), String> {
+pub async fn install_app_impl(
+    adb_path: PathBuf,
+    device_id: String,
+    apk_path: String,
+) -> Result<(), String> {
     if apk_path.trim().is_empty() {
         return Err("APK path must not be empty".to_string());
     }
@@ -77,20 +81,35 @@ pub async fn install_app_impl(adb_path: PathBuf, device_id: String, apk_path: St
     Ok(())
 }
 
-pub async fn uninstall_app_impl(adb_path: PathBuf, device_id: String, package_name: String) -> Result<(), String> {
+pub async fn uninstall_app_impl(
+    adb_path: PathBuf,
+    device_id: String,
+    package_name: String,
+) -> Result<(), String> {
     validate_package_name(&package_name)?;
     let adb = Adb::new(adb_path).with_device(&device_id);
     adb.execute(&["uninstall", package_name.trim()]).await?;
     Ok(())
 }
 
-pub async fn launch_app_impl(adb_path: PathBuf, device_id: String, package_name: String) -> Result<(), String> {
+pub async fn launch_app_impl(
+    adb_path: PathBuf,
+    device_id: String,
+    package_name: String,
+) -> Result<(), String> {
     validate_package_name(&package_name)?;
     let pkg = package_name.trim();
     let adb = Adb::new(adb_path).with_device(&device_id);
 
     let out = adb
-        .execute(&["shell", "cmd", "package", "resolve-activity", "--brief", pkg])
+        .execute(&[
+            "shell",
+            "cmd",
+            "package",
+            "resolve-activity",
+            "--brief",
+            pkg,
+        ])
         .await
         .map_err(|e| format!("Failed to resolve activity for '{}': {}", pkg, e))?;
 
@@ -122,17 +141,27 @@ pub async fn launch_app_impl(adb_path: PathBuf, device_id: String, package_name:
     Ok(())
 }
 
-pub async fn clear_app_data_impl(adb_path: PathBuf, device_id: String, package_name: String) -> Result<(), String> {
+pub async fn clear_app_data_impl(
+    adb_path: PathBuf,
+    device_id: String,
+    package_name: String,
+) -> Result<(), String> {
     validate_package_name(&package_name)?;
     let adb = Adb::new(adb_path).with_device(&device_id);
-    adb.execute(&["shell", "pm", "clear", package_name.trim()]).await?;
+    adb.execute(&["shell", "pm", "clear", package_name.trim()])
+        .await?;
     Ok(())
 }
 
-pub async fn stop_app_impl(adb_path: PathBuf, device_id: String, package_name: String) -> Result<(), String> {
+pub async fn stop_app_impl(
+    adb_path: PathBuf,
+    device_id: String,
+    package_name: String,
+) -> Result<(), String> {
     validate_package_name(&package_name)?;
     let adb = Adb::new(adb_path).with_device(&device_id);
-    adb.execute(&["shell", "am", "force-stop", package_name.trim()]).await?;
+    adb.execute(&["shell", "am", "force-stop", package_name.trim()])
+        .await?;
     Ok(())
 }
 

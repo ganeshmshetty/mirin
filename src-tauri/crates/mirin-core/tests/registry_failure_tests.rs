@@ -421,3 +421,43 @@ fn test_forgotten_device_tracks_and_clears_all_identifiers() {
     assert!(!registry.is_device_forgotten(&device));
     assert!(!registry.is_forgotten("192.168.1.10"));
 }
+
+// ---------------------------------------------------------------------------
+// Test 14 - forgotten identifiers persist to disk across registry instances
+// ---------------------------------------------------------------------------
+#[tokio::test]
+async fn test_forgotten_persists_across_registry_instances() {
+    let _lock = ENV_LOCK.lock().unwrap();
+    let dir = tempdir().unwrap();
+    redirect_config(dir.path());
+
+    let id = "persisted_hw_id".to_string();
+
+    {
+        let registry = DeviceRegistry::new();
+        registry.mark_forgotten(id.clone());
+        assert!(registry.is_forgotten(&id));
+        // registry drops here; file persists
+    }
+
+    {
+        let registry = DeviceRegistry::new();
+        assert!(
+            registry.is_forgotten(&id),
+            "Forgotten identifier must survive across registry instances"
+        );
+    }
+
+    {
+        let registry = DeviceRegistry::new();
+        registry.clear_forgotten(&id);
+    }
+
+    {
+        let registry = DeviceRegistry::new();
+        assert!(
+            !registry.is_forgotten(&id),
+            "Clear must also persist across registry instances"
+        );
+    }
+}

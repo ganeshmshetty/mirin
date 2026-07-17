@@ -85,8 +85,7 @@ pub fn save_settings_impl(settings: Settings, settings_path: PathBuf) -> Result<
     let json = serde_json::to_string_pretty(&settings)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
 
-    fs::write(&settings_path, json)
-        .map_err(|e| format!("Failed to write settings file: {}", e))?;
+    fs::write(&settings_path, json).map_err(|e| format!("Failed to write settings file: {}", e))?;
 
     Ok(true)
 }

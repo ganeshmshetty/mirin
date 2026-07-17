@@ -1,8 +1,8 @@
-use mirin_mcp::McpBridge;
-use mirin_core::ui_extractor::UiExtractor;
-use mirin_core::scrcpy::EmbeddedScrcpyState;
 use mirin_core::device_registry::DeviceRegistry;
+use mirin_core::scrcpy::EmbeddedScrcpyState;
+use mirin_core::ui_extractor::UiExtractor;
 use mirin_mcp::screenshot::ScreenshotRegistry;
+use mirin_mcp::McpBridge;
 use serde_json::json;
 
 #[tokio::test]

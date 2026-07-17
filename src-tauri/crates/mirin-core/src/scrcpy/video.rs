@@ -39,7 +39,11 @@ pub enum FrameEvent {
     #[serde(rename = "config")]
     Config { codec: String, description: String },
     #[serde(rename = "packet")]
-    Packet { key: bool, data: String, timestamp: u64 },
+    Packet {
+        key: bool,
+        data: String,
+        timestamp: u64,
+    },
     #[serde(rename = "disconnected")]
     Disconnected { reason: String },
 }
@@ -77,11 +81,7 @@ pub async fn stream_video<F>(
 
 const READ_TIMEOUT: Duration = Duration::from_secs(10);
 
-async fn forward_loop<F>(
-    socket: &mut TcpStream,
-    on_event: &F,
-    codec: VideoCodec,
-) -> Result<()>
+async fn forward_loop<F>(socket: &mut TcpStream, on_event: &F, codec: VideoCodec) -> Result<()>
 where
     F: Fn(FrameEvent) + Send + Sync + 'static,
 {
@@ -183,10 +183,7 @@ fn build_hevc_codec_string(sps: &[u8]) -> Option<String> {
     let profile_byte = sps[ptl + 1];
     let profile_idc = profile_byte & 0x1F;
     let tier_flag = (profile_byte >> 5) & 0x01;
-    let compat = u32::from_be_bytes([
-        sps[ptl + 2], sps[ptl + 3],
-        sps[ptl + 4], sps[ptl + 5],
-    ]);
+    let compat = u32::from_be_bytes([sps[ptl + 2], sps[ptl + 3], sps[ptl + 4], sps[ptl + 5]]);
     let level_idc = sps[ptl + 12];
     let tier = if tier_flag == 1 { "H" } else { "L" };
     let constraints = &sps[ptl + 6..ptl + 12];
@@ -194,7 +191,14 @@ fn build_hevc_codec_string(sps: &[u8]) -> Option<String> {
     while hex_parts.last().map_or(false, |s| s == "00") && hex_parts.len() > 1 {
         hex_parts.pop();
     }
-    Some(format!("hev1.{}.{:X}.{}{}.{}", profile_idc, compat, tier, level_idc, hex_parts.join("")))
+    Some(format!(
+        "hev1.{}.{:X}.{}{}.{}",
+        profile_idc,
+        compat,
+        tier,
+        level_idc,
+        hex_parts.join("")
+    ))
 }
 
 fn build_hvcc(vps_list: &[&[u8]], sps_list: &[&[u8]], pps_list: &[&[u8]]) -> Vec<u8> {
@@ -226,11 +230,7 @@ fn build_hvcc(vps_list: &[&[u8]], sps_list: &[&[u8]], pps_list: &[&[u8]]) -> Vec
     out.extend_from_slice(&[0x00, 0x00]); // avgFrameRate = 0
     out.push(0x03); // constantFrameRate(0) + numTemporalLayers(0) + temporalIdNested(0) + lengthSizeMinusOne(3)
 
-    let arrays: &[(&[&[u8]], u8)] = &[
-        (vps_list, 32),
-        (sps_list, 33),
-        (pps_list, 34),
-    ];
+    let arrays: &[(&[&[u8]], u8)] = &[(vps_list, 32), (sps_list, 33), (pps_list, 34)];
     let num_arrays = arrays.iter().filter(|(list, _)| !list.is_empty()).count();
     out.push(num_arrays as u8);
 
@@ -290,14 +290,7 @@ fn build_avcc(sps_list: &[&[u8]], pps_list: &[&[u8]]) -> Vec<u8> {
         return Vec::new();
     }
     let sps = sps_list[0];
-    let mut out = vec![
-        1,
-        sps[1],
-        sps[2],
-        sps[3],
-        0xFF,
-        0xE0 | sps_list.len() as u8,
-    ];
+    let mut out = vec![1, sps[1], sps[2], sps[3], 0xFF, 0xE0 | sps_list.len() as u8];
     for s in sps_list {
         out.push((s.len() >> 8) as u8);
         out.push(s.len() as u8);

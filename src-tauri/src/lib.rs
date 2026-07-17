@@ -1,9 +1,9 @@
 mod commands;
+use mirin_core::{device_registry, scrcpy};
 use mirin_mcp::utils;
-use mirin_core::{scrcpy, device_registry};
 
-use tauri::Manager;
 use std::sync::Arc;
+use tauri::Manager;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -72,16 +72,22 @@ async fn open_connect_window(app: tauri::AppHandle, mode: Option<String>) -> Res
 
     if let Some(window) = app.get_webview_window("connect_device") {
         if let Some(main_win) = app.get_webview_window("main") {
-            if let (Ok(main_pos), Ok(main_size), Ok(scale)) = (main_win.outer_position(), main_win.outer_size(), main_win.scale_factor()) {
+            if let (Ok(main_pos), Ok(main_size), Ok(scale)) = (
+                main_win.outer_position(),
+                main_win.outer_size(),
+                main_win.scale_factor(),
+            ) {
                 let main_logical_pos = main_pos.to_logical::<f64>(scale);
                 let main_logical_size = main_size.to_logical::<f64>(scale);
                 let center_x = main_logical_pos.x + (main_logical_size.width - 548.0) / 2.0;
                 let center_y = main_logical_pos.y + (main_logical_size.height - 410.0) / 2.0;
-                let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(center_x, center_y)));
+                let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(
+                    center_x, center_y,
+                )));
             }
         }
         window.set_focus().map_err(|e| e.to_string())?;
-        // If the window already exists, we could emit an event to change its mode, 
+        // If the window already exists, we could emit an event to change its mode,
         // but for now, just focusing it is fine as per original logic.
         return Ok(());
     }
@@ -89,7 +95,7 @@ async fn open_connect_window(app: tauri::AppHandle, mode: Option<String>) -> Res
     let mut builder = tauri::WebviewWindowBuilder::new(
         &app,
         "connect_device",
-        tauri::WebviewUrl::App(url.into())
+        tauri::WebviewUrl::App(url.into()),
     )
     .title("Connect Device")
     .inner_size(548.0, 410.0)
@@ -99,13 +105,17 @@ async fn open_connect_window(app: tauri::AppHandle, mode: Option<String>) -> Res
     .shadow(false);
 
     if let Some(main_win) = app.get_webview_window("main") {
-        if let (Ok(main_pos), Ok(main_size), Ok(scale)) = (main_win.outer_position(), main_win.outer_size(), main_win.scale_factor()) {
+        if let (Ok(main_pos), Ok(main_size), Ok(scale)) = (
+            main_win.outer_position(),
+            main_win.outer_size(),
+            main_win.scale_factor(),
+        ) {
             let main_logical_pos = main_pos.to_logical::<f64>(scale);
             let main_logical_size = main_size.to_logical::<f64>(scale);
-            
+
             let center_x = main_logical_pos.x + (main_logical_size.width - 548.0) / 2.0;
             let center_y = main_logical_pos.y + (main_logical_size.height - 410.0) / 2.0;
-            
+
             builder = builder.position(center_x, center_y);
         } else {
             builder = builder.center();
@@ -152,16 +162,13 @@ pub(crate) async fn open_mirror_window_impl(
     let encoded_name = urlencoding::encode(&device_name);
     let url = format!("index.html#/mirror/{}?name={}", encoded_id, encoded_name);
 
-    let mut builder = tauri::WebviewWindowBuilder::new(
-        &app,
-        &window_label,
-        tauri::WebviewUrl::App(url.into()),
-    )
-    .title(format!("{} - Mirin", device_name))
-    .inner_size(420.0, 840.0)
-    .min_inner_size(300.0, 500.0)
-    .resizable(true)
-    .decorations(true);
+    let mut builder =
+        tauri::WebviewWindowBuilder::new(&app, &window_label, tauri::WebviewUrl::App(url.into()))
+            .title(format!("{} - Mirin", device_name))
+            .inner_size(420.0, 840.0)
+            .min_inner_size(300.0, 500.0)
+            .resizable(true)
+            .decorations(true);
 
     if let Some(main_win) = app.get_webview_window("main") {
         if let (Ok(main_pos), Ok(main_size), Ok(scale)) = (
@@ -209,7 +216,7 @@ pub fn run() {
     let logcat_state = commands::LogcatState::new();
     let device_registry = device_registry::DeviceRegistry::new();
     let device_registry_clone = device_registry.clone();
-    
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -246,9 +253,9 @@ pub fn run() {
                 screenshot_registry,
                 device_registry_clone,
                 Some(Arc::new(|app_handle, serial, model| {
-                    Box::pin(async move {
-                        open_mirror_window_impl(app_handle, serial, model).await
-                    })
+                    Box::pin(
+                        async move { open_mirror_window_impl(app_handle, serial, model).await },
+                    )
                 })),
             ));
             tauri::async_runtime::spawn(async move {
@@ -317,7 +324,8 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
                 if window.label() == "main" {
-                    if let Some(embedded_state) = window.try_state::<scrcpy::EmbeddedScrcpyState>() {
+                    if let Some(embedded_state) = window.try_state::<scrcpy::EmbeddedScrcpyState>()
+                    {
                         println!("Main window destroyed, cleaning up embedded scrcpy processes...");
                         let _ = embedded_state.stop_all();
                     }
@@ -327,4 +335,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

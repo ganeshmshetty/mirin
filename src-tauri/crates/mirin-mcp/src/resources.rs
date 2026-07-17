@@ -1,7 +1,7 @@
 use anyhow::Result;
+use mirin_core::adb::Adb;
 use serde_json::{json, Value};
 use tauri::AppHandle;
-use mirin_core::adb::Adb;
 
 #[derive(Clone)]
 pub struct ResourceDispatcher<R: tauri::Runtime = tauri::Wry> {
@@ -26,9 +26,7 @@ impl<R: tauri::Runtime> ResourceDispatcher<R> {
         if let Some(serial_part) = uri.strip_prefix("mirin://devices/") {
             if let Some(serial) = serial_part.strip_suffix("/logcat") {
                 let adb = Adb::new(crate::utils::get_adb_path(&self.app)?).with_device(serial);
-                let logs = adb
-                    .execute(&["shell", "logcat", "-d", "-t", "200"])
-                    .await?;
+                let logs = adb.execute(&["shell", "logcat", "-d", "-t", "200"]).await?;
                 return Ok(json!({
                     "contents": [{
                         "uri": uri,
