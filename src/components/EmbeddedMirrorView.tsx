@@ -796,7 +796,9 @@ export function EmbeddedMirrorView({
           {/* Action Buttons */}
           <div
             className={`flex gap-1.5 overflow-y-auto ${
-              isLandscape ? "flex-row items-center flex-wrap justify-center" : ""
+              isLandscape
+                ? "flex-row items-center flex-wrap justify-center"
+                : "flex-col flex-1"
             }`}
           >
             {(
