@@ -95,12 +95,12 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
         vec![
             json!({
                 "name": "list_devices",
-                "description": "Get a list of all connected Android devices (USB and Wireless) with status and connection type.",
+                "description": "Inspect available Android devices (USB and Wireless). This does not start a Mirin mirror session; when the user asks to connect, call connect_device.",
                 "inputSchema": { "type": "object", "properties": {} }
             }),
             json!({
                 "name": "connect_device",
-                "description": "Ensure an embedded scrcpy mirroring session is running and ready for control commands. Reuses existing session if already active. Serial is optional if already connected.",
+                "description": "Connect the selected device to Mirin by ensuring an embedded scrcpy mirror session is running. Call this when the user asks to connect, even if list_devices reports the device as ADB-connected; reuses an active mirror session.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -119,7 +119,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "get_screen",
-                "description": "Get the current UI element tree of the device. Returns sanitized interactive elements with numeric IDs ([1], [2]...) unless raw=true.",
+                "description": "Inspect the current UI tree. After inspection, prefer tap_element for normal labeled controls.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -141,7 +141,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "find_element",
-                "description": "Find a UI element by numeric ID, exact/substring text, content description, or resource ID.",
+                "description": "Inspect one UI element by ID, text, content description, or resource ID. Use tap_element to actually tap a normal labeled control.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -153,7 +153,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "tap",
-                "description": "Tap on a UI element (by selector) or exact normalized/absolute coordinates. Requires an active scrcpy mirror session (use connect_device first).",
+                "description": "Tap by selector or coordinates. Prefer tap_element for normal labeled controls; use coordinates for games, canvases, images, or custom-rendered UI.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -167,7 +167,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "tap_element",
-                "description": "Tap a UI element semantically by selector. Mirin resolves the element or its clickable parent and calculates coordinates internally.",
+                "description": "Preferred semantic tap for normal Android controls. Mirin resolves the element or clickable parent and calculates/scales coordinates internally; the model should not calculate coordinates.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -228,7 +228,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "scroll_to",
-                "description": "Scroll up or down until a selector becomes visible. Best-effort: may not work on WebViews, LazyColumn, or custom scroll containers. Re-checks selector after each swipe.",
+                "description": "Scroll until a semantic selector is visible, re-checking after each swipe. Use before tap_element when the target is off-screen.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -242,7 +242,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "type_text",
-                "description": "Type UTF-8 text directly into the focused input field.",
+                "description": "Type UTF-8 text into the focused field. First use tap_element to focus the field; this tool does not choose a field.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {

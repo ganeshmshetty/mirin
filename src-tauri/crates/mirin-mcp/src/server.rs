@@ -340,7 +340,7 @@ impl McpServer {
 impl McpServer {
     #[tool(
         name = "list_devices",
-        description = "Get a list of all connected Android devices (USB and Wireless) with status and connection type."
+        description = "Inspect available Android devices (USB and Wireless) with status and connection type. This does not start a Mirin mirror session. If the user asks to connect, call connect_device after choosing a serial."
     )]
     async fn list_devices(
         &self,
@@ -351,7 +351,7 @@ impl McpServer {
 
     #[tool(
         name = "connect_device",
-        description = "Ensure an embedded scrcpy mirroring session is running and ready for control commands. Reuses an existing session if already active. Serial is optional if already connected."
+        description = "Connect the selected Android device to Mirin by ensuring an embedded scrcpy mirroring session is running and ready for control commands. Call this when the user asks to connect, even if list_devices already reports the device as ADB-connected. Reuses an existing mirror session if active."
     )]
     async fn connect_device(
         &self,
@@ -373,7 +373,7 @@ impl McpServer {
 
     #[tool(
         name = "get_screen",
-        description = "Get the current UI element tree of the device. Returns sanitized interactive elements with numeric IDs unless raw is true."
+        description = "Inspect the current Android UI tree. Use this before choosing a semantic target when the target is unclear; then prefer tap_element for normal labeled controls."
     )]
     async fn get_screen(
         &self,
@@ -395,7 +395,7 @@ impl McpServer {
 
     #[tool(
         name = "find_element",
-        description = "Find a UI element by numeric ID, exact or substring text, content description, or resource ID."
+        description = "Inspect one UI element by numeric ID, exact or substring text, content description, or resource ID. Use this when you need bounds/details; for actually tapping a labeled control, prefer tap_element."
     )]
     async fn find_element(
         &self,
@@ -406,7 +406,7 @@ impl McpServer {
 
     #[tool(
         name = "tap",
-        description = "Tap on a UI element by selector or on absolute/normalized coordinates. Requires an active scrcpy mirror session."
+        description = "Tap by selector or coordinates. Prefer tap_element for normal labeled Android controls because Mirin resolves clickable parents and coordinates internally. Use tap coordinates only for games, canvases, images, or custom-rendered UI without a usable UI tree."
     )]
     async fn tap(&self, Parameters(params): Parameters<TapParams>) -> Result<String, String> {
         self.invoke("tap", params).await
@@ -414,7 +414,7 @@ impl McpServer {
 
     #[tool(
         name = "tap_element",
-        description = "Tap a UI element semantically by selector. Mirin resolves the element or its clickable parent and calculates coordinates internally."
+        description = "Preferred way to tap a normal Android UI control. Provide text, content description, resource ID, or numeric UI ID; Mirin resolves the element or clickable parent and calculates/scales coordinates internally. Do not calculate coordinates in the model."
     )]
     async fn tap_element(
         &self,
@@ -458,7 +458,7 @@ impl McpServer {
 
     #[tool(
         name = "scroll_to",
-        description = "Scroll up or down until a selector becomes visible, re-checking the selector after each swipe."
+        description = "Scroll until a semantic selector becomes visible, re-checking after every swipe. Use this before tap_element when the target is not currently in the UI tree."
     )]
     async fn scroll_to(
         &self,
@@ -469,7 +469,7 @@ impl McpServer {
 
     #[tool(
         name = "type_text",
-        description = "Type UTF-8 text directly into the focused input field."
+        description = "Type UTF-8 text into the currently focused input field. First tap the field semantically with tap_element; this tool does not choose or focus a field by itself."
     )]
     async fn type_text(
         &self,
@@ -596,7 +596,7 @@ impl ServerHandler for McpServer {
                 .build(),
         )
         .with_instructions(
-            "Mirin controls connected Android devices through embedded scrcpy and ADB.",
+            "Mirin controls Android devices through ADB and an embedded scrcpy mirror session. Workflow: list_devices only to inspect; when the user asks to connect, call connect_device (even when ADB already says Connected); then use get_screen/find_element for inspection, tap_element for normal labeled controls, scroll_to before tapping off-screen targets, and coordinate tap only for canvas/game/custom-rendered UI. After focusing a text field with tap_element, use type_text.",
         )
         .with_server_info(Implementation::new("mirin-mcp", env!("CARGO_PKG_VERSION")))
     }
