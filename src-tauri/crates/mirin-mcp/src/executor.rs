@@ -662,21 +662,18 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                             .get("coordinate_mode")
                             .and_then(|v| v.as_str())
                             .unwrap_or("absolute");
-                        let clamp = |v: f32, max: u32| -> u32 {
-                            let raw = if mode == "normalized" {
-                                (v * max as f32).round() as u32
-                            } else {
-                                v as u32
-                            };
-                            if max == 0 {
-                                0
-                            } else if raw >= max {
-                                max - 1
-                            } else {
-                                raw
-                            }
-                        };
-                        (clamp(exv, dsp_w), clamp(eyv, dsp_h))
+                        if mode == "normalized" {
+                            mirin_core::scrcpy::control::normalized_point(exv, eyv, dsp_w, dsp_h)
+                        } else {
+                            let (device_w, device_h) = self
+                                .ui_extractor
+                                .get_device_size(&adb, &serial)
+                                .await
+                                .unwrap_or((dsp_w, dsp_h));
+                            mirin_core::scrcpy::control::scale_point(
+                                exv, eyv, device_w, device_h, dsp_w, dsp_h,
+                            )
+                        }
                     };
 
                     control::inject_touch(&socket, "down", sx, sy, dsp_w as u16, dsp_h as u16)
@@ -1232,7 +1229,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
         w: u32,
         h: u32,
     ) -> Result<(u32, u32, u32, u32), String> {
-        let (x, y, display_w, display_h) = if let Some(sel) = args["selector"].as_str() {
+        let (x, y, source_w, source_h) = if let Some(sel) = args["selector"].as_str() {
             let (cx, cy, _) = self.ui_extractor.resolve_selector(adb, serial, sel).await?;
             let tree = self
                 .ui_extractor
@@ -1250,12 +1247,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                 .and_then(|v| v.as_str())
                 .unwrap_or("absolute");
             if mode == "normalized" {
-                (
-                    (xv as f32 * w as f32).round(),
-                    (yv as f32 * h as f32).round(),
-                    w.max(1),
-                    h.max(1),
-                )
+                (xv as f32, yv as f32, 1, 1)
             } else {
                 // Use real device dimensions (from wm size) for absolute coords,
                 // not the scrcpy session's scaled dimensions.
@@ -1272,23 +1264,13 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             );
         };
 
-        let clamp = |v: f32, max: u32| -> u32 {
-            let rounded = v.round() as u32;
-            if max == 0 {
-                0
-            } else if rounded >= max {
-                max - 1
-            } else {
-                rounded
-            }
+        let (mapped_x, mapped_y) = if source_w == 1 && source_h == 1 {
+            mirin_core::scrcpy::control::normalized_point(x, y, w.max(1), h.max(1))
+        } else {
+            mirin_core::scrcpy::control::scale_point(x, y, source_w, source_h, w.max(1), h.max(1))
         };
 
-        Ok((
-            clamp(x, display_w),
-            clamp(y, display_h),
-            display_w,
-            display_h,
-        ))
+        Ok((mapped_x, mapped_y, w.max(1), h.max(1)))
     }
 }
 

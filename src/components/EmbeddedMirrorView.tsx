@@ -235,14 +235,35 @@ export function EmbeddedMirrorView({
   const rafMoveId = useRef<number>(0);
   const scrollAcc = useRef({ x: 0, y: 0 });
 
+  const getCanvasPoint = (canvas: HTMLCanvasElement, e: React.MouseEvent | React.WheelEvent) => {
+    const rect = canvas.getBoundingClientRect();
+    const intrinsicWidth = canvas.width || dimensions.width;
+    const intrinsicHeight = canvas.height || dimensions.height;
+    const scale = Math.min(
+      rect.width / Math.max(1, intrinsicWidth),
+      rect.height / Math.max(1, intrinsicHeight),
+    );
+    const renderedWidth = intrinsicWidth * scale;
+    const renderedHeight = intrinsicHeight * scale;
+    const offsetX = (rect.width - renderedWidth) / 2;
+    const offsetY = (rect.height - renderedHeight) / 2;
+    const contentX = e.clientX - rect.left - offsetX;
+    const contentY = e.clientY - rect.top - offsetY;
+
+    return {
+      x: Math.max(0, Math.min(1, contentX / Math.max(1, renderedWidth))),
+      y: Math.max(0, Math.min(1, contentY / Math.max(1, renderedHeight))),
+      inside: contentX >= 0 && contentX <= renderedWidth && contentY >= 0 && contentY <= renderedHeight,
+    };
+  };
+
   const handleCanvasMouseEvent = async (e: React.MouseEvent<HTMLCanvasElement>, action: string) => {
     if (status !== "streaming") return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    const { x, y, inside } = getCanvasPoint(canvas, e);
 
+    if (action === "down" && !inside) return;
     if (action === "down") isMouseDownRef.current = true;
     else if (action === "up") isMouseDownRef.current = false;
     else if (action === "move" && !isMouseDownRef.current) return;
@@ -269,11 +290,11 @@ export function EmbeddedMirrorView({
 
   const handleWheel = async (e: React.WheelEvent<HTMLCanvasElement>) => {
     if (status !== "streaming") return;
+    e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
+    const { x, y, inside } = getCanvasPoint(canvas, e);
+    if (!inside) return;
     
     scrollAcc.current.x += e.deltaX;
     scrollAcc.current.y += e.deltaY;
@@ -285,13 +306,15 @@ export function EmbeddedMirrorView({
     let dy = 0;
 
     if (Math.abs(scrollAcc.current.x) >= TICK_THRESHOLD) {
-      dx = scrollAcc.current.x > 0 ? -1 : 1;
-      scrollAcc.current.x = 0;
+      const ticks = Math.trunc(scrollAcc.current.x / TICK_THRESHOLD);
+      dx = Math.max(-8, Math.min(8, -ticks));
+      scrollAcc.current.x -= ticks * TICK_THRESHOLD;
     }
-    
+
     if (Math.abs(scrollAcc.current.y) >= TICK_THRESHOLD) {
-      dy = scrollAcc.current.y > 0 ? -1 : 1;
-      scrollAcc.current.y = 0;
+      const ticks = Math.trunc(scrollAcc.current.y / TICK_THRESHOLD);
+      dy = Math.max(-8, Math.min(8, -ticks));
+      scrollAcc.current.y -= ticks * TICK_THRESHOLD;
     }
 
     if (dx !== 0 || dy !== 0) {
@@ -728,7 +751,9 @@ export function EmbeddedMirrorView({
           onMouseDown={(e) => handleCanvasMouseEvent(e, "down")}
           onMouseMove={(e) => handleCanvasMouseEvent(e, "move")}
           onMouseUp={(e) => handleCanvasMouseEvent(e, "up")}
-          onMouseLeave={(e) => handleCanvasMouseEvent(e, "up")}
+          onMouseLeave={(e) => {
+            if (isMouseDownRef.current) void handleCanvasMouseEvent(e, "up");
+          }}
           onWheel={handleWheel}
           className="max-w-full max-h-full w-auto h-auto object-contain transition-opacity duration-200"
           style={{

@@ -34,6 +34,51 @@ const ACTION_DOWN: u8 = 0;
 const ACTION_UP: u8 = 1;
 const ACTION_MOVE: u8 = 2;
 
+/// Convert a point from the device/UI coordinate space to the dimensions
+/// advertised by the active scrcpy video stream.
+///
+/// scrcpy may scale the video with `max_size`, while ADB/UIAutomator still
+/// reports coordinates in the physical display space. Control messages must
+/// use the stream dimensions, otherwise selector-based input is offset on
+/// devices whose display is larger than the stream.
+pub fn scale_point(
+    x: f32,
+    y: f32,
+    source_width: u32,
+    source_height: u32,
+    target_width: u32,
+    target_height: u32,
+) -> (u32, u32) {
+    let scale = |value: f32, source: u32, target: u32| {
+        if source == 0 || target == 0 {
+            return 0;
+        }
+        ((value.clamp(0.0, (source - 1) as f32) / source as f32) * target as f32)
+            .round()
+            .min((target - 1) as f32) as u32
+    };
+
+    (
+        scale(x, source_width, target_width),
+        scale(y, source_height, target_height),
+    )
+}
+
+pub fn normalized_point(x: f32, y: f32, target_width: u32, target_height: u32) -> (u32, u32) {
+    let scale = |value: f32, target: u32| {
+        if target == 0 {
+            return 0;
+        }
+        (value.clamp(0.0, 1.0) * (target - 1) as f32).round() as u32
+    };
+    (scale(x, target_width), scale(y, target_height))
+}
+
+/// Encode scrcpy's scroll range (-16..=16) as signed 16-bit fixed-point.
+fn encode_scroll(value: i16) -> i16 {
+    ((value.clamp(-16, 16) as f32 / 16.0) * 32767.0).round() as i16
+}
+
 fn action_from_str(s: &str) -> u8 {
     match s {
         "down" => ACTION_DOWN,
@@ -176,11 +221,46 @@ pub async fn inject_scroll(
     WriteBytesExt::write_u32::<BigEndian>(&mut buf, y).unwrap();
     WriteBytesExt::write_u16::<BigEndian>(&mut buf, screen_w).unwrap();
     WriteBytesExt::write_u16::<BigEndian>(&mut buf, screen_h).unwrap();
-    WriteBytesExt::write_i16::<BigEndian>(&mut buf, scroll_x).unwrap();
-    WriteBytesExt::write_i16::<BigEndian>(&mut buf, scroll_y).unwrap();
+    WriteBytesExt::write_i16::<BigEndian>(&mut buf, encode_scroll(scroll_x)).unwrap();
+    WriteBytesExt::write_i16::<BigEndian>(&mut buf, encode_scroll(scroll_y)).unwrap();
     WriteBytesExt::write_u32::<BigEndian>(&mut buf, 0).unwrap();
 
     let mut stream = socket.lock().await;
     stream.write_all(&buf).await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{encode_scroll, scale_point};
+
+    #[test]
+    fn scales_physical_display_coordinates_to_stream_coordinates() {
+        assert_eq!(
+            scale_point(720.0, 1280.0, 1440, 2560, 1080, 1920),
+            (540, 960)
+        );
+        assert_eq!(
+            scale_point(1439.0, 2559.0, 1440, 2560, 1080, 1920),
+            (1079, 1919)
+        );
+    }
+
+    #[test]
+    fn clamps_points_to_the_target_display() {
+        assert_eq!(
+            scale_point(-10.0, 5000.0, 1440, 2560, 1080, 1920),
+            (0, 1919)
+        );
+    }
+
+    #[test]
+    fn encodes_scroll_as_scrcpy_fixed_point() {
+        assert_eq!(encode_scroll(0), 0);
+        assert_eq!(encode_scroll(1), 2048);
+        assert_eq!(encode_scroll(-1), -2048);
+        assert_eq!(encode_scroll(16), 32767);
+        assert_eq!(encode_scroll(-16), -32767);
+        assert_eq!(encode_scroll(100), 32767);
+    }
 }
