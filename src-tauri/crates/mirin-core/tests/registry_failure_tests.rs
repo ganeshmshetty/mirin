@@ -1,19 +1,18 @@
+use mirin_core::device_registry::{
+    get_saved_devices_impl, remove_saved_device_impl, save_device_impl, ConnectionType, Device,
+    DeviceConnection, DeviceRegistry, DeviceStatus,
+};
 /// Integration tests for device registry failure and edge-case paths.
 ///
 /// Registry tests that call save/get/remove must serialize access to the HOME
 /// env var (which dirs::config_dir uses on macOS).  We use a global Mutex so
 /// parallel test threads cannot clobber each other's temp directory pointer.
-
 use std::env;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 use std::sync::Mutex;
 use tempfile::tempdir;
-use mirin_core::device_registry::{
-    save_device_impl, get_saved_devices_impl, remove_saved_device_impl,
-    Device, ConnectionType, DeviceStatus, DeviceConnection, DeviceRegistry,
-};
 
 // ---------------------------------------------------------------------------
 // Global lock – serialises every test that mutates env vars / filesystem
@@ -69,7 +68,12 @@ async fn test_save_and_overwrite_same_hardware_id() {
     save_device_impl(dev2).await.unwrap();
 
     let saved = get_saved_devices_impl().await.unwrap();
-    assert_eq!(saved.len(), 1, "Expected exactly 1 entry after overwrite, got: {}", saved.len());
+    assert_eq!(
+        saved.len(),
+        1,
+        "Expected exactly 1 entry after overwrite, got: {}",
+        saved.len()
+    );
     assert_eq!(saved[0].id, "serial_Y", "Expected updated serial");
     assert_eq!(saved[0].hardware_id, "hw_A");
 }
@@ -84,13 +88,22 @@ async fn test_remove_nonexistent_device() {
     redirect_config(dir.path());
 
     // Ensure file exists with one real device
-    save_device_impl(make_device("real_device", "hw_real", "Phone", ConnectionType::Usb))
-        .await
-        .unwrap();
+    save_device_impl(make_device(
+        "real_device",
+        "hw_real",
+        "Phone",
+        ConnectionType::Usb,
+    ))
+    .await
+    .unwrap();
 
     let result = remove_saved_device_impl("ghost_id_that_was_never_saved".to_string()).await;
     assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
-    assert_eq!(result.unwrap(), false, "Expected Ok(false) for missing device");
+    assert_eq!(
+        result.unwrap(),
+        false,
+        "Expected Ok(false) for missing device"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -102,16 +115,28 @@ async fn test_remove_by_ip_match() {
     let dir = tempdir().unwrap();
     redirect_config(dir.path());
 
-    let dev = make_device("192.168.1.5:5555", "hw_ip", "Wireless Phone", ConnectionType::Wireless);
+    let dev = make_device(
+        "192.168.1.5:5555",
+        "hw_ip",
+        "Wireless Phone",
+        ConnectionType::Wireless,
+    );
     save_device_impl(dev).await.unwrap();
 
     // Remove using same IP but different port
     let result = remove_saved_device_impl("192.168.1.5:9999".to_string()).await;
     assert!(result.is_ok(), "Expected Ok");
-    assert_eq!(result.unwrap(), true, "Expected Ok(true): device removed by IP match");
+    assert_eq!(
+        result.unwrap(),
+        true,
+        "Expected Ok(true): device removed by IP match"
+    );
 
     let remaining = get_saved_devices_impl().await.unwrap();
-    assert!(remaining.is_empty(), "Expected empty list after IP-match removal");
+    assert!(
+        remaining.is_empty(),
+        "Expected empty list after IP-match removal"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -138,7 +163,8 @@ async fn test_save_multiple_devices() {
     for i in 0..3 {
         assert!(
             saved.iter().any(|d| d.hardware_id == format!("hw_{}", i)),
-            "Device hw_{} not found", i
+            "Device hw_{} not found",
+            i
         );
     }
 }
@@ -165,9 +191,15 @@ async fn test_device_registry_mark_and_forget() {
 
     // Clear just hw_B; others must remain
     registry.clear_forgotten("hw_B");
-    assert!(registry.is_forgotten("hw_A"), "hw_A should still be forgotten");
+    assert!(
+        registry.is_forgotten("hw_A"),
+        "hw_A should still be forgotten"
+    );
     assert!(!registry.is_forgotten("hw_B"), "hw_B should be cleared");
-    assert!(registry.is_forgotten("hw_C"), "hw_C should still be forgotten");
+    assert!(
+        registry.is_forgotten("hw_C"),
+        "hw_C should still be forgotten"
+    );
 
     registry.clear_forgotten("hw_A");
     registry.clear_forgotten("hw_C");
@@ -196,7 +228,11 @@ async fn test_corrupt_json_graceful() {
     }
 
     let result = get_saved_devices_impl().await;
-    assert!(result.is_ok(), "Expected Ok even with corrupt JSON, got: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "Expected Ok even with corrupt JSON, got: {:?}",
+        result
+    );
     let devices = result.unwrap();
     assert!(devices.is_empty(), "Expected empty Vec from corrupt JSON");
 }
@@ -219,7 +255,8 @@ async fn test_empty_hardware_id_fallback() {
     assert_eq!(saved.len(), 1, "Expected 1 device, got: {}", saved.len());
     assert_eq!(
         saved[0].hardware_id, "my_serial_id",
-        "Expected hardware_id == id, got: {:?}", saved[0].hardware_id
+        "Expected hardware_id == id, got: {:?}",
+        saved[0].hardware_id
     );
 }
 
@@ -237,7 +274,11 @@ async fn test_remove_by_hardware_id() {
 
     let result = remove_saved_device_impl("hw_real_123".to_string()).await;
     assert!(result.is_ok(), "Expected Ok");
-    assert_eq!(result.unwrap(), true, "Expected device removed by hardware_id");
+    assert_eq!(
+        result.unwrap(),
+        true,
+        "Expected device removed by hardware_id"
+    );
 
     let remaining = get_saved_devices_impl().await.unwrap();
     assert!(remaining.is_empty(), "Expected empty list");
@@ -253,7 +294,12 @@ async fn test_save_wireless_and_usb_separately() {
     redirect_config(dir.path());
 
     let usb_dev = make_device("USB_SERIAL_001", "hw_usb", "USB Phone", ConnectionType::Usb);
-    let wireless_dev = make_device("192.168.10.10:5555", "hw_wifi", "WiFi Phone", ConnectionType::Wireless);
+    let wireless_dev = make_device(
+        "192.168.10.10:5555",
+        "hw_wifi",
+        "WiFi Phone",
+        ConnectionType::Wireless,
+    );
 
     save_device_impl(usb_dev).await.unwrap();
     save_device_impl(wireless_dev).await.unwrap();
@@ -261,11 +307,15 @@ async fn test_save_wireless_and_usb_separately() {
     let saved = get_saved_devices_impl().await.unwrap();
     assert_eq!(saved.len(), 2, "Expected 2 devices, got: {}", saved.len());
 
-    let usb = saved.iter().find(|d| d.hardware_id == "hw_usb")
+    let usb = saved
+        .iter()
+        .find(|d| d.hardware_id == "hw_usb")
         .expect("USB device not found");
     assert_eq!(usb.connection_type, ConnectionType::Usb);
 
-    let wifi = saved.iter().find(|d| d.hardware_id == "hw_wifi")
+    let wifi = saved
+        .iter()
+        .find(|d| d.hardware_id == "hw_wifi")
         .expect("WiFi device not found");
     assert_eq!(wifi.connection_type, ConnectionType::Wireless);
     assert_eq!(wifi.id, "192.168.10.10:5555");
@@ -287,8 +337,16 @@ async fn test_overwrite_preserves_name() {
     save_device_impl(dev2).await.unwrap();
 
     let saved = get_saved_devices_impl().await.unwrap();
-    assert_eq!(saved.len(), 1, "Expected 1 device after overwrite, got: {}", saved.len());
-    assert_eq!(saved[0].name, "New Name", "Expected name overwritten to 'New Name'");
+    assert_eq!(
+        saved.len(),
+        1,
+        "Expected 1 device after overwrite, got: {}",
+        saved.len()
+    );
+    assert_eq!(
+        saved[0].name, "New Name",
+        "Expected name overwritten to 'New Name'"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -303,7 +361,11 @@ async fn test_remove_from_empty_registry_no_file() {
     // No file written → remove_saved_device_impl returns Ok(false) immediately
     let result = remove_saved_device_impl("nonexistent".to_string()).await;
     assert!(result.is_ok(), "Expected Ok even when file doesn't exist");
-    assert_eq!(result.unwrap(), false, "Expected Ok(false) when file is absent");
+    assert_eq!(
+        result.unwrap(),
+        false,
+        "Expected Ok(false) when file is absent"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -315,8 +377,47 @@ async fn test_device_registry_clone_shares_state() {
     let clone = registry.clone();
 
     registry.mark_forgotten("hw_shared".to_string());
-    assert!(clone.is_forgotten("hw_shared"), "Clone must see changes from original");
+    assert!(
+        clone.is_forgotten("hw_shared"),
+        "Clone must see changes from original"
+    );
 
     clone.clear_forgotten("hw_shared");
-    assert!(!registry.is_forgotten("hw_shared"), "Original must see clearance from clone");
+    assert!(
+        !registry.is_forgotten("hw_shared"),
+        "Original must see clearance from clone"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test 13 - forgetting tracks every transport identifier and explicit save clears it
+// ---------------------------------------------------------------------------
+#[test]
+fn test_forgotten_device_tracks_and_clears_all_identifiers() {
+    let registry = DeviceRegistry::new();
+    let mut device = make_device(
+        "USB_SERIAL_001",
+        "hardware_001",
+        "Phone",
+        ConnectionType::Usb,
+    );
+    device.connections.push(DeviceConnection {
+        id: "192.168.1.10:5555".to_string(),
+        connection_type: ConnectionType::Wireless,
+        status: DeviceStatus::Connected,
+        ip_address: Some("192.168.1.10".to_string()),
+    });
+
+    registry.mark_device_forgotten(&device);
+
+    assert!(registry.is_device_forgotten(&device));
+    assert!(registry.is_forgotten("USB_SERIAL_001"));
+    assert!(registry.is_forgotten("hardware_001"));
+    assert!(registry.is_forgotten("192.168.1.10:5555"));
+    assert!(registry.is_forgotten("192.168.1.10"));
+
+    registry.clear_device_forgotten(&device);
+
+    assert!(!registry.is_device_forgotten(&device));
+    assert!(!registry.is_forgotten("192.168.1.10"));
 }
