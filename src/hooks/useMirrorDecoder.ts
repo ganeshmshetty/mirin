@@ -45,6 +45,7 @@ export function useMirrorDecoder({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const decoderRef = useRef<VideoDecoder | null>(null);
   const pendingFrame = useRef<VideoFrame | null>(null);
+  const pendingPackets = useRef<Array<{ key: boolean; timestamp: number; data: Uint8Array }>>([]);
   const rafId = useRef<number>(0);
   const transportRef = useRef(deviceId);
 
@@ -80,6 +81,7 @@ export function useMirrorDecoder({
       decoderRef.current.close();
       decoderRef.current = null;
     }
+    pendingPackets.current = [];
   }, []);
 
   const clearRetryTimer = useCallback(() => {
@@ -213,6 +215,16 @@ export function useMirrorDecoder({
                 return;
               }
               decoder.configure(config);
+              const queuedPackets = pendingPackets.current.splice(0);
+              for (const packet of queuedPackets) {
+                decoder.decode(
+                  new EncodedVideoChunk({
+                    type: packet.key ? "key" : "delta",
+                    timestamp: packet.timestamp,
+                    data: packet.data,
+                  })
+                );
+              }
               retryCountRef.current = 0;
               setIsAutoRetrying(false);
               setStatus("streaming");
@@ -222,8 +234,20 @@ export function useMirrorDecoder({
             });
         } else if (msg.event === "packet") {
           const decoder = decoderRef.current;
-          if (!decoder || decoder.state !== "configured") return;
           const bytes = b64ToBytes(msg.data.data);
+          if (!decoder || decoder.state !== "configured") {
+            // The server can deliver the first keyframe immediately after the
+            // codec config. Keep a small queue instead of dropping it while
+            // WebCodecs finishes configuring.
+            if (pendingPackets.current.length < 8) {
+              pendingPackets.current.push({
+                key: msg.data.key,
+                timestamp: msg.data.timestamp,
+                data: bytes,
+              });
+            }
+            return;
+          }
           decoder.decode(
             new EncodedVideoChunk({
               type: msg.data.key ? "key" : "delta",

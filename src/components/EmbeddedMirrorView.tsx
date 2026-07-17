@@ -424,7 +424,7 @@ export function EmbeddedMirrorView({
     .map(connection => connection.ip_address || (connection.id.includes(":") ? connection.id.slice(0, connection.id.lastIndexOf(":")) : connection.id))
     .join(", ") || deviceIp || "N/A (USB)";
   const shellClass = fillWorkspace
-    ? "flex h-full min-h-0 w-full bg-gray-100 dark:bg-black overflow-hidden focus:outline-none"
+    ? `flex ${isLandscape ? "flex-col" : "flex-row"} h-full min-h-0 w-full bg-gray-100 dark:bg-black overflow-hidden focus:outline-none`
     : "flex flex-col h-full bg-app-card rounded-xl border border-app-border shadow-2xl overflow-hidden focus:outline-none";
 
   return (
