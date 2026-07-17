@@ -9,7 +9,7 @@ use rmcp::{
     },
     schemars,
     service::{RequestContext, RoleServer, ServiceExt},
-    tool, tool_router,
+    tool, tool_handler, tool_router,
     transport::streamable_http_server::{
         session::local::LocalSessionManager, StreamableHttpService,
     },
@@ -619,6 +619,7 @@ impl McpServer {
     }
 }
 
+#[tool_handler]
 impl ServerHandler for McpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(
