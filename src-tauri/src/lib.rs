@@ -1,4 +1,5 @@
 mod commands;
+mod mcp;
 use mirin_core::{device_registry, scrcpy};
 use mirin_mcp::utils;
 
@@ -246,7 +247,7 @@ pub fn run() {
                 }
             }
 
-            let bridge = Arc::new(mirin_mcp::McpBridge::new(
+            let server = mcp::build_server(
                 app.handle().clone(),
                 embedded_state,
                 ui_extractor,
@@ -257,9 +258,11 @@ pub fn run() {
                         async move { open_mirror_window_impl(app_handle, serial, model).await },
                     )
                 })),
-            ));
+            );
             tauri::async_runtime::spawn(async move {
-                mirin_mcp::start_loopback_server(bridge).await;
+                if let Err(error) = mcp::serve(server).await {
+                    eprintln!("[MCP] server stopped: {error}");
+                }
             });
 
             Ok(())

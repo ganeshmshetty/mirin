@@ -39,3 +39,13 @@ impl<R: tauri::Runtime> ResourceDispatcher<R> {
         Err(format!("Unknown or malformed resource URI: {}", uri))
     }
 }
+
+impl<R: tauri::Runtime> crate::server::ResourceReader for ResourceDispatcher<R> {
+    fn read_resource<'a>(
+        &'a self,
+        uri: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, String>> + Send + 'a>>
+    {
+        Box::pin(async move { ResourceDispatcher::read_resource(self, uri).await })
+    }
+}

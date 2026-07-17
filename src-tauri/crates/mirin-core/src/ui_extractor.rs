@@ -270,6 +270,34 @@ impl UiExtractor {
         Ok(ret)
     }
 
+    pub async fn get_device_size(
+        &self,
+        adb: &Adb,
+        serial: &str,
+    ) -> Result<(u32, u32), String> {
+        let size_out = adb
+            .with_device(serial)
+            .execute(&["shell", "wm", "size"])
+            .await
+            .map_err(|e| format!("wm size failed: {}", e))?;
+        for line in size_out.lines() {
+            if line.contains("size:") {
+                let parts: Vec<&str> = line.trim().split("size:").collect();
+                if parts.len() == 2 {
+                    let dims: Vec<&str> = parts[1].trim().split('x').collect();
+                    if dims.len() == 2 {
+                        if let (Ok(w), Ok(h)) = (dims[0].parse::<u32>(), dims[1].parse::<u32>()) {
+                            if w > 0 && h > 0 {
+                                return Ok((w, h));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Err("Could not determine device display size".to_string())
+    }
+
     pub async fn resolve_selector(
         &self,
         adb: &Adb,

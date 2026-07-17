@@ -1238,7 +1238,10 @@ impl<R: tauri::Runtime> ToolDispatcher<R> {
             let dw = tree.screen_width.max(1);
             let dh = tree.screen_height.max(1);
             (cx as f32, cy as f32, dw, dh)
-        } else if let (Some(xv), Some(yv)) = (args["x"].as_f64(), args["y"].as_f64()) {
+        } else if let (Some(xv), Some(yv)) = (
+            args["x"].as_f64().or_else(|| args["start_x"].as_f64()),
+            args["y"].as_f64().or_else(|| args["start_y"].as_f64()),
+        ) {
             let mode = args
                 .get("coordinate_mode")
                 .and_then(|v| v.as_str())
@@ -1251,7 +1254,14 @@ impl<R: tauri::Runtime> ToolDispatcher<R> {
                     h.max(1),
                 )
             } else {
-                (xv as f32, yv as f32, w.max(1), h.max(1))
+                // Use real device dimensions (from wm size) for absolute coords,
+                // not the scrcpy session's scaled dimensions.
+                let (dw, dh) = self
+                    .ui_extractor
+                    .get_device_size(adb, serial)
+                    .await
+                    .unwrap_or((w, h));
+                (xv as f32, yv as f32, dw.max(1), dh.max(1))
             }
         } else {
             return Err(
@@ -1343,4 +1353,15 @@ fn parse_clipboard_parcel(output: &str) -> Option<String> {
     }
 
     best
+}
+
+impl<R: tauri::Runtime> crate::server::ToolExecutor for ToolDispatcher<R> {
+    fn call_tool<'a>(
+        &'a self,
+        name: &'a str,
+        args: Value,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Value, String>> + Send + 'a>>
+    {
+        ToolDispatcher::call_tool(self, name, args)
+    }
 }

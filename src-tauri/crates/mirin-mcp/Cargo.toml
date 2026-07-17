@@ -3,14 +3,21 @@ name = "mirin-mcp"
 version = "0.2.0"
 edition = "2021"
 
+[features]
+default = ["tauri-adapter"]
+tauri-adapter = ["dep:tauri"]
+
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api"] }
+tauri = { version = "2", features = ["macos-private-api"], optional = true }
 mirin-core = { path = "../mirin-core" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
 uuid = { version = "1", features = ["v4"] }
 anyhow = "1"
+axum = "0.8"
+rmcp = { version = "2.2.0", features = ["server", "transport-streamable-http-server"] }
+schemars = "1.2"
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test", "macos-private-api"] }
