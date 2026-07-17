@@ -1,0 +1,198 @@
+{
+  "nodes": [
+    {
+      "id": "mirin_website_public_hero_screenshot_device_dashboard",
+      "label": "Device Dashboard",
+      "file_type": "image",
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/hero-screenshot.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "mirin_website_public_hero_screenshot_device_connection_status",
+      "label": "Device Connection Status",
+      "file_type": "concept",
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/hero-screenshot.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "mirin_website_public_hero_screenshot_mirror_action",
+      "label": "Mirror Action",
+      "file_type": "concept",
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/hero-screenshot.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "mirin_website_public_hero_screenshot_quick_mirror",
+      "label": "Quick Mirror",
+      "file_type": "concept",
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/hero-screenshot.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "mirin_website_public_setup_config_screenshot_quality_performance_settings",
+      "label": "Quality and Performance Settings",
+      "file_type": "image",
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/setup-config-screenshot.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "mirin_website_public_setup_config_screenshot_streaming_quality_presets",
+      "label": "Streaming Quality Presets",
+      "file_type": "concept",
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/setup-config-screenshot.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "mirin_website_public_setup_config_screenshot_streaming_resolution",
+      "label": "Streaming Resolution",
+      "file_type": "concept",
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/setup-config-screenshot.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "mirin_website_public_setup_config_screenshot_streaming_bitrate",
+      "label": "Streaming Bitrate",
+      "file_type": "concept",
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/setup-config-screenshot.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "mirin_website_public_setup_config_screenshot_max_fps",
+      "label": "Maximum FPS",
+      "file_type": "concept",
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/setup-config-screenshot.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "mirin_website_public_hero_screenshot_device_dashboard",
+      "target": "mirin_website_public_hero_screenshot_device_connection_status",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/hero-screenshot.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "mirin_website_public_hero_screenshot_device_dashboard",
+      "target": "mirin_website_public_hero_screenshot_mirror_action",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/hero-screenshot.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "mirin_website_public_setup_config_screenshot_quality_performance_settings",
+      "target": "mirin_website_public_setup_config_screenshot_streaming_quality_presets",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/setup-config-screenshot.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "mirin_website_public_setup_config_screenshot_quality_performance_settings",
+      "target": "mirin_website_public_setup_config_screenshot_streaming_resolution",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/setup-config-screenshot.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "mirin_website_public_setup_config_screenshot_quality_performance_settings",
+      "target": "mirin_website_public_setup_config_screenshot_streaming_bitrate",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/setup-config-screenshot.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "mirin_website_public_setup_config_screenshot_quality_performance_settings",
+      "target": "mirin_website_public_setup_config_screenshot_max_fps",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/setup-config-screenshot.png",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "mirin_website_public_hero_screenshot_device_management_ui",
+      "label": "Device Management UI",
+      "nodes": [
+        "mirin_website_public_hero_screenshot_device_dashboard",
+        "mirin_website_public_hero_screenshot_device_connection_status",
+        "mirin_website_public_hero_screenshot_mirror_action",
+        "mirin_website_public_hero_screenshot_quick_mirror"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/hero-screenshot.png"
+    },
+    {
+      "id": "mirin_website_public_setup_config_screenshot_streaming_configuration_ui",
+      "label": "Streaming Configuration UI",
+      "nodes": [
+        "mirin_website_public_setup_config_screenshot_quality_performance_settings",
+        "mirin_website_public_setup_config_screenshot_streaming_quality_presets",
+        "mirin_website_public_setup_config_screenshot_streaming_resolution",
+        "mirin_website_public_setup_config_screenshot_streaming_bitrate",
+        "mirin_website_public_setup_config_screenshot_max_fps"
+      ],
+      "relation": "participate_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "/Users/ganesh/dev/mirin/mirin-website/public/setup-config-screenshot.png"
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

@@ -423,48 +423,9 @@ impl DeviceRegistry {
             }
         }
 
-        let final_list: Vec<Device> = hw_map.into_values().collect();
-        let final_list_clone = final_list.clone();
-
-        let registry_clone = self.clone();
-        let saved_devices_clone = saved_devices.clone();
-        tokio::spawn(async move {
-            for device in &final_list_clone {
-                if device.status == DeviceStatus::Connected {
-                    let hw_id = &device.hardware_id;
-                    if registry_clone.is_forgotten(hw_id) {
-                        continue;
-                    }
-
-                    let saved = saved_devices_clone.iter().find(|s| &s.hardware_id == hw_id);
-                    match saved {
-                        None => {
-                            let _ = save_device_impl(device.clone()).await;
-                        }
-                        Some(s) => {
-                            let saved_conn_ids: HashSet<String> = s.connections.iter().map(|c| c.id.clone()).collect();
-                            let has_new_connection = device.connections.iter().any(|c| !saved_conn_ids.contains(&c.id));
-                            if has_new_connection {
-                                let mut merged_connections = s.connections.clone();
-                                for conn in &device.connections {
-                                    if !saved_conn_ids.contains(&conn.id) {
-                                        merged_connections.push(conn.clone());
-                                    }
-                                }
-                                let updated_device = Device {
-                                    connections: merged_connections,
-                                    name: if !s.name.is_empty() { s.name.clone() } else { device.name.clone() },
-                                    ..s.clone()
-                                };
-                                let _ = save_device_impl(updated_device).await;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        Ok(final_list)
+        // Persistence is explicit: the connect flow saves devices after the user selects
+        // them. Resolving live ADB state must not make a device disappear from that flow.
+        Ok(hw_map.into_values().collect())
     }
 
     pub async fn forget_device(&self, adb_path: PathBuf, device_id: String) -> Result<bool, String> {
