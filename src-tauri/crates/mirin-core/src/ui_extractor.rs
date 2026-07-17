@@ -364,6 +364,45 @@ impl UiExtractor {
             selector
         ))
     }
+
+    /// Resolve a semantic selector to the best node to tap. If the matched
+    /// node is not clickable, choose the smallest clickable node whose bounds
+    /// contain it (the usual Android text-view inside clickable-row shape).
+    pub async fn resolve_click_target(
+        &self,
+        adb: &Adb,
+        serial: &str,
+        selector: &str,
+    ) -> Result<(i32, i32, UiElement), String> {
+        let (matched_x, matched_y, matched) = self.resolve_selector(adb, serial, selector).await?;
+        if matched.clickable {
+            return Ok((matched_x, matched_y, matched));
+        }
+
+        let tree = self.get_tree(adb, serial, false, true).await?;
+        let (x1, y1, x2, y2) = matched.bounds;
+        let target = tree
+            .elements
+            .iter()
+            .filter(|candidate| {
+                candidate.clickable
+                    && candidate.bounds.0 <= x1
+                    && candidate.bounds.1 <= y1
+                    && candidate.bounds.2 >= x2
+                    && candidate.bounds.3 >= y2
+            })
+            .min_by_key(|candidate| {
+                let (cx1, cy1, cx2, cy2) = candidate.bounds;
+                (cx2 - cx1).max(0) as i64 * (cy2 - cy1).max(0) as i64
+            });
+
+        if let Some(target) = target {
+            let (tx1, ty1, tx2, ty2) = target.bounds;
+            return Ok(((tx1 + tx2) / 2, (ty1 + ty2) / 2, target.clone()));
+        }
+
+        Ok((matched_x, matched_y, matched))
+    }
 }
 
 #[cfg(test)]

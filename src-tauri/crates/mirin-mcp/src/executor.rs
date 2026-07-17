@@ -166,6 +166,18 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                 }
             }),
             json!({
+                "name": "tap_element",
+                "description": "Tap a UI element semantically by selector. Mirin resolves the element or its clickable parent and calculates coordinates internally.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "serial": { "type": "string" },
+                        "selector": { "type": "string", "description": "Text, content description, resource ID, or numeric UI element ID" }
+                    },
+                    "required": ["selector"]
+                }
+            }),
+            json!({
                 "name": "long_press",
                 "description": "Long press on a UI element or coordinates for specified duration (default 800ms, max 5000ms). Requires an active scrcpy mirror session.",
                 "inputSchema": {
@@ -563,6 +575,52 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                     )
                     .await;
                     Ok(json!({ "success": true, "x": abs_x, "y": abs_y }))
+                }
+                "tap_element" => {
+                    let serial = self.get_serial(&args)?;
+                    let selector = args["selector"].as_str().ok_or("Missing selector")?;
+                    let (socket, session_w, session_h) =
+                        self.state.get_session_info(&serial).map_err(|_| {
+                            "No mirror session for this device. Call connect_device first."
+                                .to_string()
+                        })?;
+                    let (cx, cy, element) = self
+                        .ui_extractor
+                        .resolve_click_target(&adb, &serial, selector)
+                        .await?;
+                    let tree = self
+                        .ui_extractor
+                        .get_tree(&adb, &serial, false, false)
+                        .await?;
+                    let source_w = tree.screen_width.max(1);
+                    let source_h = tree.screen_height.max(1);
+                    let x = ((cx.max(0) as f64 / source_w as f64)
+                        * session_w.saturating_sub(1) as f64)
+                        .round() as u32;
+                    let y = ((cy.max(0) as f64 / source_h as f64)
+                        * session_h.saturating_sub(1) as f64)
+                        .round() as u32;
+                    control::inject_touch(
+                        &socket,
+                        "down",
+                        x,
+                        y,
+                        session_w as u16,
+                        session_h as u16,
+                    )
+                    .await
+                    .map_err(|e| format!("Touch down failed: {}", e))?;
+                    sleep(Duration::from_millis(50)).await;
+                    control::inject_touch(&socket, "up", x, y, session_w as u16, session_h as u16)
+                        .await
+                        .map_err(|e| format!("Touch up failed: {}", e))?;
+                    Ok(json!({
+                        "success": true,
+                        "selector": selector,
+                        "x": x,
+                        "y": y,
+                        "element": element
+                    }))
                 }
                 "long_press" => {
                     let serial = self.get_serial(&args)?;
@@ -1131,7 +1189,10 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
         h: u32,
     ) -> Result<(u32, u32, u32, u32), String> {
         let (x, y, source_w, source_h) = if let Some(sel) = args["selector"].as_str() {
-            let (cx, cy, _) = self.ui_extractor.resolve_selector(adb, serial, sel).await?;
+            let (cx, cy, _) = self
+                .ui_extractor
+                .resolve_click_target(adb, serial, sel)
+                .await?;
             let tree = self
                 .ui_extractor
                 .get_tree(adb, serial, false, false)

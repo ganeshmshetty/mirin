@@ -80,6 +80,13 @@ struct SelectorParams {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+struct TapElementParams {
+    serial: Option<String>,
+    #[schemars(description = "Text, content description, resource ID, or numeric UI element ID.")]
+    selector: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 enum CoordinateMode {
     Absolute,
@@ -406,6 +413,17 @@ impl McpServer {
     }
 
     #[tool(
+        name = "tap_element",
+        description = "Tap a UI element semantically by selector. Mirin resolves the element or its clickable parent and calculates coordinates internally."
+    )]
+    async fn tap_element(
+        &self,
+        Parameters(params): Parameters<TapElementParams>,
+    ) -> Result<String, String> {
+        self.invoke("tap_element", params).await
+    }
+
+    #[tool(
         name = "long_press",
         description = "Long press on a UI element or coordinates for a duration from 50ms to 5000ms. Requires an active scrcpy mirror session."
     )]
@@ -643,7 +661,7 @@ mod tests {
     #[test]
     fn native_router_exposes_every_legacy_tool() {
         let tools = McpServer::tool_router().list_all();
-        assert_eq!(tools.len(), 22);
+        assert_eq!(tools.len(), 23);
         assert!(tools.iter().any(|tool| tool.name == "list_devices"));
         assert!(tools.iter().any(|tool| tool.name == "run_script"));
     }
