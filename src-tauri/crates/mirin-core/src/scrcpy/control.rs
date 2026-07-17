@@ -151,6 +151,24 @@ pub async fn inject_text(socket: &Mutex<TcpStream>, text: &str) -> Result<()> {
     Ok(())
 }
 
+/// Send text in protocol-sized UTF-8 chunks. scrcpy limits a single injected
+/// text message to 300 characters/bytes, and chunks must never split a UTF-8
+/// code point.
+pub async fn inject_text_chunked(socket: &Mutex<TcpStream>, text: &str) -> Result<()> {
+    let mut chunk = String::new();
+    for ch in text.chars() {
+        if !chunk.is_empty() && chunk.len() + ch.len_utf8() > 300 {
+            inject_text(socket, &chunk).await?;
+            chunk.clear();
+        }
+        chunk.push(ch);
+    }
+    if !chunk.is_empty() {
+        inject_text(socket, &chunk).await?;
+    }
+    Ok(())
+}
+
 #[allow(dead_code)]
 pub async fn rotate_device(socket: &Mutex<TcpStream>) -> Result<()> {
     let buf = vec![MSG_TYPE_ROTATE_DEVICE];

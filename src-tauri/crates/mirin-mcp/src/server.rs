@@ -240,26 +240,6 @@ struct PermissionParams {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "lowercase")]
-enum DialogAction {
-    Accept,
-    Dismiss,
-}
-
-impl Default for DialogAction {
-    fn default() -> Self {
-        Self::Accept
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-struct DialogParams {
-    serial: Option<String>,
-    #[serde(default)]
-    action: DialogAction,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 struct LogcatParams {
     serial: Option<String>,
     #[serde(default = "default_log_lines")]
@@ -289,6 +269,8 @@ enum ScriptAction {
 struct ScriptStepParams {
     action: ScriptAction,
     selector: Option<String>,
+    #[serde(default)]
+    coordinate_mode: Option<CoordinateMode>,
     x: Option<f32>,
     y: Option<f32>,
     end_x: Option<f32>,
@@ -490,17 +472,6 @@ impl McpServer {
     }
 
     #[tool(
-        name = "hide_keyboard",
-        description = "Hide the on-screen keyboard by sending the Android BACK key."
-    )]
-    async fn hide_keyboard(
-        &self,
-        Parameters(params): Parameters<SerialParams>,
-    ) -> Result<String, String> {
-        self.invoke("hide_keyboard", params).await
-    }
-
-    #[tool(
         name = "clipboard",
         description = "Get or set device clipboard text. Set requires a scrcpy session or falls back to ADB."
     )]
@@ -553,17 +524,6 @@ impl McpServer {
     }
 
     #[tool(
-        name = "get_current_activity",
-        description = "Get the top resumed activity and package currently on screen."
-    )]
-    async fn get_current_activity(
-        &self,
-        Parameters(params): Parameters<SerialParams>,
-    ) -> Result<String, String> {
-        self.invoke("get_current_activity", params).await
-    }
-
-    #[tool(
         name = "grant_permission",
         description = "Grant a runtime permission to an app package."
     )]
@@ -583,17 +543,6 @@ impl McpServer {
         Parameters(params): Parameters<PermissionParams>,
     ) -> Result<String, String> {
         self.invoke("revoke_permission", params).await
-    }
-
-    #[tool(
-        name = "handle_dialog",
-        description = "Click accept/allow or dismiss/deny buttons on dialogs by matching button text."
-    )]
-    async fn handle_dialog(
-        &self,
-        Parameters(params): Parameters<DialogParams>,
-    ) -> Result<String, String> {
-        self.invoke("handle_dialog", params).await
     }
 
     #[tool(
@@ -694,7 +643,7 @@ mod tests {
     #[test]
     fn native_router_exposes_every_legacy_tool() {
         let tools = McpServer::tool_router().list_all();
-        assert_eq!(tools.len(), 25);
+        assert_eq!(tools.len(), 22);
         assert!(tools.iter().any(|tool| tool.name == "list_devices"));
         assert!(tools.iter().any(|tool| tool.name == "run_script"));
     }

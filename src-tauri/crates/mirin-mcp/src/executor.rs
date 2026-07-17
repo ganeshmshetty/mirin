@@ -37,6 +37,8 @@ pub trait RuntimeHost: Send + Sync {
 pub struct ScriptStep {
     pub action: String, // "tap", "long_press", "swipe", "type_text", "press_key", "sleep"
     pub selector: Option<String>,
+    #[serde(default)]
+    pub coordinate_mode: Option<String>,
     pub x: Option<f32>,
     pub y: Option<f32>,
     pub end_x: Option<f32>,
@@ -251,14 +253,6 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                 }
             }),
             json!({
-                "name": "hide_keyboard",
-                "description": "Hide the on-screen keyboard by sending BACK key when keyboard is open. Best-effort: sends BACK regardless of whether keyboard detection succeeds (dumpsys check is unreliable on some ROMs).",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": { "serial": { "type": "string" } }
-                }
-            }),
-            json!({
                 "name": "clipboard",
                 "description": "Get or set device clipboard text. Set requires scrcpy session (preferred) or falls back to 'cmd clipboard set-text'. Get tries scrcpy control socket first, falls back to 'service call clipboard' hex-parcel parser (best-effort on MIUI/encrypted devices).",
                 "inputSchema": {
@@ -320,14 +314,6 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                 }
             }),
             json!({
-                "name": "get_current_activity",
-                "description": "Get the top resumed activity / package currently on screen.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": { "serial": { "type": "string" } }
-                }
-            }),
-            json!({
                 "name": "grant_permission",
                 "description": "Grant a runtime permission to an app package.",
                 "inputSchema": {
@@ -351,18 +337,6 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                         "permission": { "type": "string" }
                     },
                     "required": ["package", "permission"]
-                }
-            }),
-            json!({
-                "name": "handle_dialog",
-                "description": "Click accept/allow or dismiss/deny buttons on dialogs by matching button text. Best-effort: text matching is fragile, only handles known button labels. May not work on all ROMs or non-English UIs.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "serial": { "type": "string" },
-                        "action": { "type": "string", "enum": ["accept", "dismiss"], "default": "accept" }
-                    },
-                    "required": ["action"]
                 }
             }),
             json!({
@@ -392,6 +366,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                                 "properties": {
                                     "action": { "type": "string" },
                                     "selector": { "type": "string" },
+                                    "coordinate_mode": { "type": "string", "enum": ["absolute", "normalized"], "default": "absolute" },
                                     "x": { "type": "number" },
                                     "y": { "type": "number" },
                                     "end_x": { "type": "number" },
@@ -725,7 +700,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                         h * 3 / 4
                     };
 
-                    for attempt in 0..max_swipes {
+                    for attempt in 0..=max_swipes {
                         if let Ok((x, y, _)) = self
                             .ui_extractor
                             .resolve_selector(&adb, &serial, selector)
@@ -735,12 +710,15 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                                 json!({ "success": true, "found": true, "x": x, "y": y, "attempts": attempt }),
                             );
                         }
+                        if attempt == max_swipes {
+                            break;
+                        }
                         control::inject_touch(
                             &socket, "down", center_x, start_y, w as u16, h as u16,
                         )
                         .await
                         .map_err(|e| format!("Touch down failed: {}", e))?;
-                        let steps = 10;
+                        let steps = 18;
                         for i in 1..=steps {
                             let t = i as f32 / steps as f32;
                             let cy = (start_y as f32 + (end_y as f32 - start_y as f32) * t).round()
@@ -750,16 +728,19 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                             )
                             .await
                             .map_err(|e| format!("Touch move failed: {}", e))?;
-                            sleep(Duration::from_millis(15)).await;
+                            sleep(Duration::from_millis(16)).await;
                         }
                         control::inject_touch(&socket, "up", center_x, end_y, w as u16, h as u16)
                             .await
                             .map_err(|e| format!("Touch up failed: {}", e))?;
                         sleep(Duration::from_millis(500)).await;
                     }
-                    Ok(
-                        json!({ "success": true, "found": false, "attempts": max_swipes, "note": "Selector not found after scrolling. Try increasing max_swipes or check the selector text." }),
-                    )
+                    Ok(json!({
+                        "success": true,
+                        "found": false,
+                        "attempts": max_swipes,
+                        "note": "Selector not found after scrolling. Try increasing max_swipes or check the selector text."
+                    }))
                 }
                 "type_text" => {
                     let serial = self.get_serial(&args)?;
@@ -775,7 +756,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                     let socket = self.state.get_control_socket(&serial).map_err(|_| {
                         "No mirror session for this device. Call connect_device first.".to_string()
                     })?;
-                    control::inject_text(&socket, text)
+                    control::inject_text_chunked(&socket, text)
                         .await
                         .map_err(|e| format!("Text injection failed: {}", e))?;
                     Ok(json!({ "success": true }))
@@ -796,24 +777,6 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                     control::inject_keycode(&socket, "up", keycode, 0, 0)
                         .await
                         .map_err(|e| format!("Key up failed: {}", e))?;
-                    Ok(json!({ "success": true }))
-                }
-                "hide_keyboard" => {
-                    let serial = self.get_serial(&args)?;
-                    // Always send BACK key — dumpsys input_method is unreliable on many ROMs.
-                    // The BACK key is harmless when no keyboard is open (goes to previous screen).
-                    if let Ok(socket) = self.state.get_control_socket(&serial) {
-                        let _ =
-                            control::inject_keycode(&socket, "down", control::KEYCODE_BACK, 0, 0)
-                                .await;
-                        let _ = control::inject_keycode(&socket, "up", control::KEYCODE_BACK, 0, 0)
-                            .await;
-                    }
-                    // Also try adb shell input keyevent BACK as secondary fallback
-                    let _ = adb
-                        .with_device(&serial)
-                        .execute(&["shell", "input", "keyevent", "4"])
-                        .await;
                     Ok(json!({ "success": true }))
                 }
                 "clipboard" => {
@@ -896,15 +859,23 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                 "set_orientation" => {
                     let serial = self.get_serial(&args)?;
                     let orient = args["orientation"].as_str().ok_or("Missing orientation")?;
-                    let val = match orient {
-                        "portrait" => "0",
-                        "landscape" => "1",
+                    let adb = adb.with_device(&serial);
+                    let (native_w, native_h) = self
+                        .ui_extractor
+                        .get_device_size(&adb, &serial)
+                        .await
+                        .unwrap_or((1, 1));
+                    let rotation = match orient {
+                        "portrait" if native_h >= native_w => 0,
+                        "portrait" => 1,
+                        "landscape" if native_w >= native_h => 0,
+                        "landscape" => 1,
                         _ => {
                             return Err("orientation must be 'portrait' or 'landscape'".to_string())
                         }
                     };
-                    let adb = adb.with_device(&serial);
-                    // Disable auto-rotate first, then set rotation
+
+                    let rotation_string = rotation.to_string();
                     let _ = adb
                         .execute(&[
                             "shell",
@@ -915,9 +886,37 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                             "0",
                         ])
                         .await;
-                    adb.execute(&["shell", "settings", "put", "system", "user_rotation", val]).await
-                        .map_err(|e| format!("Failed to set orientation: {}. Device may not support settings override.", e))?;
-                    Ok(json!({ "success": true }))
+
+                    // `wm set-user-rotation` applies the lock through WindowManager;
+                    // older Android releases expose the same operation as
+                    // `wm user-rotation`.
+                    let applied = adb
+                        .execute(&["shell", "wm", "set-user-rotation", "lock", &rotation_string])
+                        .await
+                        .is_ok()
+                        || adb
+                            .execute(&["shell", "wm", "user-rotation", "lock", &rotation_string])
+                            .await
+                            .is_ok()
+                        || adb
+                            .execute(&[
+                                "shell",
+                                "settings",
+                                "put",
+                                "system",
+                                "user_rotation",
+                                &rotation_string,
+                            ])
+                            .await
+                            .is_ok();
+
+                    if !applied {
+                        return Err(
+                            "Failed to set orientation through WindowManager or system settings"
+                                .to_string(),
+                        );
+                    }
+                    Ok(json!({ "success": true, "orientation": orient, "rotation": rotation }))
                 }
                 "list_apps" => {
                     let serial = self.get_serial(&args)?;
@@ -995,40 +994,6 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                         .map_err(|e| format!("Failed to force-stop '{}': {}", pkg, e))?;
                     Ok(json!({ "success": true }))
                 }
-                "get_current_activity" => {
-                    let serial = self.get_serial(&args)?;
-                    let adb = adb.with_device(&serial);
-                    // Try dumpsys activity activities first (standard), fall back to dumpsys activity recents
-                    let out = match adb
-                        .execute(&["shell", "dumpsys", "activity", "activities"])
-                        .await
-                    {
-                        Ok(o) => o,
-                        Err(_) => {
-                            adb.execute(&["shell", "dumpsys", "activity", "recents"])
-                                .await?
-                        }
-                    };
-                    for line in out.lines() {
-                        let trimmed = line.trim();
-                        if trimmed.starts_with("topResumedActivity")
-                            || trimmed.starts_with("mResumedActivity")
-                            || trimmed.starts_with("ResumedActivity:")
-                        {
-                            return Ok(json!({ "activity_line": trimmed.to_string() }));
-                        }
-                    }
-                    // Last resort: parse the stack trace for the focused activity
-                    for line in out.lines() {
-                        let trimmed = line.trim();
-                        if trimmed.contains("FocusedActivity:") || trimmed.contains("focusedApp=") {
-                            return Ok(json!({ "activity_line": trimmed.to_string() }));
-                        }
-                    }
-                    Ok(
-                        json!({ "activity_line": "Unknown — could not determine foreground activity" }),
-                    )
-                }
                 "grant_permission" => {
                     let serial = self.get_serial(&args)?;
                     let pkg = args["package"].as_str().ok_or("Missing package")?;
@@ -1060,70 +1025,6 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                         .await
                         .map_err(|e| format!("Failed to revoke {} from {}: {}", perm, pkg, e))?;
                     Ok(json!({ "success": true }))
-                }
-                "handle_dialog" => {
-                    let serial = self.get_serial(&args)?;
-                    let action = args["action"].as_str().unwrap_or("accept");
-                    let selectors: Vec<&str> = if action == "accept" {
-                        vec![
-                            "Allow",
-                            "While using the app",
-                            "Only this time",
-                            "OK",
-                            "Yes",
-                            "Accept",
-                            "Allow always",
-                            "Agree",
-                            "Continue",
-                        ]
-                    } else {
-                        vec![
-                            "Don't allow",
-                            "Deny",
-                            "Cancel",
-                            "No",
-                            "Dismiss",
-                            "Deny always",
-                            "Skip",
-                            "Not now",
-                        ]
-                    };
-                    let (socket, sess_w, sess_h) = match self.state.get_session_info(&serial) {
-                        Ok(info) => info,
-                        Err(_) => {
-                            return Err(
-                                "No mirror session for this device. Call connect_device first."
-                                    .to_string(),
-                            )
-                        }
-                    };
-                    for sel in &selectors {
-                        if let Ok((x, y, _el)) =
-                            self.ui_extractor.resolve_selector(&adb, &serial, sel).await
-                        {
-                            let tree = self
-                                .ui_extractor
-                                .get_tree(&adb, &serial, false, false)
-                                .await
-                                .ok();
-                            let (dw, dh) = tree
-                                .map(|t| (t.screen_width.max(1), t.screen_height.max(1)))
-                                .unwrap_or((sess_w.max(1), sess_h.max(1)));
-                            let tx = (x as u32).min(dw.saturating_sub(1));
-                            let ty = (y as u32).min(dh.saturating_sub(1));
-                            control::inject_touch(&socket, "down", tx, ty, dw as u16, dh as u16)
-                                .await
-                                .map_err(|e| format!("Touch down failed: {}", e))?;
-                            sleep(Duration::from_millis(50)).await;
-                            let _ =
-                                control::inject_touch(&socket, "up", tx, ty, dw as u16, dh as u16)
-                                    .await;
-                            return Ok(json!({ "handled": true, "clicked_button": sel }));
-                        }
-                    }
-                    Ok(
-                        json!({ "handled": false, "reason": "No matching dialog buttons found. The dialog text may not match known labels, or no dialog is visible." }),
-                    )
                 }
                 "get_logcat" => {
                     let serial = self.get_serial(&args)?;

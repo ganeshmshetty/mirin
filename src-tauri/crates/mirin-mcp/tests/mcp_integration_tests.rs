@@ -5,6 +5,7 @@ fn script_step_keeps_the_legacy_wire_shape() {
     let step = ScriptStep {
         action: "tap".to_string(),
         selector: Some("1".to_string()),
+        coordinate_mode: None,
         x: None,
         y: None,
         end_x: None,

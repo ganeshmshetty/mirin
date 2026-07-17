@@ -270,11 +270,7 @@ impl UiExtractor {
         Ok(ret)
     }
 
-    pub async fn get_device_size(
-        &self,
-        adb: &Adb,
-        serial: &str,
-    ) -> Result<(u32, u32), String> {
+    pub async fn get_device_size(&self, adb: &Adb, serial: &str) -> Result<(u32, u32), String> {
         let size_out = adb
             .with_device(serial)
             .execute(&["shell", "wm", "size"])
@@ -304,8 +300,12 @@ impl UiExtractor {
         serial: &str,
         selector: &str,
     ) -> Result<(i32, i32, UiElement), String> {
-        let tree = self.get_tree(adb, serial, false, false).await?;
+        let tree = self.get_tree(adb, serial, false, true).await?;
         let sel = selector.trim();
+
+        if sel.is_empty() {
+            return Err("Selector must not be empty".to_string());
+        }
 
         // 1. Try numeric ID (supports both "18" and "[18]" formats)
         let stripped = sel
@@ -320,29 +320,42 @@ impl UiExtractor {
             }
         }
 
-        // 2. Exact or substring match against text, content-desc, resource-id
+        let center = |el: &UiElement| {
+            (
+                (el.bounds.0 + el.bounds.2) / 2,
+                (el.bounds.1 + el.bounds.3) / 2,
+                el.clone(),
+            )
+        };
+
+        // Prefer exact matches so a selector such as "Settings" does not
+        // unexpectedly resolve to "Settings and privacy" first.
         let sel_lower = sel.to_lowercase();
         for el in &tree.elements {
-            let matches_text = el
-                .text
-                .as_ref()
-                .map(|t| t.to_lowercase().contains(&sel_lower))
-                .unwrap_or(false);
-            let matches_desc = el
-                .content_desc
-                .as_ref()
-                .map(|d| d.to_lowercase().contains(&sel_lower))
-                .unwrap_or(false);
-            let matches_id = el
-                .resource_id
-                .as_ref()
-                .map(|id| id.to_lowercase().contains(&sel_lower))
-                .unwrap_or(false);
+            let exact = el.text.as_deref().map(str::to_lowercase).as_deref() == Some(&sel_lower)
+                || el.content_desc.as_deref().map(str::to_lowercase).as_deref() == Some(&sel_lower)
+                || el.resource_id.as_deref().map(str::to_lowercase).as_deref() == Some(&sel_lower);
+            if exact {
+                return Ok(center(el));
+            }
+        }
 
-            if matches_text || matches_desc || matches_id {
-                let center_x = (el.bounds.0 + el.bounds.2) / 2;
-                let center_y = (el.bounds.1 + el.bounds.3) / 2;
-                return Ok((center_x, center_y, el.clone()));
+        // Fall back to case-insensitive substring matching.
+        for el in &tree.elements {
+            let matches = el
+                .text
+                .as_deref()
+                .is_some_and(|t| t.to_lowercase().contains(&sel_lower))
+                || el
+                    .content_desc
+                    .as_deref()
+                    .is_some_and(|d| d.to_lowercase().contains(&sel_lower))
+                || el
+                    .resource_id
+                    .as_deref()
+                    .is_some_and(|id| id.to_lowercase().contains(&sel_lower));
+            if matches {
+                return Ok(center(el));
             }
         }
 
