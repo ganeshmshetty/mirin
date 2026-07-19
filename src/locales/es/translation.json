@@ -1,0 +1,19 @@
+{
+  "sidebar": {
+    "home": "Dispositivos",
+    "add_device": "Añadir dispositivo",
+    "screen": "Pantalla en vivo",
+    "settings": "Ajustes",
+    "console": "Consola",
+    "files": "Archivos",
+    "apps": "Aplicaciones"
+  },
+  "toolbar": {
+    "devices": "Mis Dispositivos"
+  },
+  "settings": {
+    "language": "Idioma",
+    "language_desc": "Seleccione el idioma de visualización de la aplicación.",
+    "theme": "Tema"
+  }
+}

@@ -6,6 +6,7 @@ import { DeviceTable } from "../components/DeviceTable";
 import { useToast } from "../components/ToastProvider";
 import { deviceService } from "../services";
 import type { Device } from "../types";
+import { useTranslation } from "react-i18next";
 
 interface HomeProps {
   refreshTrigger?: number;
@@ -18,6 +19,7 @@ export function Home({
   onConnectClick,
   onQuickMirrorClick,
 }: HomeProps) {
+  const { t } = useTranslation();
   const [devices, setDevices] = useState<Device[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
@@ -96,7 +98,7 @@ export function Home({
       {/* Toolbar */}
       <header className="h-14 bg-slate-100 dark:bg-[#111315] border-b border-gray-200 dark:border-[#222629] flex items-center justify-between px-6 flex-shrink-0 transition-colors">
         <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
-          My Devices
+          {t("toolbar.devices")}
         </h2>
         <button
           onClick={handleRefresh}

@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 export interface DeviceRailInfo {
   id: string;
@@ -41,6 +42,7 @@ export function Sidebar({
   activeTool = "screen",
   onToolChange,
 }: SidebarProps) {
+  const { t } = useTranslation();
   const [appVersion, setAppVersion] = useState<string>("");
   const navigate = useNavigate();
   const location = useLocation();
@@ -91,7 +93,7 @@ export function Sidebar({
               />
             </div>
             <span className="whitespace-nowrap font-medium text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
-              Add Device
+              {t("sidebar.add_device")}
             </span>
           </button>
         </div>
@@ -103,7 +105,7 @@ export function Sidebar({
           /* Devices Button (Home) */
           <button
             onClick={() => navigate("/")}
-            title="Devices"
+            title={t("sidebar.home")}
             className={`flex items-center justify-center h-10 w-10 rounded-xl transition-all outline-none ${
               isHome
                 ? "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400"
@@ -122,7 +124,7 @@ export function Sidebar({
                 <button
                   key={tool.id}
                   onClick={() => onToolChange?.(tool.id)}
-                  title={tool.label}
+                  title={t("sidebar." + tool.id)}
                   className={`flex items-center justify-center h-10 w-10 rounded-xl transition-all outline-none ${
                     isActive
                       ? "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 ring-1 ring-cyan-500/30"
@@ -146,7 +148,7 @@ export function Sidebar({
               ? "text-cyan-600 dark:text-cyan-400 bg-cyan-500/10"
               : "text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-[#22d3ee] hover:bg-gray-200/50 dark:hover:bg-[#1d2327]"
           }`}
-          title="Settings"
+          title={t("sidebar.settings")}
         >
           <Settings size={18} />
         </button>

@@ -14,6 +14,8 @@ import {
 import { useToast } from "./ToastProvider";
 import { ToggleSwitch } from "./ui/ToggleSwitch";
 import { CustomSelect } from "./ui/CustomSelect";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 
 interface SettingsPanelProps {
   onSettingsChange?: (settings: Settings) => void;
@@ -22,6 +24,7 @@ interface SettingsPanelProps {
 type TabType = "general" | "interface" | "performance" | "mcp";
 
 export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>("general");
@@ -337,6 +340,22 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                       onChange={(checked) =>
                         updateSetting("stayAwake", checked)
                       }
+                    />,
+                    false,
+                  )}
+                  {renderSettingRow(
+                    t("settings.language"),
+                    t("settings.language_desc"),
+                    <CustomSelect
+                      value={settings.language}
+                      options={[
+                        { value: "en", label: "English (US)" },
+                        { value: "es", label: "Español (ES)" },
+                      ]}
+                      onChange={(val) => {
+                        updateSetting("language", val as any);
+                        i18n.changeLanguage(val);
+                      }}
                     />,
                     true,
                   )}

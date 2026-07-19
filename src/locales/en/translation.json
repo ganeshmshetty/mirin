@@ -1,0 +1,19 @@
+{
+  "sidebar": {
+    "home": "Devices",
+    "add_device": "Add Device",
+    "screen": "Live / Overview",
+    "settings": "Settings",
+    "console": "Console",
+    "files": "Files",
+    "apps": "Apps"
+  },
+  "toolbar": {
+    "devices": "My Devices"
+  },
+  "settings": {
+    "language": "Language",
+    "language_desc": "Select the application display language.",
+    "theme": "Theme"
+  }
+}

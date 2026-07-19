@@ -19,6 +19,7 @@ import { EmbeddedMirrorPopup } from "./components/EmbeddedMirrorPopup";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { settingsService, windowService } from "./services";
+import i18n from "./i18n";
 
 function AppContent() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -46,11 +47,14 @@ function AppContent() {
     let disposed = false;
     let unlisten: (() => void) | undefined;
 
-    // Apply alwaysOnTop preference on startup
+    // Apply preference settings on startup
     settingsService
       .loadSettings()
       .then((settings) => {
         getCurrentWindow().setAlwaysOnTop(settings.alwaysOnTop);
+        if (settings.language) {
+          i18n.changeLanguage(settings.language);
+        }
       })
       .catch(console.error);
 

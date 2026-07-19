@@ -50,6 +50,7 @@ export interface Settings {
   stayAwake: boolean;
   turnScreenOff: boolean;
   theme: "light" | "dark" | "system";
+  language: "en" | "es";
 
   mcpEnabled: boolean;
   mcpPort: number;
@@ -66,6 +67,7 @@ export const DEFAULT_SETTINGS: Settings = {
   stayAwake: true,
   turnScreenOff: false,
   theme: "system",
+  language: "en",
   mcpEnabled: true,
   mcpPort: 48484,
   mcpRequireAuth: true,

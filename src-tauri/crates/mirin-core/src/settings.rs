@@ -15,6 +15,7 @@ pub struct Settings {
     #[serde(rename = "turnScreenOff")]
     pub turn_screen_off: bool,
     pub theme: String,
+    pub language: String,
 
     // MCP Settings
     #[serde(rename = "mcpEnabled")]
@@ -37,6 +38,7 @@ impl Default for Settings {
             stay_awake: true,
             turn_screen_off: false,
             theme: "system".to_string(),
+            language: "en".to_string(),
             mcp_enabled: true,
             mcp_port: 48484,
             mcp_require_auth: true,
@@ -63,6 +65,10 @@ impl Settings {
         match self.theme.as_str() {
             "light" | "dark" | "system" => {}
             _ => self.theme = "system".to_string(),
+        }
+        match self.language.as_str() {
+            "en" | "es" => {}
+            _ => self.language = "en".to_string(),
         }
         match self.mcp_log_level.as_str() {
             "error" | "info" | "debug" => {}
