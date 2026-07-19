@@ -10,7 +10,8 @@
     "tauri": "tauri",
     "check": "npm run type-check && npm run rust-check",
     "type-check": "tsc --noEmit",
-    "rust-check": "cd src-tauri && cargo check"
+    "rust-check": "cd src-tauri && cargo check",
+    "format": "npx prettier --write \"src/**/*.{ts,tsx,css}\" \"docs/**/*.md\" \"*.md\" && cd src-tauri && cargo fmt"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

@@ -15,13 +15,18 @@ export const consoleService = {
     await invoke("stop_logcat", { deviceId });
   },
 
-  async executeShellCommand(deviceId: string, command: string): Promise<string> {
+  async executeShellCommand(
+    deviceId: string,
+    command: string,
+  ): Promise<string> {
     return await invoke<string>("execute_shell_command", { deviceId, command });
   },
 
-  async listenToLogcat(callback: (payload: LogcatPayload) => void): Promise<UnlistenFn> {
+  async listenToLogcat(
+    callback: (payload: LogcatPayload) => void,
+  ): Promise<UnlistenFn> {
     return await listen<LogcatPayload>("logcat", (event) => {
       callback(event.payload);
     });
-  }
+  },
 };

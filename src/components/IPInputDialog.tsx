@@ -18,7 +18,7 @@ export function IPInputDialog({ onComplete, onCancel }: IPInputDialogProps) {
     if (!ipRegex.test(ip)) return false;
 
     const parts = ip.split(".");
-    return parts.every(part => {
+    return parts.every((part) => {
       const num = parseInt(part, 10);
       return num >= 0 && num <= 255;
     });
@@ -53,7 +53,10 @@ export function IPInputDialog({ onComplete, onCancel }: IPInputDialogProps) {
       if (success) {
         // Retry looking up the device (ADB may not update immediately).
         // Prefer the live ADB transport id (may be TLS serial, not ip:port).
-        const connectedDevice = await deviceService.findConnectedAfterConnect(ipAddress, portNum);
+        const connectedDevice = await deviceService.findConnectedAfterConnect(
+          ipAddress,
+          portNum,
+        );
 
         const deviceId = connectedDevice?.id || `${ipAddress}:${portNum}`;
         const device: Device = {
@@ -66,12 +69,14 @@ export function IPInputDialog({ onComplete, onCancel }: IPInputDialogProps) {
           ip_address: connectedDevice?.ip_address || ipAddress,
           connections: connectedDevice?.connections?.length
             ? connectedDevice.connections
-            : [{
-                id: deviceId,
-                connection_type: "Wireless",
-                status: "Connected",
-                ip_address: connectedDevice?.ip_address || ipAddress,
-              }],
+            : [
+                {
+                  id: deviceId,
+                  connection_type: "Wireless",
+                  status: "Connected",
+                  ip_address: connectedDevice?.ip_address || ipAddress,
+                },
+              ],
         };
 
         try {
@@ -100,16 +105,22 @@ export function IPInputDialog({ onComplete, onCancel }: IPInputDialogProps) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Connect to Device</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          Connect to Device
+        </h2>
 
         <p className="text-gray-600 text-sm mb-4">
-          Enter the IP address and port of your device. Make sure wireless debugging is enabled
-          on your device and it's connected to the same network.
+          Enter the IP address and port of your device. Make sure wireless
+          debugging is enabled on your device and it's connected to the same
+          network.
         </p>
 
         <div className="space-y-4 mb-6">
           <div>
-            <label htmlFor="ip" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="ip"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               IP Address
             </label>
             <input
@@ -125,7 +136,10 @@ export function IPInputDialog({ onComplete, onCancel }: IPInputDialogProps) {
           </div>
 
           <div>
-            <label htmlFor="port" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="port"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Port
             </label>
             <input
@@ -149,8 +163,8 @@ export function IPInputDialog({ onComplete, onCancel }: IPInputDialogProps) {
 
         <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-6">
           <p className="text-sm text-blue-900">
-            💡 <strong>Tip:</strong> You can find your device's IP address in Settings → About
-            Phone → Status (on most Android devices).
+            💡 <strong>Tip:</strong> You can find your device's IP address in
+            Settings → About Phone → Status (on most Android devices).
           </p>
         </div>
 

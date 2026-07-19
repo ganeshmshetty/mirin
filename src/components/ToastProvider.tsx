@@ -1,4 +1,11 @@
-import { createContext, useContext, useState, useCallback, ReactNode, useMemo } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  ReactNode,
+  useMemo,
+} from "react";
 import { Toast, ToastType } from "./Toast";
 
 interface ToastMessage {
@@ -40,14 +47,26 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
-  const success = useCallback((message: string) => showToast(message, "success"), [showToast]);
-  const error = useCallback((message: string) => showToast(message, "error"), [showToast]);
-  const warning = useCallback((message: string) => showToast(message, "warning"), [showToast]);
-  const info = useCallback((message: string) => showToast(message, "info"), [showToast]);
+  const success = useCallback(
+    (message: string) => showToast(message, "success"),
+    [showToast],
+  );
+  const error = useCallback(
+    (message: string) => showToast(message, "error"),
+    [showToast],
+  );
+  const warning = useCallback(
+    (message: string) => showToast(message, "warning"),
+    [showToast],
+  );
+  const info = useCallback(
+    (message: string) => showToast(message, "info"),
+    [showToast],
+  );
 
   const memoizedValue = useMemo(
     () => ({ showToast, success, error, warning, info }),
-    [showToast, success, error, warning, info]
+    [showToast, success, error, warning, info],
   );
 
   return (

@@ -3,7 +3,6 @@ import { Channel } from "@tauri-apps/api/core";
 import { scrcpyService } from "../services";
 import type { FrameEvent } from "../types/tauri-commands";
 
-
 // Base64 helper
 function b64ToBytes(base64: string): Uint8Array {
   const binaryString = atob(base64);
@@ -45,7 +44,9 @@ export function useMirrorDecoder({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const decoderRef = useRef<VideoDecoder | null>(null);
   const pendingFrame = useRef<VideoFrame | null>(null);
-  const pendingPackets = useRef<Array<{ key: boolean; timestamp: number; data: Uint8Array }>>([]);
+  const pendingPackets = useRef<
+    Array<{ key: boolean; timestamp: number; data: Uint8Array }>
+  >([]);
   const rafId = useRef<number>(0);
   const transportRef = useRef(deviceId);
 
@@ -159,7 +160,7 @@ export function useMirrorDecoder({
           const descBytes = b64ToBytes(msg.data.description);
           const description = descBytes.buffer.slice(
             descBytes.byteOffset,
-            descBytes.byteOffset + descBytes.byteLength
+            descBytes.byteOffset + descBytes.byteLength,
           );
           const decoder = new VideoDecoder({
             output: (frame: VideoFrame) => {
@@ -181,10 +182,16 @@ export function useMirrorDecoder({
                     f.close();
                     return;
                   }
-                  if (canvas.width !== f.displayWidth || canvas.height !== f.displayHeight) {
+                  if (
+                    canvas.width !== f.displayWidth ||
+                    canvas.height !== f.displayHeight
+                  ) {
                     canvas.width = f.displayWidth;
                     canvas.height = f.displayHeight;
-                    setDimensions({ width: f.displayWidth, height: f.displayHeight });
+                    setDimensions({
+                      width: f.displayWidth,
+                      height: f.displayHeight,
+                    });
                   }
                   const ctx = canvas.getContext("2d");
                   if (ctx) ctx.drawImage(f, 0, 0);
@@ -209,9 +216,13 @@ export function useMirrorDecoder({
             .then((result) => {
               if (!isCurrent()) return;
               if (!result.supported) {
-                toast.error(`Codec ${msg.data.codec} is not supported on your hardware.`);
+                toast.error(
+                  `Codec ${msg.data.codec} is not supported on your hardware.`,
+                );
                 setStatus("error");
-                scrcpyService.disconnectEmbeddedMirror(transportRef.current).catch(() => {});
+                scrcpyService
+                  .disconnectEmbeddedMirror(transportRef.current)
+                  .catch(() => {});
                 return;
               }
               decoder.configure(config);
@@ -222,7 +233,7 @@ export function useMirrorDecoder({
                     type: packet.key ? "key" : "delta",
                     timestamp: packet.timestamp,
                     data: packet.data,
-                  })
+                  }),
                 );
               }
               retryCountRef.current = 0;
@@ -230,7 +241,12 @@ export function useMirrorDecoder({
               setStatus("streaming");
             })
             .catch((err) => {
-              scheduleRetry(err instanceof Error ? err.message : "Video configuration failed", 2500);
+              scheduleRetry(
+                err instanceof Error
+                  ? err.message
+                  : "Video configuration failed",
+                2500,
+              );
             });
         } else if (msg.event === "packet") {
           const decoder = decoderRef.current;
@@ -253,7 +269,7 @@ export function useMirrorDecoder({
               type: msg.data.key ? "key" : "delta",
               timestamp: msg.data.timestamp,
               data: bytes,
-            })
+            }),
           );
         } else if (msg.event === "disconnected") {
           cleanupDecoder();
@@ -272,13 +288,17 @@ export function useMirrorDecoder({
         }
       };
 
-      const [w, h] = await scrcpyService.connectEmbeddedMirror(transportRef.current, channel, {
-        max_size: 1080,
-        max_fps: 60,
-        video_bit_rate: 8000000,
-        video_codec: "h264",
-        audio: false,
-      });
+      const [w, h] = await scrcpyService.connectEmbeddedMirror(
+        transportRef.current,
+        channel,
+        {
+          max_size: 1080,
+          max_fps: 60,
+          video_bit_rate: 8000000,
+          video_codec: "h264",
+          audio: false,
+        },
+      );
 
       if (!isCurrent()) return;
       setDimensions({ width: w, height: h });
@@ -289,7 +309,12 @@ export function useMirrorDecoder({
     } catch (err: any) {
       if (!isCurrent()) return;
       cleanupDecoder();
-      scheduleRetry(typeof err === "string" ? err : err.message || "Failed to start embedded stream", 2500);
+      scheduleRetry(
+        typeof err === "string"
+          ? err
+          : err.message || "Failed to start embedded stream",
+        2500,
+      );
     } finally {
       if (connectGenRef.current === gen) {
         connectingRef.current = false;
@@ -315,7 +340,7 @@ export function useMirrorDecoder({
       onTransportChange?.(newTransportId);
       setStatus("idle");
     },
-    [cleanupDecoder, clearRetryTimer, onTransportChange]
+    [cleanupDecoder, clearRetryTimer, onTransportChange],
   );
 
   const startMirroring = useCallback(() => {
@@ -357,9 +382,18 @@ export function useMirrorDecoder({
       retryScheduledRef.current = false;
       clearRetryTimer();
       cleanupDecoder();
-      scrcpyService.disconnectEmbeddedMirror(transportRef.current).catch(() => {});
+      scrcpyService
+        .disconnectEmbeddedMirror(transportRef.current)
+        .catch(() => {});
     };
-  }, [deviceId, cleanupDecoder, clearRetryTimer, isPopup, autoStart, handleStart]);
+  }, [
+    deviceId,
+    cleanupDecoder,
+    clearRetryTimer,
+    isPopup,
+    autoStart,
+    handleStart,
+  ]);
 
   return {
     status,

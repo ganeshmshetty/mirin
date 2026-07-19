@@ -81,10 +81,15 @@ export function AppManager({ deviceId }: AppManagerProps) {
       }
     } catch (err: any) {
       const errorMsg = String(err);
-      if (errorMsg.includes("INSTALL_FAILED") || errorMsg.includes("install via usb") || errorMsg.includes("verify")) {
+      if (
+        errorMsg.includes("INSTALL_FAILED") ||
+        errorMsg.includes("install via usb") ||
+        errorMsg.includes("verify")
+      ) {
         confirm({
           title: "Install Failed",
-          message: "Could not install APK. Please ensure 'Install via USB' is enabled in Developer Options on your device. Also, try disabling 'Verify apps over USB'.",
+          message:
+            "Could not install APK. Please ensure 'Install via USB' is enabled in Developer Options on your device. Also, try disabling 'Verify apps over USB'.",
           confirmText: "OK",
           variant: "warning",
           hideCancel: true,
@@ -97,7 +102,10 @@ export function AppManager({ deviceId }: AppManagerProps) {
     }
   };
 
-  const handleAction = async (action: "launch" | "stop" | "clear" | "uninstall", pkg: string) => {
+  const handleAction = async (
+    action: "launch" | "stop" | "clear" | "uninstall",
+    pkg: string,
+  ) => {
     if (!pkg.trim()) {
       toast.error("Package name is empty");
       return;
@@ -136,7 +144,13 @@ export function AppManager({ deviceId }: AppManagerProps) {
     }
   };
 
-  const ActionButtons = ({ app, compact = false }: { app: AppInfo; compact?: boolean }) => (
+  const ActionButtons = ({
+    app,
+    compact = false,
+  }: {
+    app: AppInfo;
+    compact?: boolean;
+  }) => (
     <div className={`flex items-center gap-1 ${compact ? "gap-2" : ""}`}>
       <button
         onClick={() => handleAction("launch", app.package_name)}
@@ -173,7 +187,9 @@ export function AppManager({ deviceId }: AppManagerProps) {
       </button>
       {!app.is_system && (
         <>
-          {!compact && <div className="w-px h-4 bg-gray-200 dark:bg-[#2a3036] mx-1" />}
+          {!compact && (
+            <div className="w-px h-4 bg-gray-200 dark:bg-[#2a3036] mx-1" />
+          )}
           <button
             onClick={() => handleAction("uninstall", app.package_name)}
             className={
@@ -220,7 +236,10 @@ export function AppManager({ deviceId }: AppManagerProps) {
       {/* Toolbar */}
       <div className="px-6 py-4 bg-gray-50 dark:bg-[#16191b] border-b border-gray-200 dark:border-[#222629] flex items-center justify-between gap-4">
         <div className="relative w-full max-w-md">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search
+            size={18}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
           <input
             type="text"
             placeholder="Search packages..."
@@ -304,7 +323,10 @@ export function AppManager({ deviceId }: AppManagerProps) {
 
                   <div className="absolute inset-0 bg-white/90 dark:bg-[#16191b]/95 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
                     <ActionButtons app={app} compact />
-                    <p className="text-[10px] text-gray-400 dark:text-slate-500 px-2 truncate w-full" title={app.package_name}>
+                    <p
+                      className="text-[10px] text-gray-400 dark:text-slate-500 px-2 truncate w-full"
+                      title={app.package_name}
+                    >
                       {app.package_name}
                     </p>
                   </div>
@@ -327,7 +349,9 @@ export function AppManager({ deviceId }: AppManagerProps) {
                           </span>
                         )}
                       </h4>
-                      <p className="text-xs text-gray-500 dark:text-slate-400 truncate">{app.package_name}</p>
+                      <p className="text-xs text-gray-500 dark:text-slate-400 truncate">
+                        {app.package_name}
+                      </p>
                     </div>
                   </div>
 
@@ -335,7 +359,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
                     <ActionButtons app={app} />
                   </div>
                 </div>
-              )
+              ),
             )}
           </div>
         )}

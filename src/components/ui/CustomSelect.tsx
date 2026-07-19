@@ -18,7 +18,10 @@ export function CustomSelect({ value, options, onChange }: CustomSelectProps) {
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
@@ -35,7 +38,9 @@ export function CustomSelect({ value, options, onChange }: CustomSelectProps) {
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between px-3 py-1.5 border border-gray-300 dark:border-app-border rounded-lg shadow-sm bg-white dark:bg-app-input text-gray-900 dark:text-app-text text-sm hover:border-gray-400 dark:hover:border-[#2f353a] transition-all outline-none"
       >
-        <span className="truncate">{selectedOption ? selectedOption.label : value}</span>
+        <span className="truncate">
+          {selectedOption ? selectedOption.label : value}
+        </span>
         <ChevronDown
           size={14}
           className={`text-gray-400 dark:text-slate-500 transition-transform duration-200 shrink-0 ml-1 ${

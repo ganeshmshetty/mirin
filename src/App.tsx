@@ -1,6 +1,12 @@
 import "./App.css";
 import { useState, useEffect, useCallback } from "react";
-import { Routes, Route, useLocation, useSearchParams, useNavigate } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  useLocation,
+  useSearchParams,
+  useNavigate,
+} from "react-router-dom";
 import { Sidebar, type DeviceRailInfo } from "./components/Sidebar";
 import { Home } from "./pages/Home";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -30,10 +36,10 @@ function AppContent() {
 
   // Immediate rail shell while device details load
   const railForSidebar: DeviceRailInfo | null = isDeviceRoute
-    ? deviceRail ??
+    ? (deviceRail ??
       (deviceIdFromPath
         ? { id: deviceIdFromPath, name: "Loading…", isConnected: false }
-        : null)
+        : null))
     : null;
 
   useEffect(() => {
@@ -41,15 +47,18 @@ function AppContent() {
     let unlisten: (() => void) | undefined;
 
     // Apply alwaysOnTop preference on startup
-    settingsService.loadSettings().then(settings => {
-      getCurrentWindow().setAlwaysOnTop(settings.alwaysOnTop);
-    }).catch(console.error);
+    settingsService
+      .loadSettings()
+      .then((settings) => {
+        getCurrentWindow().setAlwaysOnTop(settings.alwaysOnTop);
+      })
+      .catch(console.error);
 
     void import("@tauri-apps/api/event")
       .then(({ listen }) =>
         listen("device-connected", () => {
           setRefreshTrigger((prev) => prev + 1);
-        })
+        }),
       )
       .then((stopListening) => {
         if (disposed) stopListening();
@@ -68,7 +77,11 @@ function AppContent() {
   useEffect(() => {
     if (location.pathname === "/connect") {
       document.body.style.setProperty("background", "transparent", "important");
-      document.documentElement.style.setProperty("background", "transparent", "important");
+      document.documentElement.style.setProperty(
+        "background",
+        "transparent",
+        "important",
+      );
     } else {
       document.body.style.removeProperty("background");
       document.documentElement.style.removeProperty("background");
@@ -102,7 +115,7 @@ function AppContent() {
     (tool: string) => {
       setSearchParams({ tab: tool }, { replace: true });
     },
-    [setSearchParams]
+    [setSearchParams],
   );
 
   const handleConnectClick = async () => {
@@ -156,21 +169,21 @@ function AppContent() {
             <Route
               path="/"
               element={
-                <Home 
-                  refreshTrigger={refreshTrigger} 
-                  onConnectClick={handleConnectClick} 
+                <Home
+                  refreshTrigger={refreshTrigger}
+                  onConnectClick={handleConnectClick}
                   onQuickMirrorClick={handleQuickMirrorClick}
                 />
               }
             />
-            <Route
-              path="/settings"
-              element={<SettingsPage />}
-            />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route
               path="/device/:id"
               element={
-                <DeviceDashboard activeTool={activeTool} onDeviceMeta={handleDeviceMeta} />
+                <DeviceDashboard
+                  activeTool={activeTool}
+                  onDeviceMeta={handleDeviceMeta}
+                />
               }
             />
           </Routes>

@@ -23,7 +23,13 @@ import {
 } from "lucide-react";
 import { scrcpyService, deviceService, mcpService } from "../services";
 import { useMirrorDecoder } from "../hooks/useMirrorDecoder";
-import type { Device, ConnectionType, DeviceStatus, DeviceConnection, DeviceDetails } from "../types";
+import type {
+  Device,
+  ConnectionType,
+  DeviceStatus,
+  DeviceConnection,
+  DeviceDetails,
+} from "../types";
 import { useToast } from "./ToastProvider";
 import { MirrorButton } from "./MirrorButton";
 import { useInputDialog } from "./InputDialog";
@@ -129,17 +135,24 @@ export function EmbeddedMirrorView({
       title: "Rename Device",
       defaultValue: deviceName,
       confirmText: "Rename",
-      placeholder: "Enter new name"
+      placeholder: "Enter new name",
     });
     if (newName && newName !== deviceName) {
       try {
         const savedDevices = await deviceService.getSavedDevices();
         const hardwareId = details?.serial || deviceId;
         const found = savedDevices.find(
-          d => d.id === deviceId || d.id === effectiveTransportId || d.hardware_id === hardwareId
+          (d) =>
+            d.id === deviceId ||
+            d.id === effectiveTransportId ||
+            d.hardware_id === hardwareId,
         );
         const updatedDevice: Device = found
-          ? { ...found, name: newName, hardware_id: found.hardware_id || hardwareId }
+          ? {
+              ...found,
+              name: newName,
+              hardware_id: found.hardware_id || hardwareId,
+            }
           : {
               hardware_id: hardwareId,
               id: effectiveTransportId,
@@ -161,19 +174,34 @@ export function EmbeddedMirrorView({
   };
 
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('mirror-status', { detail: { deviceId: effectiveTransportId, status: isPoppedOut ? "streaming" : status } }));
+    window.dispatchEvent(
+      new CustomEvent("mirror-status", {
+        detail: {
+          deviceId: effectiveTransportId,
+          status: isPoppedOut ? "streaming" : status,
+        },
+      }),
+    );
   }, [effectiveTransportId, status, isPoppedOut]);
 
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | undefined;
     listen<any>("request_screenshot", async (event) => {
-      if (event.payload.device_id !== deviceId && event.payload.device_id !== effectiveTransportId) return;
+      if (
+        event.payload.device_id !== deviceId &&
+        event.payload.device_id !== effectiveTransportId
+      )
+        return;
       const canvas = canvasRef.current;
       if (!canvas || !dimensions.width || !dimensions.height) return;
 
       let dataBase64 = "";
-      if (!event.payload.annotate || !event.payload.elements || event.payload.elements.length === 0) {
+      if (
+        !event.payload.annotate ||
+        !event.payload.elements ||
+        event.payload.elements.length === 0
+      ) {
         const dataUrl = canvas.toDataURL("image/png");
         dataBase64 = dataUrl.split(",")[1] || "";
       } else {
@@ -214,13 +242,15 @@ export function EmbeddedMirrorView({
       }
 
       if (dataBase64) {
-        mcpService.submitScreenshot(
-          event.payload.req_id,
-          dataBase64,
-          dimensions.width,
-          dimensions.height,
-          event.payload.elements || []
-        ).catch(() => {});
+        mcpService
+          .submitScreenshot(
+            event.payload.req_id,
+            dataBase64,
+            dimensions.width,
+            dimensions.height,
+            event.payload.elements || [],
+          )
+          .catch(() => {});
       }
     }).then((un) => {
       if (disposed) un();
@@ -237,7 +267,10 @@ export function EmbeddedMirrorView({
   const rafMoveId = useRef<number>(0);
   const scrollAcc = useRef({ x: 0, y: 0 });
 
-  const getCanvasPoint = (canvas: HTMLCanvasElement, e: React.MouseEvent | React.WheelEvent) => {
+  const getCanvasPoint = (
+    canvas: HTMLCanvasElement,
+    e: React.MouseEvent | React.WheelEvent,
+  ) => {
     const rect = canvas.getBoundingClientRect();
     const intrinsicWidth = canvas.width || dimensions.width;
     const intrinsicHeight = canvas.height || dimensions.height;
@@ -255,11 +288,18 @@ export function EmbeddedMirrorView({
     return {
       x: Math.max(0, Math.min(1, contentX / Math.max(1, renderedWidth))),
       y: Math.max(0, Math.min(1, contentY / Math.max(1, renderedHeight))),
-      inside: contentX >= 0 && contentX <= renderedWidth && contentY >= 0 && contentY <= renderedHeight,
+      inside:
+        contentX >= 0 &&
+        contentX <= renderedWidth &&
+        contentY >= 0 &&
+        contentY <= renderedHeight,
     };
   };
 
-  const handleCanvasMouseEvent = async (e: React.MouseEvent<HTMLCanvasElement>, action: string) => {
+  const handleCanvasMouseEvent = async (
+    e: React.MouseEvent<HTMLCanvasElement>,
+    action: string,
+  ) => {
     if (status !== "streaming") return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -274,7 +314,9 @@ export function EmbeddedMirrorView({
       if (!rafMoveId.current) {
         rafMoveId.current = requestAnimationFrame(() => {
           rafMoveId.current = 0;
-          scrcpyService.sendTouch(transportRef.current, action, x, y).catch(() => {});
+          scrcpyService
+            .sendTouch(transportRef.current, action, x, y)
+            .catch(() => {});
         });
       }
     } else {
@@ -297,13 +339,13 @@ export function EmbeddedMirrorView({
     if (!canvas) return;
     const { x, y, inside } = getCanvasPoint(canvas, e);
     if (!inside) return;
-    
+
     scrollAcc.current.x += e.deltaX;
     scrollAcc.current.y += e.deltaY;
 
     // Threshold for a single "tick" (Mac trackpads generate tiny deltas continuously)
     const TICK_THRESHOLD = 20;
-    
+
     let dx = 0;
     let dy = 0;
 
@@ -321,7 +363,13 @@ export function EmbeddedMirrorView({
 
     if (dx !== 0 || dy !== 0) {
       try {
-        await scrcpyService.sendScroll(transportRef.current, Math.max(0, Math.min(1, x)), Math.max(0, Math.min(1, y)), dx, dy);
+        await scrcpyService.sendScroll(
+          transportRef.current,
+          Math.max(0, Math.min(1, x)),
+          Math.max(0, Math.min(1, y)),
+          dx,
+          dy,
+        );
       } catch {}
     }
   };
@@ -329,7 +377,8 @@ export function EmbeddedMirrorView({
   const composingRef = useRef(false);
   const handleKeyDown = async (e: React.KeyboardEvent) => {
     if (e.target !== e.currentTarget) return;
-    if (status !== "streaming" || composingRef.current || e.key === "Dead") return;
+    if (status !== "streaming" || composingRef.current || e.key === "Dead")
+      return;
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       try {
@@ -337,9 +386,15 @@ export function EmbeddedMirrorView({
       } catch {}
     } else {
       const keyMap: Record<string, number> = {
-        Enter: 66, Backspace: 67, Delete: 112,
-        ArrowUp: 19, ArrowDown: 20, ArrowLeft: 21, ArrowRight: 22,
-        Escape: 111, Tab: 61,
+        Enter: 66,
+        Backspace: 67,
+        Delete: 112,
+        ArrowUp: 19,
+        ArrowDown: 20,
+        ArrowLeft: 21,
+        ArrowRight: 22,
+        Escape: 111,
+        Tab: 61,
       };
       const keycode = keyMap[e.key];
       if (keycode) {
@@ -426,7 +481,10 @@ export function EmbeddedMirrorView({
     if (isChangingOrientation || status !== "streaming") return;
     setIsChangingOrientation(true);
     try {
-      await scrcpyService.setOrientation(transportRef.current, targetOrientation);
+      await scrcpyService.setOrientation(
+        transportRef.current,
+        targetOrientation,
+      );
       await handleStop();
       startMirroring();
     } catch (err) {
@@ -436,12 +494,31 @@ export function EmbeddedMirrorView({
       setIsChangingOrientation(false);
     }
   };
-  const connectedConnections = availableConnections?.filter(connection => connection.status === "Connected") || [];
-  const connectionSummary = [...new Set(connectedConnections.map(connection => connection.connection_type))].join(" + ") || connectionType || "—";
-  const ipSummary = connectedConnections
-    .filter(connection => connection.connection_type === "Wireless")
-    .map(connection => connection.ip_address || (connection.id.includes(":") ? connection.id.slice(0, connection.id.lastIndexOf(":")) : connection.id))
-    .join(", ") || deviceIp || "N/A (USB)";
+  const connectedConnections =
+    availableConnections?.filter(
+      (connection) => connection.status === "Connected",
+    ) || [];
+  const connectionSummary =
+    [
+      ...new Set(
+        connectedConnections.map((connection) => connection.connection_type),
+      ),
+    ].join(" + ") ||
+    connectionType ||
+    "—";
+  const ipSummary =
+    connectedConnections
+      .filter((connection) => connection.connection_type === "Wireless")
+      .map(
+        (connection) =>
+          connection.ip_address ||
+          (connection.id.includes(":")
+            ? connection.id.slice(0, connection.id.lastIndexOf(":"))
+            : connection.id),
+      )
+      .join(", ") ||
+    deviceIp ||
+    "N/A (USB)";
   const shellClass = fillWorkspace
     ? `flex ${isLandscape ? "flex-col" : "flex-row"} h-full min-h-0 w-full bg-gray-100 dark:bg-black overflow-hidden focus:outline-none`
     : "flex flex-col h-full bg-app-card rounded-xl border border-app-border shadow-2xl overflow-hidden focus:outline-none";
@@ -469,12 +546,16 @@ export function EmbeddedMirrorView({
           isLandscape ? "flex-col" : ""
         }`}
       >
-        {status === "idle" && (
-          isPopup ? (
+        {status === "idle" &&
+          (isPopup ? (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-app dark:bg-[#0e1012] p-6 text-center animate-fade-in">
               <div className="w-10 h-10 rounded-full border-2 border-cyan-500/20 border-t-cyan-500 animate-spin mb-3" />
-              <h3 className="text-sm font-semibold text-app-text mb-1">Starting Mirror…</h3>
-              <p className="text-app-muted text-xs truncate max-w-xs">{deviceName}</p>
+              <h3 className="text-sm font-semibold text-app-text mb-1">
+                Starting Mirror…
+              </h3>
+              <p className="text-app-muted text-xs truncate max-w-xs">
+                {deviceName}
+              </p>
             </div>
           ) : (
             <div className="absolute inset-0 z-10 overflow-y-auto bg-app dark:bg-[#0e1012] p-6 sm:p-8 animate-fade-in flex flex-col justify-between">
@@ -489,13 +570,18 @@ export function EmbeddedMirrorView({
                   <div className="flex items-start gap-4 flex-1">
                     <div className="flex flex-col gap-3 w-full">
                       <div>
-                        <div 
+                        <div
                           onClick={handleRename}
                           className="flex items-center gap-2 group cursor-pointer"
                           title="Click to rename device"
                         >
-                          <h2 className="text-2xl font-semibold text-app-text tracking-tight group-hover:text-cyan-500 transition-colors">{deviceName}</h2>
-                          <Edit2 size={16} className="text-app-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                          <h2 className="text-2xl font-semibold text-app-text tracking-tight group-hover:text-cyan-500 transition-colors">
+                            {deviceName}
+                          </h2>
+                          <Edit2
+                            size={16}
+                            className="text-app-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                          />
                           {isPoppedOut && (
                             <span className="ml-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-medium border border-blue-100 dark:border-blue-900/50">
                               <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
@@ -543,19 +629,29 @@ export function EmbeddedMirrorView({
 
                       {/* Transport toggle when both USB + WiFi available */}
                       {(() => {
-                        const usbConn = availableConnections?.find(c => c.connection_type === "USB" && c.status === "Connected");
-                        const wifiConn = availableConnections?.find(c => c.connection_type === "Wireless" && c.status === "Connected");
+                        const usbConn = availableConnections?.find(
+                          (c) =>
+                            c.connection_type === "USB" &&
+                            c.status === "Connected",
+                        );
+                        const wifiConn = availableConnections?.find(
+                          (c) =>
+                            c.connection_type === "Wireless" &&
+                            c.status === "Connected",
+                        );
                         if (!usbConn || !wifiConn) return null;
                         const isUsb = effectiveTransportId === usbConn.id;
                         return (
                           <div className="mt-4">
                             <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-[#2a3036] bg-white dark:bg-[#1d2327] w-fit">
                               <button
-                                onClick={() => { if (!isUsb) void switchTransport(usbConn.id); }}
+                                onClick={() => {
+                                  if (!isUsb) void switchTransport(usbConn.id);
+                                }}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
                                   isUsb
-                                    ? 'bg-cyan-500 text-white'
-                                    : 'text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]'
+                                    ? "bg-cyan-500 text-white"
+                                    : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]"
                                 }`}
                               >
                                 <Usb size={13} />
@@ -563,11 +659,13 @@ export function EmbeddedMirrorView({
                               </button>
                               <div className="w-px bg-gray-200 dark:bg-[#2a3036]" />
                               <button
-                                onClick={() => { if (isUsb) void switchTransport(wifiConn.id); }}
+                                onClick={() => {
+                                  if (isUsb) void switchTransport(wifiConn.id);
+                                }}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
                                   isUsb
-                                    ? 'text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]'
-                                    : 'bg-cyan-500 text-white'
+                                    ? "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]"
+                                    : "bg-cyan-500 text-white"
                                 }`}
                               >
                                 <Wifi size={13} />
@@ -582,25 +680,38 @@ export function EmbeddedMirrorView({
                       <div className="grid grid-cols-2 gap-4 mt-2 max-w-xs">
                         <div className="bg-white dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl p-4 shadow-md shadow-black/5 dark:shadow-none flex flex-col gap-1">
                           <div className="flex items-center gap-2 text-app-muted mb-1">
-                            <Battery size={16} /> 
-                            <span className="text-[11px] font-semibold uppercase tracking-wider">Battery</span>
+                            <Battery size={16} />
+                            <span className="text-[11px] font-semibold uppercase tracking-wider">
+                              Battery
+                            </span>
                           </div>
                           <div className="text-xl font-semibold text-app-text">
-                            {details ? `${details.battery_level}%` : (isLoadingDetails ? "..." : "—")}
+                            {details
+                              ? `${details.battery_level}%`
+                              : isLoadingDetails
+                                ? "..."
+                                : "—"}
                           </div>
                         </div>
                         <div className="bg-white dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl p-4 shadow-md shadow-black/5 dark:shadow-none flex flex-col gap-1">
                           <div className="flex items-center gap-2 text-app-muted mb-1">
-                            <HardDrive size={16} /> 
-                            <span className="text-[11px] font-semibold uppercase tracking-wider">Storage</span>
+                            <HardDrive size={16} />
+                            <span className="text-[11px] font-semibold uppercase tracking-wider">
+                              Storage
+                            </span>
                           </div>
                           <div className="text-xl font-semibold text-app-text">
                             {details && details.storage_total_gb > 0 ? (
                               <>
-                                {details.storage_used_gb} <span className="text-xs text-app-muted font-normal">GB / {details.storage_total_gb} GB</span>
+                                {details.storage_used_gb}{" "}
+                                <span className="text-xs text-app-muted font-normal">
+                                  GB / {details.storage_total_gb} GB
+                                </span>
                               </>
+                            ) : isLoadingDetails ? (
+                              "..."
                             ) : (
-                              isLoadingDetails ? "..." : "—"
+                              "—"
                             )}
                           </div>
                         </div>
@@ -613,11 +724,11 @@ export function EmbeddedMirrorView({
 
                 {/* Device Details List */}
                 <div className="mt-6 bg-white dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl overflow-hidden shadow-md shadow-black/5 dark:shadow-none">
-                  <div 
+                  <div
                     onClick={() => setIsDetailsOpen(!isDetailsOpen)}
                     className="flex items-center gap-3 px-5 py-4 border-b border-gray-200/50 dark:border-[#222629]/50 text-app-text font-semibold text-[15px] cursor-pointer hover:bg-app-hover/30 transition-colors select-none"
                   >
-                    <List size={18} className="text-app-muted" /> 
+                    <List size={18} className="text-app-muted" />
                     <span className="flex-1">Device Details</span>
                     {isDetailsOpen ? (
                       <ChevronDown size={18} className="text-app-muted" />
@@ -629,48 +740,135 @@ export function EmbeddedMirrorView({
                     <div className="flex flex-col text-sm text-app-muted divide-y divide-gray-200/50 dark:divide-[#222629]/50">
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
                         <span className="w-1/3">ID</span>
-                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{effectiveTransportId}</span>
-                        <button onClick={() => { navigator.clipboard.writeText(effectiveTransportId); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
+                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
+                          {effectiveTransportId}
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(effectiveTransportId);
+                            toast.success("Copied to clipboard");
+                          }}
+                          className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
+                        >
+                          <Copy size={14} />
+                        </button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
                         <span className="w-1/3">Model</span>
-                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{deviceModel || "—"}</span>
-                        <button onClick={() => { navigator.clipboard.writeText(deviceModel || "—"); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
+                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
+                          {deviceModel || "—"}
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(deviceModel || "—");
+                            toast.success("Copied to clipboard");
+                          }}
+                          className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
+                        >
+                          <Copy size={14} />
+                        </button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
                         <span className="w-1/3">Connection</span>
-                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{connectionSummary}</span>
-                        <button onClick={() => { navigator.clipboard.writeText(connectionSummary); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
+                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
+                          {connectionSummary}
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(connectionSummary);
+                            toast.success("Copied to clipboard");
+                          }}
+                          className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
+                        >
+                          <Copy size={14} />
+                        </button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
                         <span className="w-1/3">IP Address</span>
-                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{ipSummary}</span>
-                        <button onClick={() => { navigator.clipboard.writeText(ipSummary); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
+                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
+                          {ipSummary}
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(ipSummary);
+                            toast.success("Copied to clipboard");
+                          }}
+                          className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
+                        >
+                          <Copy size={14} />
+                        </button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
                         <span className="w-1/3">Serial Number</span>
-                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{details ? details.serial : (isLoadingDetails ? "..." : "—")}</span>
-                        <button onClick={() => { navigator.clipboard.writeText(details?.serial || "—"); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
+                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
+                          {details
+                            ? details.serial
+                            : isLoadingDetails
+                              ? "..."
+                              : "—"}
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              details?.serial || "—",
+                            );
+                            toast.success("Copied to clipboard");
+                          }}
+                          className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
+                        >
+                          <Copy size={14} />
+                        </button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
                         <span className="w-1/3">Android Version</span>
-                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{details ? details.android_version : (isLoadingDetails ? "..." : "—")}</span>
-                        <button onClick={() => { navigator.clipboard.writeText(details?.android_version || "—"); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
+                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
+                          {details
+                            ? details.android_version
+                            : isLoadingDetails
+                              ? "..."
+                              : "—"}
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              details?.android_version || "—",
+                            );
+                            toast.success("Copied to clipboard");
+                          }}
+                          className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
+                        >
+                          <Copy size={14} />
+                        </button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
                         <span className="w-1/3">Manufacturer</span>
-                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">{details ? details.manufacturer : (isLoadingDetails ? "..." : "—")}</span>
-                        <button onClick={() => { navigator.clipboard.writeText(details?.manufacturer || "—"); toast.success("Copied to clipboard"); }} className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"><Copy size={14} /></button>
+                        <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
+                          {details
+                            ? details.manufacturer
+                            : isLoadingDetails
+                              ? "..."
+                              : "—"}
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              details?.manufacturer || "—",
+                            );
+                            toast.success("Copied to clipboard");
+                          }}
+                          className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
+                        >
+                          <Copy size={14} />
+                        </button>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
             </div>
-          )
-        )}
+          ))}
 
-        {(status === "connecting") && (
+        {status === "connecting" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-app-card/90 dark:bg-[#0e1012]/90 z-10 text-center p-6 backdrop-blur-sm">
             <div className="w-12 h-12 rounded-full border-2 border-cyan-500/20 border-t-cyan-500 animate-spin mb-4" />
             <p className="text-app-text font-medium text-sm">
@@ -684,9 +882,11 @@ export function EmbeddedMirrorView({
                 <div className="flex flex-col gap-2 w-full max-w-[220px] mt-4">
                   {(() => {
                     const otherConns = (availableConnections || []).filter(
-                      c => c.id !== effectiveTransportId && c.status === "Connected"
+                      (c) =>
+                        c.id !== effectiveTransportId &&
+                        c.status === "Connected",
                     );
-                    return otherConns.map(conn => (
+                    return otherConns.map((conn) => (
                       <button
                         key={conn.id}
                         onClick={() => {
@@ -695,8 +895,13 @@ export function EmbeddedMirrorView({
                         }}
                         className="flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                       >
-                        {conn.connection_type === "USB" ? <Usb size={15} /> : <Wifi size={15} />}
-                        Switch to {conn.connection_type === "USB" ? "USB" : "WiFi"}
+                        {conn.connection_type === "USB" ? (
+                          <Usb size={15} />
+                        ) : (
+                          <Wifi size={15} />
+                        )}
+                        Switch to{" "}
+                        {conn.connection_type === "USB" ? "USB" : "WiFi"}
                       </button>
                     ));
                   })()}
@@ -716,7 +921,9 @@ export function EmbeddedMirrorView({
 
         {status === "error" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-app-card/95 dark:bg-[#0e1012]/95 z-10 text-center p-6 backdrop-blur-sm">
-            <p className="text-app-text font-semibold text-base mb-1">Stream Interrupted</p>
+            <p className="text-app-text font-semibold text-base mb-1">
+              Stream Interrupted
+            </p>
             <p className="text-app-muted text-xs max-w-md mb-4">
               {errorMsg || "Connection lost"}
             </p>
@@ -725,10 +932,11 @@ export function EmbeddedMirrorView({
               {/* Switch transport buttons when multiple connections exist */}
               {(() => {
                 const otherConns = (availableConnections || []).filter(
-                  c => c.id !== effectiveTransportId && c.status === "Connected"
+                  (c) =>
+                    c.id !== effectiveTransportId && c.status === "Connected",
                 );
                 if (otherConns.length === 0) return null;
-                return otherConns.map(conn => (
+                return otherConns.map((conn) => (
                   <button
                     key={conn.id}
                     onClick={() => {
@@ -736,7 +944,11 @@ export function EmbeddedMirrorView({
                     }}
                     className="flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                   >
-                    {conn.connection_type === "USB" ? <Usb size={15} /> : <Wifi size={15} />}
+                    {conn.connection_type === "USB" ? (
+                      <Usb size={15} />
+                    ) : (
+                      <Wifi size={15} />
+                    )}
                     Switch to {conn.connection_type === "USB" ? "USB" : "WiFi"}
                   </button>
                 ));
@@ -776,7 +988,8 @@ export function EmbeddedMirrorView({
           onWheel={handleWheel}
           className="max-w-full max-h-full w-auto h-auto object-contain transition-opacity duration-200"
           style={{
-            opacity: (status === "streaming" || status === "connecting") ? 1 : 0.2,
+            opacity:
+              status === "streaming" || status === "connecting" ? 1 : 0.2,
             // Prefer filling available height in portrait; width in landscape
             maxHeight: "100%",
             maxWidth: "100%",
@@ -817,11 +1030,20 @@ export function EmbeddedMirrorView({
                 title={`${label} (${shortcut})`}
                 className={`${toolbarButtonSize} flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0`}
               >
-                <Icon size={18} className="text-app-muted hover:text-app-text transition-colors" />
+                <Icon
+                  size={18}
+                  className="text-app-muted hover:text-app-text transition-colors"
+                />
               </button>
             ))}
 
-            <div className={isLandscape ? "w-px h-6 bg-app-border mx-1" : "h-px bg-app-border my-0.5 flex-shrink-0"} />
+            <div
+              className={
+                isLandscape
+                  ? "w-px h-6 bg-app-border mx-1"
+                  : "h-px bg-app-border my-0.5 flex-shrink-0"
+              }
+            />
 
             <button
               onClick={() => void handleOrientationToggle()}
@@ -829,7 +1051,14 @@ export function EmbeddedMirrorView({
               title={`Switch to ${targetOrientation}`}
               className={`${toolbarButtonSize} flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0 disabled:opacity-50`}
             >
-              <RotateCw size={18} className={isChangingOrientation ? "animate-spin text-cyan-400" : "text-app-muted"} />
+              <RotateCw
+                size={18}
+                className={
+                  isChangingOrientation
+                    ? "animate-spin text-cyan-400"
+                    : "text-app-muted"
+                }
+              />
             </button>
 
             {/* Pop Out */}
@@ -839,7 +1068,10 @@ export function EmbeddedMirrorView({
                   const handlePopOut = async () => {
                     await handleStop();
                     try {
-                      await scrcpyService.openMirrorWindow(transportRef.current, deviceName);
+                      await scrcpyService.openMirrorWindow(
+                        transportRef.current,
+                        deviceName,
+                      );
                       setIsPoppedOut(true);
                     } catch (err) {
                       console.error("Failed to open mirror window:", err);
@@ -851,7 +1083,10 @@ export function EmbeddedMirrorView({
                 title="Pop out in separate window"
                 className={`${toolbarButtonSize} flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0`}
               >
-                <ExternalLink size={18} className="text-app-muted hover:text-app-text transition-colors" />
+                <ExternalLink
+                  size={18}
+                  className="text-app-muted hover:text-app-text transition-colors"
+                />
               </button>
             )}
 

@@ -4,7 +4,11 @@ interface LoadingSpinnerProps {
   text?: string;
 }
 
-export function LoadingSpinner({ size = "md", color = "primary", text }: LoadingSpinnerProps) {
+export function LoadingSpinner({
+  size = "md",
+  color = "primary",
+  text,
+}: LoadingSpinnerProps) {
   const sizeClasses = {
     sm: "w-4 h-4",
     md: "w-8 h-8",

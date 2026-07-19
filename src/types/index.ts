@@ -1,9 +1,10 @@
 export * from "./tauri-commands";
 
 // Device models matching Rust backend types
-export type ConnectionType = 'USB' | 'Wireless';
+export type ConnectionType = "USB" | "Wireless";
 
-export type DeviceStatus = 'Connected' | 'Disconnected' | 'Unauthorized' | 'Offline';
+export type DeviceStatus =
+  "Connected" | "Disconnected" | "Unauthorized" | "Offline";
 
 export interface DeviceConnection {
   id: string;
@@ -48,27 +49,27 @@ export interface Settings {
   alwaysOnTop: boolean;
   stayAwake: boolean;
   turnScreenOff: boolean;
-  theme: 'light' | 'dark' | 'system';
-  
+  theme: "light" | "dark" | "system";
+
   mcpEnabled: boolean;
   mcpPort: number;
   mcpRequireAuth: boolean;
-  mcpLogLevel: 'error' | 'info' | 'debug';
+  mcpLogLevel: "error" | "info" | "debug";
 }
 
 // Default settings
 export const DEFAULT_SETTINGS: Settings = {
-  resolution: 'default',
+  resolution: "default",
   bitrate: 8000000,
   maxFps: 60,
   alwaysOnTop: false,
   stayAwake: true,
   turnScreenOff: false,
-  theme: 'system',
+  theme: "system",
   mcpEnabled: true,
   mcpPort: 48484,
   mcpRequireAuth: true,
-  mcpLogLevel: 'info',
+  mcpLogLevel: "info",
 };
 
 export interface DeviceDetails {

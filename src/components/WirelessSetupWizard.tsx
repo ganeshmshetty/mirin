@@ -10,7 +10,11 @@ interface WirelessSetupWizardProps {
   onCancel: () => void;
 }
 
-export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessSetupWizardProps) {
+export function WirelessSetupWizard({
+  devices,
+  onComplete,
+  onCancel,
+}: WirelessSetupWizardProps) {
   const [currentStep, setCurrentStep] = useState<WizardStep>("select");
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [deviceIP, setDeviceIP] = useState<string>("");
@@ -18,7 +22,9 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
   const [loading, setLoading] = useState(false);
 
   // Filter USB devices
-  const usbDevices = devices.filter((d) => d.connection_type === "USB" && d.status === "Connected");
+  const usbDevices = devices.filter(
+    (d) => d.connection_type === "USB" && d.status === "Connected",
+  );
 
   const handleSelectDevice = (device: Device) => {
     setSelectedDevice(device);
@@ -36,7 +42,9 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
       setDeviceIP(ip);
       setCurrentStep("disconnect");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to enable wireless mode");
+      setError(
+        err instanceof Error ? err.message : "Failed to enable wireless mode",
+      );
     } finally {
       setLoading(false);
     }
@@ -48,7 +56,7 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
 
     try {
       await deviceService.connectWireless(deviceIP);
-      
+
       // Save the device for future use
       if (selectedDevice) {
         const wirelessDevice: Device = {
@@ -57,13 +65,15 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
           connection_type: "Wireless",
           status: "Connected",
           ip_address: deviceIP,
-          connections: [{
-            id: `${deviceIP}:5555`,
-            connection_type: "Wireless",
-            status: "Connected",
-            ip_address: deviceIP,
-            port: 5555,
-          }],
+          connections: [
+            {
+              id: `${deviceIP}:5555`,
+              connection_type: "Wireless",
+              status: "Connected",
+              ip_address: deviceIP,
+              port: 5555,
+            },
+          ],
         };
         try {
           await deviceService.saveDevice(wirelessDevice);
@@ -72,10 +82,12 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
           // Don't fail the whole operation if save fails
         }
       }
-      
+
       setCurrentStep("complete");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to connect wirelessly");
+      setError(
+        err instanceof Error ? err.message : "Failed to connect wirelessly",
+      );
     } finally {
       setLoading(false);
     }
@@ -86,11 +98,15 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
       case "select":
         return (
           <div>
-            <h3 className="text-lg font-semibold mb-4">Step 1: Select USB Device</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              Step 1: Select USB Device
+            </h3>
             {usbDevices.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-600">No USB devices connected.</p>
-                <p className="text-sm text-gray-500 mt-2">Please connect a device via USB first.</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Please connect a device via USB first.
+                </p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -106,7 +122,9 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
                   >
                     <div className="font-medium">{device.name}</div>
                     <div className="text-sm text-gray-600">{device.model}</div>
-                    <div className="text-xs text-gray-500 mt-1">ID: {device.id}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      ID: {device.id}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -132,7 +150,9 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
       case "enable":
         return (
           <div>
-            <h3 className="text-lg font-semibold mb-4">Step 2: Enable Wireless Mode</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              Step 2: Enable Wireless Mode
+            </h3>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-blue-900">
                 <strong>Selected Device:</strong> {selectedDevice?.name}
@@ -142,12 +162,13 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
               </p>
             </div>
             <p className="text-gray-700 mb-4">
-              Click "Enable Wireless" to switch your device to wireless debugging mode. This will
-              allow you to connect to it over WiFi.
+              Click "Enable Wireless" to switch your device to wireless
+              debugging mode. This will allow you to connect to it over WiFi.
             </p>
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-yellow-800">
-                ⚠️ Make sure your device and computer are on the same WiFi network.
+                ⚠️ Make sure your device and computer are on the same WiFi
+                network.
               </p>
             </div>
             {error && (
@@ -177,7 +198,9 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
       case "disconnect":
         return (
           <div>
-            <h3 className="text-lg font-semibold mb-4">Step 3: Disconnect USB Cable</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              Step 3: Disconnect USB Cable
+            </h3>
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-green-900">
                 ✓ Wireless mode enabled successfully!
@@ -187,10 +210,12 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
               </p>
             </div>
             <p className="text-gray-700 mb-4">
-              You can now <strong>disconnect the USB cable</strong> from your device.
+              You can now <strong>disconnect the USB cable</strong> from your
+              device.
             </p>
             <p className="text-gray-700 mb-4">
-              Once disconnected, click "Connect Wirelessly" to establish a wireless connection.
+              Once disconnected, click "Connect Wirelessly" to establish a
+              wireless connection.
             </p>
             <div className="flex gap-3">
               <button
@@ -212,7 +237,9 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
       case "connect":
         return (
           <div>
-            <h3 className="text-lg font-semibold mb-4">Step 4: Connect Wirelessly</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              Step 4: Connect Wirelessly
+            </h3>
             <p className="text-gray-700 mb-4">
               Click "Connect" to establish a wireless connection to your device.
             </p>
@@ -261,13 +288,14 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
               </p>
             </div>
             <p className="text-gray-700 mb-4">
-              Your device has been saved and will appear in the saved devices list. You can now
-              start mirroring wirelessly!
+              Your device has been saved and will appear in the saved devices
+              list. You can now start mirroring wirelessly!
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-blue-900">
-                💡 <strong>Tip:</strong> For future connections, you can connect directly from the
-                saved devices list without going through this setup again.
+                💡 <strong>Tip:</strong> For future connections, you can connect
+                directly from the saved devices list without going through this
+                setup again.
               </p>
             </div>
             <button
@@ -284,19 +312,29 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 max-w-2xl mx-auto">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Wireless Setup Wizard</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          Wireless Setup Wizard
+        </h2>
         <div className="flex items-center gap-2">
-          {["select", "enable", "disconnect", "connect", "complete"].map((step, index) => (
-            <div key={step} className="flex items-center flex-1">
-              <div
-                className={`h-2 rounded-full flex-1 ${
-                  ["select", "enable", "disconnect", "connect", "complete"].indexOf(currentStep) >= index
-                    ? "bg-blue-600"
-                    : "bg-gray-200"
-                }`}
-              />
-            </div>
-          ))}
+          {["select", "enable", "disconnect", "connect", "complete"].map(
+            (step, index) => (
+              <div key={step} className="flex items-center flex-1">
+                <div
+                  className={`h-2 rounded-full flex-1 ${
+                    [
+                      "select",
+                      "enable",
+                      "disconnect",
+                      "connect",
+                      "complete",
+                    ].indexOf(currentStep) >= index
+                      ? "bg-blue-600"
+                      : "bg-gray-200"
+                  }`}
+                />
+              </div>
+            ),
+          )}
         </div>
       </div>
       {renderStepContent()}

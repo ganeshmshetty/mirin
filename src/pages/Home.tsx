@@ -13,7 +13,11 @@ interface HomeProps {
   onQuickMirrorClick?: () => void;
 }
 
-export function Home({ refreshTrigger = 0, onConnectClick, onQuickMirrorClick }: HomeProps) {
+export function Home({
+  refreshTrigger = 0,
+  onConnectClick,
+  onQuickMirrorClick,
+}: HomeProps) {
   const [devices, setDevices] = useState<Device[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
@@ -91,7 +95,9 @@ export function Home({ refreshTrigger = 0, onConnectClick, onQuickMirrorClick }:
     <div className="flex-1 flex flex-col">
       {/* Toolbar */}
       <header className="h-14 bg-slate-100 dark:bg-[#111315] border-b border-gray-200 dark:border-[#222629] flex items-center justify-between px-6 flex-shrink-0 transition-colors">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">My Devices</h2>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
+          My Devices
+        </h2>
         <button
           onClick={handleRefresh}
           disabled={isLoading}
@@ -112,15 +118,18 @@ export function Home({ refreshTrigger = 0, onConnectClick, onQuickMirrorClick }:
           onConnectClick={onConnectClick}
           onQuickMirrorClick={onQuickMirrorClick}
           onRenameDevice={(deviceId, newName) => {
-            const device = devices.find(d => d.id === deviceId);
+            const device = devices.find((d) => d.id === deviceId);
             if (device) {
               const updatedDevice = { ...device, name: newName };
               // Update local state immediately
-              setDevices(prev => prev.map(d => d.id === deviceId ? updatedDevice : d));
+              setDevices((prev) =>
+                prev.map((d) => (d.id === deviceId ? updatedDevice : d)),
+              );
               // Save to persistent storage
-              deviceService.saveDevice(updatedDevice)
+              deviceService
+                .saveDevice(updatedDevice)
                 .then(() => toast.success(`Renamed to ${newName}`))
-                .catch(err => {
+                .catch((err) => {
                   console.error("Failed to rename:", err);
                   toast.error("Failed to rename device");
                 });

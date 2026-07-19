@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
 interface TabsProps {
   children: React.ReactElement<TabProps>[];
@@ -14,7 +14,7 @@ export function Tabs({ children, defaultTab }: TabsProps) {
   const [activeTab, setActiveTab] = useState(defaultTab);
 
   const activeContent = React.Children.toArray(children).find(
-    (child) => (child as React.ReactElement<TabProps>).props.name === activeTab
+    (child) => (child as React.ReactElement<TabProps>).props.name === activeTab,
   );
 
   return (
@@ -30,8 +30,8 @@ export function Tabs({ children, defaultTab }: TabsProps) {
                 className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors
                   ${
                     activeTab === tabName
-                      ? 'border-primary-500 text-primary-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? "border-primary-500 text-primary-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }
                 `}
               >
@@ -41,9 +41,7 @@ export function Tabs({ children, defaultTab }: TabsProps) {
           })}
         </nav>
       </div>
-      <div className="pt-5">
-        {activeContent}
-      </div>
+      <div className="pt-5">{activeContent}</div>
     </div>
   );
 }

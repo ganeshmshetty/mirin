@@ -18,9 +18,11 @@ export function Tooltip({ content, children, position = "top" }: TooltipProps) {
 
   const arrowClasses = {
     top: "top-full left-1/2 -translate-x-1/2 border-l-transparent border-r-transparent border-b-transparent border-t-gray-800",
-    bottom: "bottom-full left-1/2 -translate-x-1/2 border-l-transparent border-r-transparent border-t-transparent border-b-gray-800",
+    bottom:
+      "bottom-full left-1/2 -translate-x-1/2 border-l-transparent border-r-transparent border-t-transparent border-b-gray-800",
     left: "left-full top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-r-transparent border-l-gray-800",
-    right: "right-full top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-l-transparent border-r-gray-800",
+    right:
+      "right-full top-1/2 -translate-y-1/2 border-t-transparent border-b-transparent border-l-transparent border-r-gray-800",
   };
 
   return (
@@ -33,14 +35,16 @@ export function Tooltip({ content, children, position = "top" }: TooltipProps) {
       >
         {children}
       </div>
-      
+
       {isVisible && (
         <div
           className={`absolute z-50 px-3 py-2 text-sm font-medium text-white bg-gray-800 rounded-lg shadow-lg whitespace-nowrap animate-fade-in ${positionClasses[position]}`}
           role="tooltip"
         >
           {content}
-          <div className={`absolute w-0 h-0 border-4 ${arrowClasses[position]}`}></div>
+          <div
+            className={`absolute w-0 h-0 border-4 ${arrowClasses[position]}`}
+          ></div>
         </div>
       )}
     </div>

@@ -1,5 +1,8 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
-import type { FrameEvent, EmbeddedStreamSettings } from "../types/tauri-commands";
+import type {
+  FrameEvent,
+  EmbeddedStreamSettings,
+} from "../types/tauri-commands";
 
 /**
  * Service for scrcpy-related operations
@@ -39,7 +42,7 @@ export const scrcpyService = {
   async connectEmbeddedMirror(
     deviceId: string,
     onFrame: Channel<FrameEvent>,
-    settings?: Partial<EmbeddedStreamSettings>
+    settings?: Partial<EmbeddedStreamSettings>,
   ): Promise<[number, number]> {
     return await invoke<[number, number]>("connect_embedded_mirror", {
       deviceId,
@@ -56,21 +59,33 @@ export const scrcpyService = {
   },
 
   /** Lock the Android display to portrait or landscape. */
-  async setOrientation(deviceId: string, orientation: "portrait" | "landscape"): Promise<void> {
+  async setOrientation(
+    deviceId: string,
+    orientation: "portrait" | "landscape",
+  ): Promise<void> {
     return await invoke("set_orientation", { deviceId, orientation });
   },
 
   /**
    * Send touch event to embedded control socket
    */
-  async sendTouch(deviceId: string, action: string, x: number, y: number): Promise<void> {
+  async sendTouch(
+    deviceId: string,
+    action: string,
+    x: number,
+    y: number,
+  ): Promise<void> {
     return await invoke("send_touch", { deviceId, action, x, y });
   },
 
   /**
    * Send keycode event to embedded control socket
    */
-  async sendKey(deviceId: string, keycode: number, action: string): Promise<void> {
+  async sendKey(
+    deviceId: string,
+    keycode: number,
+    action: string,
+  ): Promise<void> {
     return await invoke("send_key", { deviceId, keycode, action });
   },
 
@@ -84,7 +99,13 @@ export const scrcpyService = {
   /**
    * Send scroll event to embedded control socket
    */
-  async sendScroll(deviceId: string, x: number, y: number, dx: number, dy: number): Promise<void> {
+  async sendScroll(
+    deviceId: string,
+    x: number,
+    y: number,
+    dx: number,
+    dy: number,
+  ): Promise<void> {
     return await invoke("send_scroll", { deviceId, x, y, dx, dy });
   },
 };

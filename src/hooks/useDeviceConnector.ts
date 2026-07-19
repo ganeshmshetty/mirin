@@ -40,7 +40,12 @@ export function useDeviceConnector({
 
   // mDNS Discovery State
   const [discoveredDevices, setDiscoveredDevices] = useState<
-    { instance_name: string; ip: string; pairing_port: string; connect_port: string }[]
+    {
+      instance_name: string;
+      ip: string;
+      pairing_port: string;
+      connect_port: string;
+    }[]
   >([]);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -56,8 +61,10 @@ export function useDeviceConnector({
         const appWindow = getCurrentWindow();
         let height = 500;
         if (step === "instructions") height = 410;
-        else if (step === "search-wireless" || step === "search-usb") height = 530;
-        else if (step === "manual-wireless" || step === "manual-connect") height = 670;
+        else if (step === "search-wireless" || step === "search-usb")
+          height = 530;
+        else if (step === "manual-wireless" || step === "manual-connect")
+          height = 670;
         else height = 530;
 
         await appWindow.setSize(new LogicalSize(548, height));
@@ -81,7 +88,10 @@ export function useDeviceConnector({
         const services = await deviceService.getMdnsServices();
 
         // Group pairing and connecting services by instance_name
-        const deviceMap = new Map<string, { ip: string; pairing_port: string; connect_port: string }>();
+        const deviceMap = new Map<
+          string,
+          { ip: string; pairing_port: string; connect_port: string }
+        >();
 
         for (const s of services) {
           const parts = s.address.split(":");
@@ -89,7 +99,11 @@ export function useDeviceConnector({
           const port = parts[1] || "";
 
           if (!deviceMap.has(s.instance_name)) {
-            deviceMap.set(s.instance_name, { ip, pairing_port: "", connect_port: "" });
+            deviceMap.set(s.instance_name, {
+              ip,
+              pairing_port: "",
+              connect_port: "",
+            });
           }
           const entry = deviceMap.get(s.instance_name)!;
 
@@ -102,7 +116,9 @@ export function useDeviceConnector({
 
         const saved = await deviceService.getSavedDevices();
         const validDevices = Array.from(deviceMap.entries())
-          .filter(([_, data]) => data.pairing_port !== "" || data.connect_port !== "")
+          .filter(
+            ([_, data]) => data.pairing_port !== "" || data.connect_port !== "",
+          )
           .map(([name, data]) => ({ instance_name: name, ...data }))
           .filter((d) => !saved.some((s) => s.ip_address === d.ip));
 
@@ -139,7 +155,8 @@ export function useDeviceConnector({
         const connected = await deviceService.getConnectedDevices();
         const saved = await deviceService.getSavedDevices();
         const usbDevices = connected.filter(
-          (d) => d.connection_type === "USB" && !saved.some((s) => s.id === d.id)
+          (d) =>
+            d.connection_type === "USB" && !saved.some((s) => s.id === d.id),
         );
         setDetectedUsbDevices(usbDevices);
         setError(null);
@@ -207,8 +224,8 @@ export function useDeviceConnector({
     }
     const ipParts = cleanIp.split(".");
     if (
-      ipParts.length !== 4
-      || ipParts.some((part) => !/^\d+$/.test(part) || Number(part) > 255)
+      ipParts.length !== 4 ||
+      ipParts.some((part) => !/^\d+$/.test(part) || Number(part) > 255)
     ) {
       setError("Invalid IP address format.");
       return;
@@ -229,7 +246,10 @@ export function useDeviceConnector({
     try {
       await deviceService.connectWireless(cleanIp, cPort);
 
-      const connectedDevice = await deviceService.findConnectedAfterConnect(cleanIp, cPort);
+      const connectedDevice = await deviceService.findConnectedAfterConnect(
+        cleanIp,
+        cPort,
+      );
 
       const deviceId = connectedDevice?.id || `${cleanIp}:${cPort}`;
       const device: Device = {
@@ -258,9 +278,11 @@ export function useDeviceConnector({
         });
         await emit("device-connected");
       } else {
-        await scrcpyService.openMirrorWindow(device.id, device.name).catch((err) => {
-          console.error("Failed to open quick mirror window:", err);
-        });
+        await scrcpyService
+          .openMirrorWindow(device.id, device.name)
+          .catch((err) => {
+            console.error("Failed to open quick mirror window:", err);
+          });
       }
 
       onDeviceConnected?.();
@@ -293,9 +315,11 @@ export function useDeviceConnector({
         await deviceService.saveDevice(usbDeviceToSave);
         await emit("device-connected");
       } else {
-        await scrcpyService.openMirrorWindow(device.id, device.name).catch((err) => {
-          console.error("Failed to open quick mirror window:", err);
-        });
+        await scrcpyService
+          .openMirrorWindow(device.id, device.name)
+          .catch((err) => {
+            console.error("Failed to open quick mirror window:", err);
+          });
       }
       onDeviceConnected?.();
       onClose();

@@ -12,7 +12,7 @@ export const appService = {
       multiple: false,
       filters: [{ name: "APK File", extensions: ["apk"] }],
     });
-    
+
     if (file && typeof file === "string") {
       await invoke("install_app", { deviceId, apkPath: file });
       return true;

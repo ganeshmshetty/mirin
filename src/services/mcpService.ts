@@ -12,7 +12,7 @@ export const mcpService = {
     dataBase64: string,
     width: number,
     height: number,
-    annotatedElements: any[]
+    annotatedElements: any[],
   ): Promise<void> {
     await invoke("submit_screenshot", {
       reqId,

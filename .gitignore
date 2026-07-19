@@ -30,3 +30,7 @@ graphify-out/
 
 # Local third-party code cloned for technical research
 research/
+
+# Ignored spec documentation
+docs/superpowers/
+

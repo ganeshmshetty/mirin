@@ -13,15 +13,20 @@ export type DeviceTool = "screen" | "overview" | "apps" | "files" | "console";
 interface DeviceDashboardProps {
   /** Controlled tool from app shell rail; falls back to ?tab= */
   activeTool?: string;
-  onDeviceMeta?: (meta: {
-    id: string;
-    name: string;
-    model?: string;
-    isConnected: boolean;
-  } | null) => void;
+  onDeviceMeta?: (
+    meta: {
+      id: string;
+      name: string;
+      model?: string;
+      isConnected: boolean;
+    } | null,
+  ) => void;
 }
 
-export function DeviceDashboard({ activeTool: controlledTool, onDeviceMeta }: DeviceDashboardProps) {
+export function DeviceDashboard({
+  activeTool: controlledTool,
+  onDeviceMeta,
+}: DeviceDashboardProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -29,7 +34,9 @@ export function DeviceDashboard({ activeTool: controlledTool, onDeviceMeta }: De
   const toast = useToast();
 
   const [device, setDevice] = useState<Device | null>(null);
-  const [activeTransportId, setActiveTransportId] = useState<string | null>(null);
+  const [activeTransportId, setActiveTransportId] = useState<string | null>(
+    null,
+  );
 
   const requestedTab = controlledTool || searchParams.get("tab");
   const activeTab: DeviceTool =
@@ -47,7 +54,10 @@ export function DeviceDashboard({ activeTool: controlledTool, onDeviceMeta }: De
       try {
         const resolvedDevices = await deviceService.getResolvedDevices();
         const found = resolvedDevices.find(
-          (d) => d.id === id || d.hardware_id === id || d.connections?.some((c) => c.id === id)
+          (d) =>
+            d.id === id ||
+            d.hardware_id === id ||
+            d.connections?.some((c) => c.id === id),
         );
 
         if (found) {
@@ -70,7 +80,8 @@ export function DeviceDashboard({ activeTool: controlledTool, onDeviceMeta }: De
 
   useEffect(() => {
     if (!device || !onDeviceMeta) return;
-    const isConnected = device.status !== "Offline" && device.status !== "Disconnected";
+    const isConnected =
+      device.status !== "Offline" && device.status !== "Disconnected";
     onDeviceMeta({
       id: device.id,
       name: device.name,
@@ -105,7 +116,7 @@ export function DeviceDashboard({ activeTool: controlledTool, onDeviceMeta }: De
               autoStart={autoMirror}
               fillWorkspace
               onRename={(newName) => {
-                setDevice(prev => prev ? { ...prev, name: newName } : null);
+                setDevice((prev) => (prev ? { ...prev, name: newName } : null));
               }}
               onTransportChange={setActiveTransportId}
             />

@@ -7,11 +7,15 @@ export const fileService = {
     return await invoke<FileInfo[]>("list_files", { deviceId, path });
   },
 
-  async pullFile(deviceId: string, remotePath: string, defaultName: string): Promise<boolean> {
+  async pullFile(
+    deviceId: string,
+    remotePath: string,
+    defaultName: string,
+  ): Promise<boolean> {
     const localPath = await save({
       defaultPath: defaultName,
     });
-    
+
     if (localPath) {
       await invoke("pull_file", { deviceId, remotePath, localPath });
       return true;
@@ -23,11 +27,11 @@ export const fileService = {
     const localPath = await open({
       multiple: false,
     });
-    
+
     if (localPath && typeof localPath === "string") {
       // Determine remote path: remoteDir + / + localFilename
       const filename = localPath.split(/[\\/]/).pop();
-      const remotePath = `${remoteDir.replace(/\/$/, '')}/${filename}`;
+      const remotePath = `${remoteDir.replace(/\/$/, "")}/${filename}`;
       await invoke("push_file", { deviceId, localPath, remotePath });
       return true;
     }
@@ -40,5 +44,5 @@ export const fileService = {
 
   async createDirectory(deviceId: string, path: string): Promise<void> {
     await invoke("create_directory", { deviceId, path });
-  }
+  },
 };

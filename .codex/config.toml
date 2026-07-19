@@ -1,0 +1,7 @@
+# Project-scoped Codex MCP configuration for Mirin.
+# The CLI uses the shared mirin-core/mirin-mcp implementation.
+
+[mcp_servers.mirin]
+url = "http://127.0.0.1:7270/mcp"
+tool_timeout_sec = 120
+default_tools_approval_mode = "approve"

@@ -33,6 +33,13 @@ const navGroups = [
     ],
   },
   {
+    category: "Reference",
+    items: [
+      { path: "/docs/cli", label: "CLI Reference", icon: Terminal },
+      { path: "/docs/architecture", label: "Architecture", icon: BookOpen },
+    ],
+  },
+  {
     category: "Support",
     items: [
       { path: "/docs/trouble", label: "Troubleshooting", icon: HelpCircle },

@@ -15,7 +15,6 @@ export enum DeviceStatus {
   Offline = "Offline",
 }
 
-
 export interface DeviceConnection {
   id: string;
   connection_type: ConnectionType;

@@ -29,8 +29,16 @@ export const deviceService = {
   /**
    * Pair with a device wirelessly using a pairing code (Android 11+)
    */
-  async pairWireless(ip: string, port: number, pairingCode: string): Promise<boolean> {
-    return await invoke<boolean>("pair_wireless_device", { ip, port, pairingCode });
+  async pairWireless(
+    ip: string,
+    port: number,
+    pairingCode: string,
+  ): Promise<boolean> {
+    return await invoke<boolean>("pair_wireless_device", {
+      ip,
+      port,
+      pairingCode,
+    });
   },
 
   /**
@@ -107,22 +115,26 @@ export const deviceService = {
    * After connecting wirelessly, retry looking up the device in the connected list.
    * ADB may not reflect the new connection immediately.
    */
-  async findConnectedAfterConnect(ip: string, port: number, maxRetries = 5): Promise<Device | null> {
+  async findConnectedAfterConnect(
+    ip: string,
+    port: number,
+    maxRetries = 5,
+  ): Promise<Device | null> {
     for (let i = 0; i < maxRetries; i++) {
       const devices = await this.getConnectedDevices();
       // Match traditional ip:port transports and TLS mDNS entries whose IP we resolved.
       const found = devices.find(
-        d =>
+        (d) =>
           d.ip_address === ip ||
           d.id === `${ip}:${port}` ||
           d.id.startsWith(`${ip}:`) ||
           (d.connection_type === "Wireless" &&
             d.status === "Connected" &&
-            (d.ip_address === ip || d.id.includes(ip)))
+            (d.ip_address === ip || d.id.includes(ip))),
       );
       if (found) return found;
       if (i < maxRetries - 1) {
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise((r) => setTimeout(r, 500));
       }
     }
     return null;

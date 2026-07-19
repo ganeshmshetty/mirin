@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { consoleService } from "../services";
-import { Terminal, Trash2, Play, Square, CornerDownLeft, ArrowDownToLine } from "lucide-react";
+import {
+  Terminal,
+  Trash2,
+  Play,
+  Square,
+  CornerDownLeft,
+  ArrowDownToLine,
+} from "lucide-react";
 import { useToast } from "./ToastProvider";
 
 interface ConsoleManagerProps {
@@ -28,9 +35,10 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
   const appendLines = useCallback((lines: string[]) => {
     if (lines.length === 0) return;
     setLogs((prev) => {
-      const next = prev.length + lines.length > MAX_LOG_LINES
-        ? [...prev, ...lines].slice(-MAX_LOG_LINES)
-        : [...prev, ...lines];
+      const next =
+        prev.length + lines.length > MAX_LOG_LINES
+          ? [...prev, ...lines].slice(-MAX_LOG_LINES)
+          : [...prev, ...lines];
       return next;
     });
   }, []);
@@ -86,7 +94,10 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
     appendLines([`$ ${command}`]);
 
     try {
-      const output = await consoleService.executeShellCommand(deviceId, command);
+      const output = await consoleService.executeShellCommand(
+        deviceId,
+        command,
+      );
       if (output.trim()) {
         appendLines(output.trim().split("\n"));
       }
@@ -126,7 +137,9 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
             }`}
           >
             {isLogcatRunning ? <Square size={16} /> : <Play size={16} />}
-            <span className="hidden sm:inline">{isLogcatRunning ? "Stop Logcat" : "Start Logcat"}</span>
+            <span className="hidden sm:inline">
+              {isLogcatRunning ? "Stop Logcat" : "Start Logcat"}
+            </span>
           </button>
           {isLogcatRunning && (
             <button
@@ -136,7 +149,11 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
                   ? "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/20 dark:text-cyan-400 dark:border-cyan-900/30"
                   : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-[#16191b] dark:text-slate-300 dark:border-[#222629] dark:hover:bg-[#1d2327]"
               }`}
-              title={isPaused ? "Resume appending log lines" : "Pause display (drops new lines)"}
+              title={
+                isPaused
+                  ? "Resume appending log lines"
+                  : "Pause display (drops new lines)"
+              }
             >
               {isPaused ? "Resume" : "Pause"}
             </button>
@@ -165,7 +182,9 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
 
       <div className="flex flex-col flex-1 bg-[#1e1e1e] rounded-xl border border-gray-800 dark:border-black/50 overflow-hidden shadow-lg shadow-black/10 min-h-0">
         <div className="h-10 bg-[#2d2d2d] flex items-center justify-between px-4 border-b border-black/20">
-          <span className="text-xs text-gray-400 font-mono">adb shell / logcat output</span>
+          <span className="text-xs text-gray-400 font-mono">
+            adb shell / logcat output
+          </span>
           <span className="text-[10px] text-gray-500 font-mono">
             {logs.length}/{MAX_LOG_LINES}
             {isPaused ? " · paused" : ""}
@@ -201,7 +220,9 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
 
         <div className="bg-[#252526] border-t border-black/20 p-3">
           <div className="flex items-center gap-2">
-            <span className="text-green-400 font-mono text-sm select-none">$</span>
+            <span className="text-green-400 font-mono text-sm select-none">
+              $
+            </span>
             <input
               type="text"
               value={command}

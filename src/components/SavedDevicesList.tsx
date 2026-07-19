@@ -6,7 +6,8 @@ import type { Device } from "../types";
 
 import { getErrorMessage } from "../utils";
 
-const isWirelessDevice = (device: Device) => device.connection_type === "Wireless" || device.id.includes(":");
+const isWirelessDevice = (device: Device) =>
+  device.connection_type === "Wireless" || device.id.includes(":");
 
 interface SavedDevicesListProps {
   onDeviceConnected: () => void;
@@ -16,7 +17,9 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
   const [savedDevices, setSavedDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [connectingDeviceId, setConnectingDeviceId] = useState<string | null>(null);
+  const [connectingDeviceId, setConnectingDeviceId] = useState<string | null>(
+    null,
+  );
 
   // Abort controller for cancelling async operations on unmount
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -39,8 +42,13 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
         setSavedDevices(devices);
       }
     } catch (err) {
-      if (isMountedRef.current && !(err instanceof DOMException && err.name === 'AbortError')) {
-        setError(err instanceof Error ? err.message : "Failed to load saved devices");
+      if (
+        isMountedRef.current &&
+        !(err instanceof DOMException && err.name === "AbortError")
+      ) {
+        setError(
+          err instanceof Error ? err.message : "Failed to load saved devices",
+        );
         console.error("Error loading saved devices:", err);
       }
     } finally {
@@ -83,13 +91,19 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
   const handleConnect = async (device: Device) => {
     const isUsb = !isWirelessDevice(device);
     if (isUsb) {
-      setError(`"${device.name}" is a USB device. To connect it, simply plug it into your computer via USB cable with USB Debugging enabled.`);
+      setError(
+        `"${device.name}" is a USB device. To connect it, simply plug it into your computer via USB cable with USB Debugging enabled.`,
+      );
       return;
     }
 
-    const ip = device.ip_address || (device.id.includes(":") ? device.id.split(":")[0] : null);
+    const ip =
+      device.ip_address ||
+      (device.id.includes(":") ? device.id.split(":")[0] : null);
     if (!ip) {
-      setError("Cannot connect: No IP address recorded for this wireless device.");
+      setError(
+        "Cannot connect: No IP address recorded for this wireless device.",
+      );
       return;
     }
 
@@ -98,12 +112,17 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
 
     try {
       const wirelessConnection = device.connections?.find(
-        (connection) => connection.connection_type === "Wireless"
+        (connection) => connection.connection_type === "Wireless",
       );
-      const port = wirelessConnection?.port
-        || (device.id.includes(":") ? parseInt(device.id.split(":").pop() || "", 10) : 5555);
+      const port =
+        wirelessConnection?.port ||
+        (device.id.includes(":")
+          ? parseInt(device.id.split(":").pop() || "", 10)
+          : 5555);
       if (!Number.isInteger(port) || port < 1 || port > 65535) {
-        throw new Error("Saved wireless device has no valid connect port. Reconnect it manually.");
+        throw new Error(
+          "Saved wireless device has no valid connect port. Reconnect it manually.",
+        );
       }
       await deviceService.connectWireless(ip, port);
       await emit("device-connected");
@@ -208,12 +227,16 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-medium text-gray-900">{device.name}</h3>
-                      <span className={`px-2 py-1 text-xs rounded font-medium ${
-                        isWireless 
-                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" 
-                          : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
-                      }`}>
+                      <h3 className="font-medium text-gray-900">
+                        {device.name}
+                      </h3>
+                      <span
+                        className={`px-2 py-1 text-xs rounded font-medium ${
+                          isWireless
+                            ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                            : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
+                        }`}
+                      >
                         {isWireless ? "Wireless" : "USB"}
                       </span>
                     </div>
@@ -224,61 +247,61 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
                       </p>
                     )}
                   </div>
-                <div className="flex gap-2 ml-4">
-                  <button
-                    onClick={() => handleConnect(device)}
-                    disabled={connectingDeviceId === device.id}
-                    className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 transition-colors"
-                  >
-                    {connectingDeviceId === device.id ? (
-                      <span className="flex items-center gap-1">
-                        <svg
-                          className="animate-spin h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          />
-                        </svg>
-                        Connecting
-                      </span>
-                    ) : (
-                      "Connect"
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleRemove(device.id, device.name)}
-                    className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                    title="Forget device"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <div className="flex gap-2 ml-4">
+                    <button
+                      onClick={() => handleConnect(device)}
+                      disabled={connectingDeviceId === device.id}
+                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 transition-colors"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
+                      {connectingDeviceId === device.id ? (
+                        <span className="flex items-center gap-1">
+                          <svg
+                            className="animate-spin h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                          Connecting
+                        </span>
+                      ) : (
+                        "Connect"
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleRemove(device.id, device.name)}
+                      className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors"
+                      title="Forget device"
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
             );
           })}
         </div>
@@ -286,8 +309,9 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
 
       <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
         <p className="text-sm text-blue-900">
-          💡 <strong>Tip:</strong> Saved devices will appear here for quick reconnection. Make
-          sure your device is on the same network when connecting.
+          💡 <strong>Tip:</strong> Saved devices will appear here for quick
+          reconnection. Make sure your device is on the same network when
+          connecting.
         </p>
       </div>
     </div>

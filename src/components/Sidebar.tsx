@@ -59,8 +59,12 @@ export function Sidebar({
     <aside className="w-[72px] relative z-50 bg-slate-50 dark:bg-[#16191b] border-r border-gray-200 dark:border-[#222629] flex flex-col flex-shrink-0 transition-colors select-none">
       {/* Logo row */}
       <div className="h-14 flex items-center justify-center flex-shrink-0 pt-2 pb-1 relative">
-        <img src={logo} alt="Mirin" className="w-8 h-8 object-contain flex-shrink-0" />
-        
+        <img
+          src={logo}
+          alt="Mirin"
+          className="w-8 h-8 object-contain flex-shrink-0"
+        />
+
         {/* Floating Back Button (outside sidebar) */}
         {showBack && (
           <button
@@ -81,7 +85,10 @@ export function Sidebar({
             className="absolute top-0 left-0 flex items-center bg-cyan-600 text-white rounded-xl hover:bg-cyan-700 transition-all duration-300 shadow-sm active:scale-[0.98] h-10 w-10 hover:w-[130px] overflow-hidden group"
           >
             <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
-              <Plus size={20} className="transition-transform group-hover:rotate-90 duration-300" />
+              <Plus
+                size={20}
+                className="transition-transform group-hover:rotate-90 duration-300"
+              />
             </div>
             <span className="whitespace-nowrap font-medium text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
               Add Device

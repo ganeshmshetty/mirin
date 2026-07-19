@@ -1,4 +1,12 @@
-import { Smartphone, Wifi, Usb, ChevronLeft, X, ArrowRight, RefreshCw } from "lucide-react";
+import {
+  Smartphone,
+  Wifi,
+  Usb,
+  ChevronLeft,
+  X,
+  ArrowRight,
+  RefreshCw,
+} from "lucide-react";
 import { useDeviceConnector } from "../hooks/useDeviceConnector";
 
 interface ConnectDeviceModalProps {
@@ -7,7 +15,11 @@ interface ConnectDeviceModalProps {
   onDeviceConnected?: () => void;
 }
 
-export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnected }: ConnectDeviceModalProps) {
+export function ConnectDeviceModal({
+  mode = "connect",
+  onClose,
+  onDeviceConnected,
+}: ConnectDeviceModalProps) {
   const {
     step,
     setStep,
@@ -40,11 +52,19 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
   return (
     <div className="h-full w-full bg-transparent flex flex-col p-10 items-center justify-center">
       <div className="w-full h-full max-w-lg bg-gray-50 dark:bg-[#16191b] flex flex-col overflow-hidden rounded-xl shadow-[0_16px_40px_rgb(0,0,0,0.15)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
-        
         {/* Header */}
-        <div data-tauri-drag-region className="relative px-4 py-3 flex items-center justify-end select-none border-b border-gray-200 dark:border-[#222629]">
-          <h2 id="modal-title" data-tauri-drag-region className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-base font-bold text-app-text pointer-events-none">Connect Device</h2>
-          <button 
+        <div
+          data-tauri-drag-region
+          className="relative px-4 py-3 flex items-center justify-end select-none border-b border-gray-200 dark:border-[#222629]"
+        >
+          <h2
+            id="modal-title"
+            data-tauri-drag-region
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-base font-bold text-app-text pointer-events-none"
+          >
+            Connect Device
+          </h2>
+          <button
             onClick={onClose}
             aria-label="Close dialog"
             className="p-1 rounded-full hover:rounded-md active:rounded-md focus:rounded-md text-app-muted hover:text-app-text hover:bg-app-hover transition-colors relative z-10"
@@ -55,8 +75,6 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col relative min-h-[280px] overflow-hidden">
-          
-          
           {/* INSTRUCTIONS STEP (Unified) */}
           {step === "instructions" && (
             <div className="flex flex-col justify-center h-full">
@@ -65,9 +83,8 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
               </p>
 
               <div className="flex flex-col bg-white dark:bg-[#1d2327] rounded-2xl shadow-md overflow-hidden border border-gray-100 dark:border-[#2a3036]">
-                
                 {/* Wireless Choice */}
-                <button 
+                <button
                   onClick={() => {
                     setError(null);
                     setShowInstructions(false);
@@ -76,11 +93,15 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
                   className="p-5 hover:bg-gray-50 dark:hover:bg-[#252c31] transition-colors flex items-center gap-4 group text-left cursor-pointer border-b border-gray-100 dark:border-[#2a3036]"
                 >
                   <div className="w-12 h-12 bg-cyan-50 dark:bg-[#16191b] text-cyan-600 dark:text-cyan-400 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <Wifi size={22}/>
+                    <Wifi size={22} />
                   </div>
                   <div>
-                    <h4 className="font-bold text-app-text text-base mb-0.5 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors">Wireless</h4>
-                    <p className="text-xs text-app-muted">Connect over Wi-Fi without a physical cable</p>
+                    <h4 className="font-bold text-app-text text-base mb-0.5 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors">
+                      Wireless
+                    </h4>
+                    <p className="text-xs text-app-muted">
+                      Connect over Wi-Fi without a physical cable
+                    </p>
                   </div>
                   <div className="ml-auto text-gray-300 dark:text-gray-600 group-hover:text-cyan-500 group-hover:translate-x-1 transition-all">
                     <ArrowRight size={20} />
@@ -88,7 +109,7 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
                 </button>
 
                 {/* Wired Choice */}
-                <button 
+                <button
                   onClick={() => {
                     setError(null);
                     setShowInstructions(false);
@@ -97,17 +118,20 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
                   className="p-5 hover:bg-gray-50 dark:hover:bg-[#252c31] transition-colors flex items-center gap-4 group text-left cursor-pointer"
                 >
                   <div className="w-12 h-12 bg-cyan-50 dark:bg-[#16191b] text-cyan-600 dark:text-cyan-400 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-300">
-                    <Usb size={22}/>
+                    <Usb size={22} />
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 dark:text-slate-100 text-base mb-0.5 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors">Wired (USB)</h4>
-                    <p className="text-xs text-gray-500 dark:text-slate-400">Connect using a fast and stable USB connection</p>
+                    <h4 className="font-bold text-gray-900 dark:text-slate-100 text-base mb-0.5 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors">
+                      Wired (USB)
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">
+                      Connect using a fast and stable USB connection
+                    </p>
                   </div>
                   <div className="ml-auto text-gray-300 dark:text-gray-600 group-hover:text-cyan-500 group-hover:translate-x-1 transition-all">
                     <ArrowRight size={20} />
                   </div>
                 </button>
-
               </div>
             </div>
           )}
@@ -117,15 +141,17 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
             <div className="flex flex-col h-full w-full">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <button 
+                  <button
                     onClick={() => setStep("instructions")}
                     className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     <ChevronLeft size={20} />
                   </button>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">Searching Wi-Fi...</h3>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">
+                    Searching Wi-Fi...
+                  </h3>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowInstructions(!showInstructions)}
                   className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 px-3 py-1.5 rounded-lg transition-colors border dark:border-cyan-900/40"
                 >
@@ -136,9 +162,24 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
               {showInstructions && (
                 <div className="mb-4 bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-100 dark:border-cyan-900/30 p-4 rounded-xl animate-in slide-in-from-top-2 text-gray-800 dark:text-slate-200">
                   <div className="space-y-2 text-xs">
-                    <p className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">1</span> Open <strong>Settings &gt; Developer Options</strong></p>
-                    <p className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">2</span> Turn on <strong>Wireless Debugging</strong></p>
-                    <p className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">3</span> Tap <strong>"Pair device with pairing code"</strong></p>
+                    <p className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">
+                        1
+                      </span>{" "}
+                      Open <strong>Settings &gt; Developer Options</strong>
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">
+                        2
+                      </span>{" "}
+                      Turn on <strong>Wireless Debugging</strong>
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">
+                        3
+                      </span>{" "}
+                      Tap <strong>"Pair device with pairing code"</strong>
+                    </p>
                   </div>
                 </div>
               )}
@@ -147,17 +188,24 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
                 <div className="flex-1 overflow-y-auto flex flex-col gap-3 pb-4">
                   {discoveredDevices.length > 0 ? (
                     discoveredDevices.map((device, idx) => (
-                      <div key={`wifi-${device.instance_name}-${idx}`} className="p-4 bg-white dark:bg-[#1d2327] rounded-xl flex items-center justify-between hover:bg-gray-50 dark:hover:bg-[#252c31] transition-colors shadow-sm">
+                      <div
+                        key={`wifi-${device.instance_name}-${idx}`}
+                        className="p-4 bg-white dark:bg-[#1d2327] rounded-xl flex items-center justify-between hover:bg-gray-50 dark:hover:bg-[#252c31] transition-colors shadow-sm"
+                      >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400 rounded-full flex items-center justify-center">
                             <Wifi size={18} />
                           </div>
                           <div>
-                            <div className="font-bold text-gray-900 dark:text-slate-100 text-sm">{device.instance_name}</div>
-                            <div className="text-xs text-gray-500 dark:text-slate-400">{device.ip}</div>
+                            <div className="font-bold text-gray-900 dark:text-slate-100 text-sm">
+                              {device.instance_name}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-slate-400">
+                              {device.ip}
+                            </div>
                           </div>
                         </div>
-                        <button 
+                        <button
                           onClick={() => {
                             setError(null);
                             setIpAddress(device.ip);
@@ -171,26 +219,33 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
                           }}
                           className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                         >
-                          {device.connect_port && !device.pairing_port ? "Connect" : "Pair"}
+                          {device.connect_port && !device.pairing_port
+                            ? "Connect"
+                            : "Pair"}
                         </button>
                       </div>
                     ))
                   ) : (
                     <div className="flex flex-col items-center justify-center h-48 text-center">
                       <div className="w-16 h-16 bg-cyan-50 dark:bg-cyan-900/20 rounded-full flex items-center justify-center mb-4 relative">
-                        <Wifi size={24} className="text-cyan-600 dark:text-cyan-400 z-10 animate-pulse" />
+                        <Wifi
+                          size={24}
+                          className="text-cyan-600 dark:text-cyan-400 z-10 animate-pulse"
+                        />
                         <div className="absolute inset-0 border-2 border-cyan-200 dark:border-cyan-900/50 rounded-full animate-ping opacity-30" />
                       </div>
                       <p className="text-sm text-gray-500 dark:text-slate-400">
-                        {isSearching ? "Scanning network..." : "No devices found."}
+                        {isSearching
+                          ? "Scanning network..."
+                          : "No devices found."}
                       </p>
                     </div>
                   )}
                 </div>
               </div>
-              
+
               <div className="pt-4 border-t border-app-border mt-auto">
-                <button 
+                <button
                   onClick={() => setStep("manual-wireless")}
                   className="w-full py-2.5 rounded-xl font-medium border border-app-border text-app-muted hover:bg-app-hover transition-colors text-sm"
                 >
@@ -205,15 +260,17 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
             <div className="flex flex-col h-full w-full">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <button 
+                  <button
                     onClick={() => setStep("instructions")}
                     className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     <ChevronLeft size={20} />
                   </button>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">Searching USB...</h3>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">
+                    Searching USB...
+                  </h3>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowInstructions(!showInstructions)}
                   className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 px-3 py-1.5 rounded-lg transition-colors border dark:border-cyan-900/40"
                 >
@@ -224,9 +281,24 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
               {showInstructions && (
                 <div className="mb-4 bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-100 dark:border-cyan-900/30 p-4 rounded-xl animate-in slide-in-from-top-2 text-gray-800 dark:text-slate-200">
                   <div className="space-y-2 text-xs">
-                    <p className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">1</span> Connect phone via <strong>USB cable</strong></p>
-                    <p className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">2</span> Enable <strong>USB Debugging</strong></p>
-                    <p className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">3</span> Tap <strong>"Allow"</strong> on phone prompt</p>
+                    <p className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">
+                        1
+                      </span>{" "}
+                      Connect phone via <strong>USB cable</strong>
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">
+                        2
+                      </span>{" "}
+                      Enable <strong>USB Debugging</strong>
+                    </p>
+                    <p className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">
+                        3
+                      </span>{" "}
+                      Tap <strong>"Allow"</strong> on phone prompt
+                    </p>
                   </div>
                 </div>
               )}
@@ -235,17 +307,24 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
                 <div className="flex-1 overflow-y-auto flex flex-col gap-3 pb-4">
                   {detectedUsbDevices.length > 0 ? (
                     detectedUsbDevices.map((device, idx) => (
-                      <div key={`usb-${device.id}-${idx}`} className="p-4 bg-white dark:bg-[#1d2327] rounded-xl flex items-center justify-between hover:bg-gray-50 dark:hover:bg-[#252c31] transition-colors shadow-sm">
+                      <div
+                        key={`usb-${device.id}-${idx}`}
+                        className="p-4 bg-white dark:bg-[#1d2327] rounded-xl flex items-center justify-between hover:bg-gray-50 dark:hover:bg-[#252c31] transition-colors shadow-sm"
+                      >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400 rounded-full flex items-center justify-center">
                             <Smartphone size={18} />
                           </div>
                           <div>
-                            <div className="font-bold text-gray-900 dark:text-slate-100 text-sm">{device.name}</div>
-                            <div className="text-xs text-gray-500 dark:text-slate-400">{device.model}</div>
+                            <div className="font-bold text-gray-900 dark:text-slate-100 text-sm">
+                              {device.name}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-slate-400">
+                              {device.model}
+                            </div>
                           </div>
                         </div>
-                        <button 
+                        <button
                           onClick={() => handleConnectUsb(device)}
                           disabled={connectingUsbId === device.id}
                           className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1.5"
@@ -264,11 +343,16 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
                   ) : (
                     <div className="flex flex-col items-center justify-center h-48 text-center">
                       <div className="w-16 h-16 bg-cyan-50 dark:bg-cyan-900/20 rounded-full flex items-center justify-center mb-4 relative">
-                        <Usb size={24} className="text-cyan-600 dark:text-cyan-400 z-10 animate-pulse" />
+                        <Usb
+                          size={24}
+                          className="text-cyan-600 dark:text-cyan-400 z-10 animate-pulse"
+                        />
                         <div className="absolute inset-0 border-2 border-cyan-200 dark:border-cyan-900/50 rounded-full animate-ping opacity-30" />
                       </div>
                       <p className="text-sm text-gray-500 dark:text-slate-400">
-                        {isSearching ? "Scanning USB ports..." : "No devices found."}
+                        {isSearching
+                          ? "Scanning USB ports..."
+                          : "No devices found."}
                       </p>
                     </div>
                   )}
@@ -288,20 +372,24 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
           {step === "manual-wireless" && (
             <div className="flex flex-col h-full w-full">
               <div className="flex items-center gap-2 mb-6">
-                <button 
+                <button
                   onClick={() => setStep("search-wireless")}
                   className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <ChevronLeft size={20} />
                 </button>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">Pairing Details</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">
+                  Pairing Details
+                </h3>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">IP Address</label>
-                  <input 
-                    type="text" 
+                  <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">
+                    IP Address
+                  </label>
+                  <input
+                    type="text"
                     value={ipAddress}
                     onChange={(e) => setIpAddress(e.target.value)}
                     placeholder="192.168.1.100"
@@ -309,9 +397,11 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-xs font-medium text-app-muted mb-1">Pairing Port</label>
-                  <input 
-                    type="text" 
+                  <label className="block text-xs font-medium text-app-muted mb-1">
+                    Pairing Port
+                  </label>
+                  <input
+                    type="text"
                     value={pairingPort}
                     onChange={(e) => setPairingPort(e.target.value)}
                     placeholder="38475"
@@ -321,9 +411,11 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
               </div>
 
               <div className="mb-4">
-                <label className="block text-xs font-medium text-app-muted mb-1">6-Digit Pairing Code</label>
-                <input 
-                  type="text" 
+                <label className="block text-xs font-medium text-app-muted mb-1">
+                  6-Digit Pairing Code
+                </label>
+                <input
+                  type="text"
                   value={pairingCode}
                   onChange={(e) => setPairingCode(e.target.value)}
                   placeholder="123456"
@@ -338,13 +430,13 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
               )}
 
               <div className="mt-auto pt-4 flex justify-end gap-2">
-                <button 
+                <button
                   onClick={onClose}
                   className="px-5 py-2.5 rounded-xl font-medium text-app-muted hover:bg-app-hover transition-colors text-sm"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={handlePair}
                   disabled={loading}
                   className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
@@ -360,22 +452,31 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
           {step === "manual-connect" && (
             <div className="flex flex-col h-full w-full">
               <div className="flex items-center gap-2 mb-6">
-                <button 
+                <button
                   onClick={() => setStep("manual-wireless")}
                   className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <ChevronLeft size={20} />
                 </button>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">Final Step: Connect</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">
+                  Final Step: Connect
+                </h3>
               </div>
-              
+
               <div className="mb-4">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Successfully paired! Now close the pairing popup on your phone to see the <strong className="text-gray-900 dark:text-white">Connect Port</strong> on the main Wireless Debugging screen.
+                  Successfully paired! Now close the pairing popup on your phone
+                  to see the{" "}
+                  <strong className="text-gray-900 dark:text-white">
+                    Connect Port
+                  </strong>{" "}
+                  on the main Wireless Debugging screen.
                 </p>
-                <label className="block text-xs font-medium text-app-muted mb-1">Connect Port</label>
-                <input 
-                  type="text" 
+                <label className="block text-xs font-medium text-app-muted mb-1">
+                  Connect Port
+                </label>
+                <input
+                  type="text"
                   value={connectPort}
                   onChange={(e) => setConnectPort(e.target.value)}
                   placeholder="40222"
@@ -390,13 +491,13 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
               )}
 
               <div className="mt-auto pt-4 flex justify-end gap-2">
-                <button 
+                <button
                   onClick={onClose}
                   className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={handleConnect}
                   disabled={loading}
                   className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
@@ -407,7 +508,6 @@ export function ConnectDeviceModal({ mode = "connect", onClose, onDeviceConnecte
               </div>
             </div>
           )}
-          
         </div>
       </div>
     </div>

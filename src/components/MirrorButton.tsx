@@ -7,7 +7,12 @@ interface MirrorButtonProps {
   className?: string;
 }
 
-export function MirrorButton({ size, onClick, title, className = "" }: MirrorButtonProps) {
+export function MirrorButton({
+  size,
+  onClick,
+  title,
+  className = "",
+}: MirrorButtonProps) {
   return (
     <button
       onClick={onClick}
@@ -16,8 +21,8 @@ export function MirrorButton({ size, onClick, title, className = "" }: MirrorBut
         size === "lg"
           ? "gap-2.5 px-7 py-3.5 rounded-xl text-sm"
           : size === "md"
-          ? "gap-2 px-5 py-2.5 rounded-xl text-sm"
-          : "gap-1.5 px-3.5 py-1.5 rounded-lg text-sm"
+            ? "gap-2 px-5 py-2.5 rounded-xl text-sm"
+            : "gap-1.5 px-3.5 py-1.5 rounded-lg text-sm"
       } ${className}`}
     >
       {size === "lg" || size === "md" ? (

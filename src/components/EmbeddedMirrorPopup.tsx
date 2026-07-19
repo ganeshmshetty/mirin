@@ -21,11 +21,13 @@ export function EmbeddedMirrorPopup() {
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-    getCurrentWindow().onCloseRequested(async (event) => {
-      event.preventDefault();
-      await scrcpyService.disconnectEmbeddedMirror(id).catch(() => {});
-      await getCurrentWindow().destroy();
-    }).then(un => unlisten = un);
+    getCurrentWindow()
+      .onCloseRequested(async (event) => {
+        event.preventDefault();
+        await scrcpyService.disconnectEmbeddedMirror(id).catch(() => {});
+        await getCurrentWindow().destroy();
+      })
+      .then((un) => (unlisten = un));
     return () => {
       if (unlisten) unlisten();
     };
