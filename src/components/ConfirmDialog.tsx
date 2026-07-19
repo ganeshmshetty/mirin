@@ -5,6 +5,7 @@ import {
   useContext,
   ReactNode,
 } from "react";
+import { useTranslation } from "react-i18next";
 
 interface ConfirmDialogOptions {
   title: string;
@@ -45,12 +46,13 @@ interface DialogState extends ConfirmDialogOptions {
 export function ConfirmDialogProvider({
   children,
 }: ConfirmDialogProviderProps) {
+  const { t } = useTranslation();
   const [dialogState, setDialogState] = useState<DialogState>({
     isOpen: false,
     title: "",
     message: "",
-    confirmText: "Confirm",
-    cancelText: "Cancel",
+    confirmText: "",
+    cancelText: "",
     variant: "danger",
     hideCancel: false,
     resolve: null,
@@ -62,8 +64,8 @@ export function ConfirmDialogProvider({
         setDialogState({
           isOpen: true,
           ...options,
-          confirmText: options.confirmText || "Confirm",
-          cancelText: options.cancelText || "Cancel",
+          confirmText: options.confirmText || "",
+          cancelText: options.cancelText || "",
           variant: options.variant || "danger",
           hideCancel: options.hideCancel || false,
           resolve,
@@ -188,14 +190,14 @@ export function ConfirmDialogProvider({
                   onClick={handleCancel}
                   className="px-5 py-2.5 rounded-xl font-medium text-gray-700 dark:text-slate-300 bg-white dark:bg-[#1d2327] hover:bg-gray-50 dark:hover:bg-[#252b30] border border-gray-200 dark:border-[#2a3036] transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-700 shadow-sm"
                 >
-                  {dialogState.cancelText}
+                  {dialogState.cancelText || t("cancel")}
                 </button>
               )}
               <button
                 onClick={handleConfirm}
                 className={`px-5 py-2.5 rounded-xl font-medium text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-[#16191b] ${currentVariant.confirmBtn}`}
               >
-                {dialogState.confirmText}
+                {dialogState.confirmText || t("confirm")}
               </button>
             </div>
           </div>

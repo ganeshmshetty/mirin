@@ -3,8 +3,10 @@ import { useParams, useLocation } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { EmbeddedMirrorView } from "./EmbeddedMirrorView";
 import { scrcpyService, windowService } from "../services";
+import { useTranslation } from "react-i18next";
 
 export function EmbeddedMirrorPopup() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
@@ -14,7 +16,7 @@ export function EmbeddedMirrorPopup() {
   if (!id) {
     return (
       <div className="h-screen w-screen bg-[#0f1012] text-slate-400 flex items-center justify-center p-4">
-        Invalid device ID for mirror popup.
+        {t("mirror.invalid_id")}
       </div>
     );
   }

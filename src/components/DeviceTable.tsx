@@ -15,6 +15,7 @@ import type { Device } from "../types";
 import { useInputDialog } from "./InputDialog";
 import { MirrorButton } from "./MirrorButton";
 import logo from "../assets/logo.svg";
+import { useTranslation } from "react-i18next";
 
 interface DeviceTableProps {
   devices: Device[];
@@ -35,6 +36,7 @@ export function DeviceTable({
   onConnectClick,
   onQuickMirrorClick,
 }: DeviceTableProps) {
+  const { t } = useTranslation();
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{
     top: number;
@@ -102,17 +104,17 @@ export function DeviceTable({
       <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
         <img src={logo} alt="Mirin" className="w-24 h-24 mb-6 object-contain" />
         <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-1">
-          No devices connected
+          {t("devices.no_devices")}
         </h3>
         <p className="text-sm text-gray-400 dark:text-slate-500 max-w-xs mx-auto">
-          Connect your device to get started.
+          {t("devices.connect_desc")}
         </p>
         <button
           onClick={onConnectClick}
           className="mt-6 px-6 py-2.5 bg-cyan-600 text-white rounded-xl text-sm font-semibold hover:bg-cyan-700 transition-all shadow-sm active:scale-95 inline-flex items-center gap-2"
         >
           <Plus size={16} />
-          Connect Device
+          {t("devices.connect_device")}
         </button>
       </div>
     );
@@ -160,7 +162,9 @@ export function DeviceTable({
                     {device.name}
                   </h4>
                   <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400 font-medium mt-0.5 capitalize">
-                    <span>{device.status}</span>
+                    <span>
+                      {t(`devices.status.${device.status.toLowerCase()}`)}
+                    </span>
                     {(() => {
                       const types = (device.connections || [])
                         .filter((c) => c.status === "Connected")
@@ -173,7 +177,9 @@ export function DeviceTable({
                               ? [device.connection_type]
                               : [],
                         ),
-                      ];
+                      ].map((type) =>
+                        t(`devices.connection.${type.toLowerCase()}`),
+                      );
                       if (uniqueTypes.length > 0) {
                         return (
                           <>
@@ -201,12 +207,12 @@ export function DeviceTable({
                   {isUnauthorized ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-medium border border-yellow-100 dark:border-yellow-900/50">
                       <AlertCircle size={12} />
-                      Unauthorized
+                      {t("devices.status.unauthorized")}
                     </span>
                   ) : isOffline ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[#1c2023] text-gray-500 dark:text-slate-300 text-xs font-medium border border-transparent dark:border-[#222629]">
                       <div className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-slate-500" />
-                      Offline
+                      {t("devices.status.offline")}
                     </span>
                   ) : (
                     <div className="hidden sm:flex items-center gap-3 pr-2">
@@ -217,7 +223,7 @@ export function DeviceTable({
                         )) && (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-medium border border-blue-100 dark:border-blue-900/50">
                           <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                          Mirroring
+                          {t("devices.status.mirroring")}
                         </span>
                       )}
                     </div>
@@ -294,14 +300,14 @@ export function DeviceTable({
                         }}
                         disabled={switchingId === device.id}
                         className="relative z-10 px-2.5 py-1.5 text-xs font-medium text-cyan-700 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/30 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 rounded-lg transition-colors border border-cyan-200 dark:border-cyan-800 disabled:opacity-50 flex items-center gap-1.5"
-                        title="Switch to wireless mode"
+                        title={t("devices.actions.switch_wireless_title")}
                       >
                         {switchingId === device.id ? (
                           <RefreshCw size={12} className="animate-spin" />
                         ) : (
                           <Wifi size={12} />
                         )}
-                        Wireless
+                        {t("devices.connection.wireless")}
                       </button>
                     )}
 
@@ -462,16 +468,16 @@ export function DeviceTable({
                     className="text-gray-400 dark:text-slate-400"
                   />
                 )}
-                Switch to Wireless
+                {t("devices.actions.switch_wireless")}
               </button>
             )}
           <button
             onClick={async () => {
               const newName = await prompt({
-                title: "Rename Device",
+                title: t("devices.actions.rename_device"),
                 defaultValue: activeDevice.name,
-                confirmText: "Rename",
-                placeholder: "Enter new name",
+                confirmText: t("devices.actions.rename"),
+                placeholder: t("devices.actions.enter_new_name"),
               });
               if (newName && newName !== activeDevice.name) {
                 onRenameDevice(activeDevice.id, newName);
@@ -481,7 +487,7 @@ export function DeviceTable({
             className="dropdown-item"
           >
             <Edit2 size={14} className="text-gray-400 dark:text-slate-400" />
-            Rename
+            {t("devices.actions.rename")}
           </button>
           <button
             onClick={() => {
@@ -491,7 +497,7 @@ export function DeviceTable({
             className="dropdown-item-danger"
           >
             <Trash2 size={14} />
-            Forget
+            {t("devices.actions.forget")}
           </button>
         </div>
       )}

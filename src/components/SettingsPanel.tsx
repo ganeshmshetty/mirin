@@ -66,7 +66,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
       onSettingsChange?.(updated);
     } catch (error) {
       console.error("Failed to auto-save setting:", error);
-      toast.error("Failed to save setting");
+      toast.error(t("settings.save_failed"));
     }
   };
 
@@ -77,21 +77,21 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
       setTheme(DEFAULT_SETTINGS.theme);
       getCurrentWindow().setAlwaysOnTop(DEFAULT_SETTINGS.alwaysOnTop);
       onSettingsChange?.(DEFAULT_SETTINGS);
-      toast.success("Settings reset to defaults");
+      toast.success(t("settings.reset_success"));
     } catch (error) {
       console.error("Failed to save default settings:", error);
-      toast.error("Failed to reset settings");
+      toast.error(t("settings.reset_failed"));
     }
   };
 
   const handleClearCache = async () => {
     setClearingCache(true);
     try {
-      const msg = await settingsService.clearAppCache();
-      toast.success(msg || "Cache cleared");
+      await settingsService.clearAppCache();
+      toast.success(t("settings.general.cache_cleared"));
     } catch (error) {
       console.error("Failed to clear cache:", error);
-      toast.error(`Failed to clear cache: ${error}`);
+      toast.error(`${t("settings.general.cache_clear_failed")}: ${error}`);
     } finally {
       setClearingCache(false);
     }
@@ -179,10 +179,10 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
       <div className="w-64 flex-shrink-0 bg-slate-50 dark:bg-[#16191b] border-r border-gray-200/50 dark:border-[#222629]/50 pt-16 pb-6 flex flex-col">
         <div className="px-6 pb-2 mb-2">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-6">
-            Settings
+            {t("settings.title")}
           </h2>
           <h3 className="text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
-            Preferences
+            {t("settings.preferences")}
           </h3>
         </div>
         <div className="flex flex-col gap-1 px-4 flex-1">
@@ -197,7 +197,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
           >
             <div className="flex items-center gap-3">
               <SettingsIcon size={16} />
-              General
+              {t("settings.tabs.general")}
             </div>
             {activeTab === "general" && (
               <ChevronRight size={16} className="opacity-50" />
@@ -214,7 +214,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
           >
             <div className="flex items-center gap-3">
               <Monitor size={16} />
-              Interface & Theme
+              {t("settings.tabs.interface")}
             </div>
             {activeTab === "interface" && (
               <ChevronRight size={16} className="opacity-50" />
@@ -231,7 +231,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
           >
             <div className="flex items-center gap-3">
               <Sliders size={16} />
-              Quality & Performance
+              {t("settings.tabs.performance")}
             </div>
             {activeTab === "performance" && (
               <ChevronRight size={16} className="opacity-50" />
@@ -240,7 +240,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
 
           <div className="mt-4 mb-1">
             <h3 className="text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider">
-              Advanced
+              {t("settings.preferences")}
             </h3>
           </div>
           <button
@@ -254,7 +254,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
           >
             <div className="flex items-center gap-3">
               <Terminal size={16} />
-              MCP Server
+              {t("settings.tabs.mcp")}
             </div>
             {activeTab === "mcp" && (
               <ChevronRight size={16} className="opacity-50" />
@@ -264,7 +264,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
 
         <div className="px-4 py-3 mt-auto border-t border-gray-200/50 dark:border-[#222629]/50">
           <p className="text-[11px] text-gray-400 dark:text-slate-500">
-            Changes are saved automatically.
+            {t("settings.auto_save")}
           </p>
         </div>
       </div>
@@ -274,20 +274,17 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
         <div className="sticky top-0 z-10 bg-white/80 dark:bg-[#0e1012]/80 backdrop-blur-md px-8 py-6 border-b border-gray-200/50 dark:border-[#222629]/50 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">
-              {activeTab === "general" && "General"}
-              {activeTab === "interface" && "Interface & Theme"}
-              {activeTab === "performance" && "Quality & Performance"}
-              {activeTab === "mcp" && "MCP Server"}
+              {activeTab === "general" && t("settings.tabs.general")}
+              {activeTab === "interface" && t("settings.tabs.interface")}
+              {activeTab === "performance" && t("settings.tabs.performance")}
+              {activeTab === "mcp" && t("settings.tabs.mcp")}
             </h2>
             <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
-              {activeTab === "general" &&
-                "Window behavior, device power, and local cache."}
-              {activeTab === "interface" &&
-                "Customize the application appearance."}
+              {activeTab === "general" && t("settings.subtitles.general")}
+              {activeTab === "interface" && t("settings.subtitles.interface")}
               {activeTab === "performance" &&
-                "Adjust streaming quality and resource usage."}
-              {activeTab === "mcp" &&
-                "Configure the Model Context Protocol server for AI integration."}
+                t("settings.subtitles.performance")}
+              {activeTab === "mcp" && t("settings.subtitles.mcp")}
             </p>
           </div>
           <button
@@ -308,7 +305,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
-            Reset
+            {t("settings.reset")}
           </button>
         </div>
 
@@ -318,12 +315,12 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
             <div className="space-y-6 animate-fade-in">
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-3">
-                  Window & Device
+                  {t("settings.general.window_device")}
                 </h4>
                 <div className="bg-slate-50 dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl shadow-sm">
                   {renderSettingRow(
-                    "Always on Top",
-                    "Keep the Mirin window above all other windows on your screen.",
+                    t("settings.general.always_on_top"),
+                    t("settings.general.always_on_top_desc"),
                     <ToggleSwitch
                       checked={settings.alwaysOnTop}
                       onChange={(checked) =>
@@ -333,8 +330,8 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                     false,
                   )}
                   {renderSettingRow(
-                    "Stay Awake",
-                    "Prevent the device from sleeping automatically while mirroring is active.",
+                    t("settings.general.stay_awake"),
+                    t("settings.general.stay_awake_desc"),
                     <ToggleSwitch
                       checked={settings.stayAwake}
                       onChange={(checked) =>
@@ -344,8 +341,8 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                     false,
                   )}
                   {renderSettingRow(
-                    t("settings.language"),
-                    t("settings.language_desc"),
+                    t("settings.general.language"),
+                    t("settings.general.language_desc"),
                     <CustomSelect
                       value={settings.language}
                       options={[
@@ -364,19 +361,21 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
 
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-3">
-                  Data & Storage
+                  {t("settings.general.data_storage")}
                 </h4>
                 <div className="bg-slate-50 dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl shadow-sm">
                   {renderSettingRow(
-                    "Clear App Cache",
-                    "Remove temporary cache folders under the app data directory. Settings and saved devices are kept.",
+                    t("settings.general.clear_cache"),
+                    t("settings.general.clear_cache_desc"),
                     <button
                       type="button"
                       disabled={clearingCache}
                       onClick={handleClearCache}
                       className="px-3 py-1.5 text-xs font-medium border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/10 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                     >
-                      {clearingCache ? "Clearing…" : "Clear Cache"}
+                      {clearingCache
+                        ? t("settings.general.clearing")
+                        : t("settings.general.clear_cache_btn")}
                     </button>,
                     true,
                   )}
@@ -385,11 +384,10 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
 
               <div className="rounded-xl border border-dashed border-gray-200 dark:border-[#2a3036] px-5 py-4">
                 <p className="text-sm font-medium text-gray-700 dark:text-slate-300">
-                  Coming soon
+                  {t("settings.general.coming_soon")}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-slate-500 mt-1 leading-relaxed">
-                  Launch on system startup and automatic update checks need
-                  extra platform plugins and will ship in a later release.
+                  {t("settings.general.coming_soon_desc")}
                 </p>
               </div>
             </div>
@@ -400,18 +398,27 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
             <div className="space-y-6 animate-fade-in">
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-3">
-                  Appearance
+                  {t("settings.interface.appearance")}
                 </h4>
                 <div className="bg-slate-50 dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl shadow-sm">
                   {renderSettingRow(
-                    "Theme",
-                    "Choose the application appearance.",
+                    t("settings.interface.theme"),
+                    t("settings.interface.theme_desc"),
                     <CustomSelect
                       value={settings.theme}
                       options={[
-                        { value: "system", label: "System Default" },
-                        { value: "light", label: "Light Mode" },
-                        { value: "dark", label: "Dark Mode" },
+                        {
+                          value: "system",
+                          label: t("settings.interface.theme_options.system"),
+                        },
+                        {
+                          value: "light",
+                          label: t("settings.interface.theme_options.light"),
+                        },
+                        {
+                          value: "dark",
+                          label: t("settings.interface.theme_options.dark"),
+                        },
                       ]}
                       onChange={(val) => updateSetting("theme", val as any)}
                     />,
@@ -427,7 +434,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
             <div className="space-y-6 animate-fade-in">
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-3">
-                  Presets
+                  {t("settings.performance.presets")}
                 </h4>
                 <div className="flex bg-slate-50 dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 p-1 rounded-xl shadow-sm">
                   <button
@@ -438,7 +445,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                         : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
                     }`}
                   >
-                    Performance
+                    {t("settings.performance.preset_options.performance")}
                   </button>
                   <button
                     onClick={() => applyPreset("balanced")}
@@ -448,7 +455,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                         : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
                     }`}
                   >
-                    Balanced
+                    {t("settings.performance.preset_options.balanced")}
                   </button>
                   <button
                     onClick={() => applyPreset("high_quality")}
@@ -458,34 +465,44 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                         : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-200"
                     }`}
                   >
-                    High Quality
+                    {t("settings.performance.preset_options.high_quality")}
                   </button>
                 </div>
               </div>
 
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-3">
-                  Streaming Quality
+                  {t("settings.performance.stream_settings")}
                 </h4>
                 <div className="bg-slate-50 dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl shadow-sm">
                   {renderSettingRow(
-                    "Resolution",
-                    "Lower resolution can improve performance and reduce latency on slower network connections.",
+                    t("settings.performance.resolution"),
+                    t("settings.performance.resolution_desc"),
                     <CustomSelect
                       value={settings.resolution}
                       options={[
-                        { value: "default", label: "Default (Native)" },
+                        {
+                          value: "default",
+                          label: t(
+                            "settings.performance.resolution_options.default",
+                          ),
+                        },
                         { value: "1920", label: "1080p" },
                         { value: "1280", label: "720p" },
-                        { value: "800", label: "Lower Quality" },
+                        {
+                          value: "800",
+                          label: t(
+                            "settings.performance.resolution_options.low",
+                          ),
+                        },
                       ]}
                       onChange={(val) => updateSetting("resolution", val)}
                     />,
                     false,
                   )}
                   {renderSettingRow(
-                    "Bitrate",
-                    "Higher bitrate provides a clearer image but requires significantly more bandwidth.",
+                    t("settings.performance.bitrate"),
+                    t("settings.performance.bitrate_desc"),
                     <div className="flex items-center gap-3 w-56">
                       <input
                         type="range"
@@ -505,8 +522,8 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                     false,
                   )}
                   {renderSettingRow(
-                    "Max FPS",
-                    "Lowering the frame rate can reduce both CPU usage on your computer and network bandwidth.",
+                    t("settings.performance.max_fps"),
+                    t("settings.performance.max_fps_desc"),
                     <div className="flex items-center gap-3 w-56">
                       <input
                         type="range"
@@ -530,12 +547,12 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
 
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-3">
-                  Power Saving
+                  {t("settings.performance.device_state")}
                 </h4>
                 <div className="bg-slate-50 dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl shadow-sm">
                   {renderSettingRow(
-                    "Turn Screen Off",
-                    "Automatically turn off the physical device screen while mirroring to save battery.",
+                    t("settings.performance.turn_screen_off"),
+                    t("settings.performance.turn_screen_off_desc"),
                     <ToggleSwitch
                       checked={settings.turnScreenOff}
                       onChange={(checked) =>
@@ -559,25 +576,22 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                 />
                 <div>
                   <h5 className="text-sm font-semibold text-gray-900 dark:text-slate-100">
-                    Model Context Protocol
+                    {t("settings.mcp.title")}
                   </h5>
                   <p className="text-[13px] text-gray-500 dark:text-slate-400 mt-1 leading-relaxed">
-                    The MCP server allows external AI agents and workflows to
-                    securely interact with your connected Android devices. When
-                    enabled, agents can request screenshots, send touches, and
-                    execute shell commands programmatically.
+                    {t("settings.mcp.description")}
                   </p>
                 </div>
               </div>
 
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-3">
-                  Server Status
+                  {t("settings.mcp.server_status")}
                 </h4>
                 <div className="bg-slate-50 dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl shadow-sm">
                   {renderSettingRow(
-                    "Enable MCP Server",
-                    "Allow local network tools and agents to connect to Mirin.",
+                    t("settings.mcp.enable_server"),
+                    t("settings.mcp.enable_server_desc"),
                     <ToggleSwitch
                       checked={settings.mcpEnabled}
                       onChange={(val) => updateSetting("mcpEnabled", val)}
@@ -585,8 +599,8 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                     false,
                   )}
                   {renderSettingRow(
-                    "Port Configuration",
-                    "The local port the MCP server will listen on.",
+                    t("settings.mcp.port_config"),
+                    t("settings.mcp.port_config_desc"),
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
@@ -607,7 +621,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                       />
                       <button
                         className="p-1.5 text-gray-400 hover:text-cyan-500 transition-colors"
-                        title="Restart Server"
+                        title={t("settings.mcp.restart_server")}
                       >
                         <RefreshCw size={16} />
                       </button>
@@ -619,12 +633,12 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
 
               <div>
                 <h4 className="text-sm font-semibold text-gray-900 dark:text-slate-100 mb-3">
-                  Security & Logs
+                  {t("settings.mcp.security_logs")}
                 </h4>
                 <div className="bg-slate-50 dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl shadow-sm">
                   {renderSettingRow(
-                    "Require Authentication",
-                    "Only allow clients with an API key to connect to the MCP server.",
+                    t("settings.mcp.require_auth"),
+                    t("settings.mcp.require_auth_desc"),
                     <ToggleSwitch
                       checked={settings.mcpRequireAuth}
                       onChange={(val) => updateSetting("mcpRequireAuth", val)}
@@ -632,8 +646,8 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                     false,
                   )}
                   {renderSettingRow(
-                    "Logging Level",
-                    "Determine how much information the MCP server outputs to the logs.",
+                    t("settings.mcp.logging_level"),
+                    t("settings.mcp.logging_level_desc"),
                     <select
                       value={settings.mcpLogLevel}
                       onChange={(e) =>
@@ -641,9 +655,15 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                       }
                       className="px-3 py-1.5 text-sm bg-white dark:bg-[#0e1012] border border-gray-200/50 dark:border-[#222629]/50 rounded-lg text-gray-900 dark:text-slate-200 outline-none cursor-pointer"
                     >
-                      <option value="error">Errors Only</option>
-                      <option value="info">Info</option>
-                      <option value="debug">Debug (Verbose)</option>
+                      <option value="error">
+                        {t("settings.mcp.log_options.error")}
+                      </option>
+                      <option value="info">
+                        {t("settings.mcp.log_options.info")}
+                      </option>
+                      <option value="debug">
+                        {t("settings.mcp.log_options.debug")}
+                      </option>
                     </select>,
                     true,
                   )}

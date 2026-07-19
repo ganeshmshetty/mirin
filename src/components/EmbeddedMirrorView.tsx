@@ -33,6 +33,7 @@ import type {
 import { useToast } from "./ToastProvider";
 import { MirrorButton } from "./MirrorButton";
 import { useInputDialog } from "./InputDialog";
+import { useTranslation } from "react-i18next";
 
 interface EmbeddedMirrorViewProps {
   deviceId: string;
@@ -68,6 +69,7 @@ export function EmbeddedMirrorView({
   onRename,
   onTransportChange,
 }: EmbeddedMirrorViewProps) {
+  const { t } = useTranslation();
   const toast = useToast();
   const { prompt } = useInputDialog();
 
@@ -164,11 +166,11 @@ export function EmbeddedMirrorView({
               connections: availableConnections || [],
             };
         await deviceService.saveDevice(updatedDevice);
-        toast.success(`Renamed to ${newName}`);
+        toast.success(t("toolbar.renamed", { name: newName }));
         onRename?.(newName);
       } catch (err) {
         console.error("Failed to rename device:", err);
-        toast.error("Failed to rename device");
+        toast.error(t("toolbar.rename_failed"));
       }
     }
   };
@@ -489,7 +491,7 @@ export function EmbeddedMirrorView({
       startMirroring();
     } catch (err) {
       console.error("Failed to change orientation:", err);
-      toast.error(`Failed to switch to ${targetOrientation}`);
+      toast.error(t("mirror.orientation_failed"));
     } finally {
       setIsChangingOrientation(false);
     }
@@ -551,7 +553,7 @@ export function EmbeddedMirrorView({
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-app dark:bg-[#0e1012] p-6 text-center animate-fade-in">
               <div className="w-10 h-10 rounded-full border-2 border-cyan-500/20 border-t-cyan-500 animate-spin mb-3" />
               <h3 className="text-sm font-semibold text-app-text mb-1">
-                Starting Mirror…
+                {t("mirror.starting")}
               </h3>
               <p className="text-app-muted text-xs truncate max-w-xs">
                 {deviceName}
@@ -573,7 +575,7 @@ export function EmbeddedMirrorView({
                         <div
                           onClick={handleRename}
                           className="flex items-center gap-2 group cursor-pointer"
-                          title="Click to rename device"
+                          title={t("mirror.click_rename")}
                         >
                           <h2 className="text-2xl font-semibold text-app-text tracking-tight group-hover:text-cyan-500 transition-colors">
                             {deviceName}
@@ -585,12 +587,15 @@ export function EmbeddedMirrorView({
                           {isPoppedOut && (
                             <span className="ml-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-medium border border-blue-100 dark:border-blue-900/50">
                               <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                              Mirroring
+                              {t("devices.status.mirroring")}
                             </span>
                           )}
                         </div>
                         <p className="text-sm text-app-muted font-medium mt-1">
-                          {deviceStatus || "Connected"} • {connectionSummary}
+                          {t(
+                            `devices.status.${(deviceStatus || "Connected").toLowerCase()}`,
+                          )}{" "}
+                          • {connectionSummary}
                         </p>
                       </div>
 
@@ -611,7 +616,7 @@ export function EmbeddedMirrorView({
                               }}
                               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-app-input border border-app-border hover:bg-app-hover text-app-text font-medium text-sm transition-all shadow-sm active:scale-[0.98]"
                             >
-                              <span>Attach to Window</span>
+                              <span>{t("mirror.attach_window")}</span>
                             </button>
                             <button
                               onClick={async () => {
@@ -621,7 +626,7 @@ export function EmbeddedMirrorView({
                               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 font-medium text-sm transition-all shadow-sm active:scale-[0.98]"
                             >
                               <Square size={14} fill="currentColor" />
-                              <span>Stop Pop-out</span>
+                              <span>{t("mirror.stop_popout")}</span>
                             </button>
                           </>
                         )}
@@ -655,7 +660,7 @@ export function EmbeddedMirrorView({
                                 }`}
                               >
                                 <Usb size={13} />
-                                USB
+                                {t("devices.connection.usb")}
                               </button>
                               <div className="w-px bg-gray-200 dark:bg-[#2a3036]" />
                               <button
@@ -669,7 +674,7 @@ export function EmbeddedMirrorView({
                                 }`}
                               >
                                 <Wifi size={13} />
-                                WiFi
+                                {t("devices.connection.wireless")}
                               </button>
                             </div>
                           </div>
@@ -682,7 +687,7 @@ export function EmbeddedMirrorView({
                           <div className="flex items-center gap-2 text-app-muted mb-1">
                             <Battery size={16} />
                             <span className="text-[11px] font-semibold uppercase tracking-wider">
-                              Battery
+                              {t("mirror.battery")}
                             </span>
                           </div>
                           <div className="text-xl font-semibold text-app-text">
@@ -697,7 +702,7 @@ export function EmbeddedMirrorView({
                           <div className="flex items-center gap-2 text-app-muted mb-1">
                             <HardDrive size={16} />
                             <span className="text-[11px] font-semibold uppercase tracking-wider">
-                              Storage
+                              {t("mirror.storage")}
                             </span>
                           </div>
                           <div className="text-xl font-semibold text-app-text">
@@ -729,7 +734,7 @@ export function EmbeddedMirrorView({
                     className="flex items-center gap-3 px-5 py-4 border-b border-gray-200/50 dark:border-[#222629]/50 text-app-text font-semibold text-[15px] cursor-pointer hover:bg-app-hover/30 transition-colors select-none"
                   >
                     <List size={18} className="text-app-muted" />
-                    <span className="flex-1">Device Details</span>
+                    <span className="flex-1">{t("mirror.details.title")}</span>
                     {isDetailsOpen ? (
                       <ChevronDown size={18} className="text-app-muted" />
                     ) : (
@@ -739,14 +744,14 @@ export function EmbeddedMirrorView({
                   {isDetailsOpen && (
                     <div className="flex flex-col text-sm text-app-muted divide-y divide-gray-200/50 dark:divide-[#222629]/50">
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
-                        <span className="w-1/3">ID</span>
+                        <span className="w-1/3">{t("mirror.details.id")}</span>
                         <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
                           {effectiveTransportId}
                         </span>
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(effectiveTransportId);
-                            toast.success("Copied to clipboard");
+                            toast.success(t("mirror.copied"));
                           }}
                           className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
                         >
@@ -754,14 +759,16 @@ export function EmbeddedMirrorView({
                         </button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
-                        <span className="w-1/3">Model</span>
+                        <span className="w-1/3">
+                          {t("mirror.details.model")}
+                        </span>
                         <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
                           {deviceModel || "—"}
                         </span>
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(deviceModel || "—");
-                            toast.success("Copied to clipboard");
+                            toast.success(t("mirror.copied"));
                           }}
                           className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
                         >
@@ -769,14 +776,16 @@ export function EmbeddedMirrorView({
                         </button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
-                        <span className="w-1/3">Connection</span>
+                        <span className="w-1/3">
+                          {t("mirror.details.connection")}
+                        </span>
                         <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
                           {connectionSummary}
                         </span>
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(connectionSummary);
-                            toast.success("Copied to clipboard");
+                            toast.success(t("mirror.copied"));
                           }}
                           className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
                         >
@@ -784,14 +793,16 @@ export function EmbeddedMirrorView({
                         </button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
-                        <span className="w-1/3">IP Address</span>
+                        <span className="w-1/3">
+                          {t("mirror.details.ip_address")}
+                        </span>
                         <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
                           {ipSummary}
                         </span>
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(ipSummary);
-                            toast.success("Copied to clipboard");
+                            toast.success(t("mirror.copied"));
                           }}
                           className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
                         >
@@ -799,7 +810,9 @@ export function EmbeddedMirrorView({
                         </button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
-                        <span className="w-1/3">Serial Number</span>
+                        <span className="w-1/3">
+                          {t("mirror.details.serial")}
+                        </span>
                         <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
                           {details
                             ? details.serial
@@ -812,7 +825,7 @@ export function EmbeddedMirrorView({
                             navigator.clipboard.writeText(
                               details?.serial || "—",
                             );
-                            toast.success("Copied to clipboard");
+                            toast.success(t("mirror.copied"));
                           }}
                           className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
                         >
@@ -820,7 +833,9 @@ export function EmbeddedMirrorView({
                         </button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
-                        <span className="w-1/3">Android Version</span>
+                        <span className="w-1/3">
+                          {t("mirror.details.android_version")}
+                        </span>
                         <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
                           {details
                             ? details.android_version
@@ -833,7 +848,7 @@ export function EmbeddedMirrorView({
                             navigator.clipboard.writeText(
                               details?.android_version || "—",
                             );
-                            toast.success("Copied to clipboard");
+                            toast.success(t("mirror.copied"));
                           }}
                           className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
                         >
@@ -841,7 +856,9 @@ export function EmbeddedMirrorView({
                         </button>
                       </div>
                       <div className="flex items-center justify-between px-5 py-3 hover:bg-app-hover/50 transition-colors group">
-                        <span className="w-1/3">Manufacturer</span>
+                        <span className="w-1/3">
+                          {t("mirror.details.manufacturer")}
+                        </span>
                         <span className="flex-1 font-mono text-[#cbd5e1] text-[13px]">
                           {details
                             ? details.manufacturer
@@ -854,7 +871,7 @@ export function EmbeddedMirrorView({
                             navigator.clipboard.writeText(
                               details?.manufacturer || "—",
                             );
-                            toast.success("Copied to clipboard");
+                            toast.success(t("mirror.copied"));
                           }}
                           className="p-1.5 text-app-muted opacity-0 group-hover:opacity-100 hover:text-cyan-400 transition-all rounded-md hover:bg-cyan-500/10 active:scale-95"
                         >
@@ -872,12 +889,12 @@ export function EmbeddedMirrorView({
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-app-card/90 dark:bg-[#0e1012]/90 z-10 text-center p-6 backdrop-blur-sm">
             <div className="w-12 h-12 rounded-full border-2 border-cyan-500/20 border-t-cyan-500 animate-spin mb-4" />
             <p className="text-app-text font-medium text-sm">
-              {isAutoRetrying ? "Reconnecting…" : "Starting mirror…"}
+              {isAutoRetrying ? t("mirror.reconnecting") : t("mirror.starting_mirror")}
             </p>
             {isAutoRetrying && (
               <>
                 <p className="text-app-muted text-xs mt-1 max-w-sm">
-                  Auto-retrying ({retryCountRef.current}/{MAX_AUTO_RETRIES})
+                  {t("mirror.auto_retrying", { current: retryCountRef.current, max: MAX_AUTO_RETRIES })}
                 </p>
                 <div className="flex flex-col gap-2 w-full max-w-[220px] mt-4">
                   {(() => {
@@ -900,8 +917,11 @@ export function EmbeddedMirrorView({
                         ) : (
                           <Wifi size={15} />
                         )}
-                        Switch to{" "}
-                        {conn.connection_type === "USB" ? "USB" : "WiFi"}
+                        {t("mirror.switch_to", {
+                          type: conn.connection_type === "USB"
+                            ? t("devices.connection.usb")
+                            : t("devices.connection.wireless")
+                        })}
                       </button>
                     ));
                   })()}
@@ -911,7 +931,7 @@ export function EmbeddedMirrorView({
                     }}
                     className="px-4 py-2 text-app-muted hover:text-app-text text-xs rounded-lg transition-colors border border-transparent hover:border-app-border"
                   >
-                    Stop retrying
+                    {t("mirror.stop_retrying")}
                   </button>
                 </div>
               </>
@@ -922,10 +942,10 @@ export function EmbeddedMirrorView({
         {status === "error" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-app-card/95 dark:bg-[#0e1012]/95 z-10 text-center p-6 backdrop-blur-sm">
             <p className="text-app-text font-semibold text-base mb-1">
-              Stream Interrupted
+              {t("mirror.stream_interrupted")}
             </p>
             <p className="text-app-muted text-xs max-w-md mb-4">
-              {errorMsg || "Connection lost"}
+              {errorMsg || t("mirror.connection_lost")}
             </p>
 
             <div className="flex flex-col gap-2 w-full max-w-[220px]">
@@ -949,7 +969,11 @@ export function EmbeddedMirrorView({
                     ) : (
                       <Wifi size={15} />
                     )}
-                    Switch to {conn.connection_type === "USB" ? "USB" : "WiFi"}
+                    {t("mirror.switch_to", {
+                      type: conn.connection_type === "USB"
+                        ? t("devices.connection.usb")
+                        : t("devices.connection.wireless")
+                    })}
                   </button>
                 ));
               })()}
@@ -961,7 +985,7 @@ export function EmbeddedMirrorView({
                 }}
                 className="px-4 py-2.5 bg-app-input hover:bg-app-hover text-app-text text-sm font-medium rounded-lg transition-colors border border-app-border"
               >
-                Retry
+                {t("mirror.retry")}
               </button>
 
               {/* Close */}
@@ -971,7 +995,7 @@ export function EmbeddedMirrorView({
                 }}
                 className="px-4 py-2 text-app-muted hover:text-app-text text-xs rounded-lg transition-colors border border-transparent hover:border-app-border"
               >
-                Close
+                {t("mirror.close")}
               </button>
             </div>
           </div>
@@ -1075,12 +1099,12 @@ export function EmbeddedMirrorView({
                       setIsPoppedOut(true);
                     } catch (err) {
                       console.error("Failed to open mirror window:", err);
-                      toast.error("Failed to open mirror window.");
+                      toast.error(t("mirror.popout_failed"));
                     }
                   };
                   handlePopOut();
                 }}
-                title="Pop out in separate window"
+                title={t("mirror.popout_title")}
                 className={`${toolbarButtonSize} flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0`}
               >
                 <ExternalLink
@@ -1096,7 +1120,7 @@ export function EmbeddedMirrorView({
                 handleStop();
                 if (isPopup && onClose) onClose();
               }}
-              title="Stop Mirroring"
+              title={t("mirror.stop_mirroring")}
               className={`${toolbarButtonSize} flex items-center justify-center py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors flex-shrink-0`}
             >
               <Square size={18} fill="currentColor" />
@@ -1109,7 +1133,7 @@ export function EmbeddedMirrorView({
                   handleStop();
                   onClose();
                 }}
-                title="Close"
+                title={t("mirror.close")}
                 className={`${toolbarButtonSize} flex items-center justify-center py-1.5 rounded-lg text-app-muted hover:text-app-text hover:bg-app-hover transition-colors text-base flex-shrink-0`}
               >
                 ×

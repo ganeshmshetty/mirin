@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useToast } from "./ToastProvider";
 import { useConfirmDialog } from "./ConfirmDialog";
+import { useTranslation } from "react-i18next";
 
 interface FileManagerProps {
   deviceId: string;
@@ -35,6 +36,7 @@ function parentDevicePath(path: string): string {
 }
 
 export function FileManager({ deviceId }: FileManagerProps) {
+  const { t } = useTranslation();
   const [currentPath, setCurrentPath] = useState("/sdcard");
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,7 +51,7 @@ export function FileManager({ deviceId }: FileManagerProps) {
       setFiles(list);
       setCurrentPath(normalized);
     } catch (err: any) {
-      toast.error(`Failed to load directory: ${err}`);
+      toast.error(`${t("files.failed_load")}: ${err}`);
     } finally {
       setIsLoading(false);
     }
@@ -78,11 +80,11 @@ export function FileManager({ deviceId }: FileManagerProps) {
     try {
       const success = await fileService.pushFile(deviceId, currentPath);
       if (success) {
-        toast.success("File uploaded successfully.");
+        toast.success(t("files.upload_success"));
         loadFiles(currentPath);
       }
     } catch (err: any) {
-      toast.error(`Upload failed: ${err}`);
+      toast.error(`${t("files.upload_failed")}: ${err}`);
     }
   };
 
@@ -95,18 +97,18 @@ export function FileManager({ deviceId }: FileManagerProps) {
         file.name,
       );
       if (success) {
-        toast.success(`Downloaded ${file.name}`);
+        toast.success(t("files.download_success", { name: file.name }));
       }
     } catch (err: any) {
-      toast.error(`Download failed: ${err}`);
+      toast.error(`${t("files.download_failed")}: ${err}`);
     }
   };
 
   const handleDelete = async (file: FileInfo) => {
     const confirmed = await confirm({
-      title: "Delete File",
-      message: `Are you sure you want to delete ${file.name}?`,
-      confirmText: "Delete",
+      title: t("files.delete_title"),
+      message: t("files.delete_desc", { name: file.name }),
+      confirmText: t("files.delete_btn"),
       variant: "danger",
     });
 
@@ -115,25 +117,25 @@ export function FileManager({ deviceId }: FileManagerProps) {
     try {
       const remotePath = joinDevicePath(currentPath, file.name);
       await fileService.deleteFile(deviceId, remotePath);
-      toast.success("Deleted successfully.");
+      toast.success(t("files.delete_success"));
       loadFiles(currentPath);
     } catch (err: any) {
-      toast.error(`Delete failed: ${err}`);
+      toast.error(`${t("files.delete_failed")}: ${err}`);
     }
   };
 
   const handleCreateFolder = async () => {
     // We could use a prompt dialog, but for now we'll just prompt via JS
-    const folderName = window.prompt("Enter new folder name:");
+    const folderName = window.prompt(t("files.new_folder_prompt"));
     if (!folderName) return;
 
     try {
       const remotePath = joinDevicePath(currentPath, folderName);
       await fileService.createDirectory(deviceId, remotePath);
-      toast.success("Folder created.");
+      toast.success(t("files.create_success"));
       loadFiles(currentPath);
     } catch (err: any) {
-      toast.error(`Failed to create folder: ${err}`);
+      toast.error(`${t("files.create_failed")}: ${err}`);
     }
   };
 
@@ -147,7 +149,7 @@ export function FileManager({ deviceId }: FileManagerProps) {
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100 flex items-center gap-2 ml-12">
               <Folder className="text-cyan-600 dark:text-cyan-400" />
-              File Explorer
+              {t("files.title")}
             </h3>
             <div className="flex gap-2">
               <button
@@ -155,14 +157,14 @@ export function FileManager({ deviceId }: FileManagerProps) {
                 className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#16191b] hover:bg-gray-50 dark:hover:bg-[#1d2327] border border-gray-200 dark:border-[#222629] rounded-xl text-sm font-medium text-gray-700 dark:text-slate-300 transition-colors shadow-sm"
               >
                 <FolderPlus size={16} />
-                <span className="hidden sm:inline">New Folder</span>
+                <span className="hidden sm:inline">{t("files.new_folder")}</span>
               </button>
               <button
                 onClick={handlePush}
                 className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500/10 dark:hover:bg-cyan-500/20 text-white dark:text-cyan-400 border border-transparent dark:border-cyan-500/20 rounded-xl text-sm font-medium transition-colors shadow-sm"
               >
                 <Upload size={16} />
-                <span className="hidden sm:inline">Upload</span>
+                <span className="hidden sm:inline">{t("files.upload")}</span>
               </button>
             </div>
           </div>
@@ -173,7 +175,7 @@ export function FileManager({ deviceId }: FileManagerProps) {
               onClick={() => loadFiles("/")}
               className="text-gray-500 hover:text-cyan-600 dark:text-slate-400 dark:hover:text-cyan-400 font-medium transition-colors whitespace-nowrap"
             >
-              root
+              {t("files.root")}
             </button>
             {pathParts.map((part, index) => (
               <div
@@ -205,17 +207,17 @@ export function FileManager({ deviceId }: FileManagerProps) {
         <div className="bg-white dark:bg-[#16191b] border border-gray-200 dark:border-[#222629] rounded-xl shadow-sm overflow-hidden flex flex-col h-full min-h-[400px]">
           {/* Header Row */}
           <div className="grid grid-cols-12 gap-4 p-4 border-b border-gray-100 dark:border-[#222629] text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider sticky top-0 bg-white/95 dark:bg-[#16191b]/95 backdrop-blur-sm z-10">
-            <div className="col-span-6 sm:col-span-5">Name</div>
-            <div className="col-span-3 sm:col-span-2 text-right">Size</div>
-            <div className="hidden sm:block col-span-3">Modified</div>
-            <div className="col-span-3 sm:col-span-2 text-right">Actions</div>
+            <div className="col-span-6 sm:col-span-5">{t("files.name")}</div>
+            <div className="col-span-3 sm:col-span-2 text-right">{t("files.size")}</div>
+            <div className="hidden sm:block col-span-3">{t("files.modified")}</div>
+            <div className="col-span-3 sm:col-span-2 text-right">{t("files.actions")}</div>
           </div>
 
           <div className="flex-1 overflow-y-auto">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-40 gap-3 text-gray-500">
                 <RefreshCw className="animate-spin text-cyan-500" />
-                <p>Loading files...</p>
+                <p>{t("files.loading")}</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-[#222629]">
@@ -280,7 +282,7 @@ export function FileManager({ deviceId }: FileManagerProps) {
                         <button
                           onClick={() => handlePull(file)}
                           className="p-1.5 text-gray-500 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg transition-colors"
-                          title="Download"
+                          title={t("files.download")}
                         >
                           <Download size={16} />
                         </button>
@@ -288,7 +290,7 @@ export function FileManager({ deviceId }: FileManagerProps) {
                       <button
                         onClick={() => handleDelete(file)}
                         className="p-1.5 text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        title="Delete"
+                        title={t("files.delete")}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -299,7 +301,7 @@ export function FileManager({ deviceId }: FileManagerProps) {
                 {files.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-40 gap-2 text-gray-500 dark:text-slate-500">
                     <Folder size={32} className="opacity-50" />
-                    <p>Folder is empty</p>
+                    <p>{t("files.folder_empty")}</p>
                   </div>
                 )}
               </div>

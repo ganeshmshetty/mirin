@@ -3,6 +3,7 @@ import { emit } from "@tauri-apps/api/event";
 import { deviceService } from "../services";
 import { useConfirmDialog } from "./ConfirmDialog";
 import type { Device } from "../types";
+import { useTranslation } from "react-i18next";
 
 import { getErrorMessage } from "../utils";
 
@@ -14,6 +15,7 @@ interface SavedDevicesListProps {
 }
 
 export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
+  const { t } = useTranslation();
   const [savedDevices, setSavedDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -210,9 +212,9 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
               d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
             />
           </svg>
-          <p className="mt-4 text-gray-600 font-medium">No saved devices</p>
+          <p className="mt-4 text-gray-600 font-medium">{t("devices.no_saved")}</p>
           <p className="text-sm text-gray-500 mt-1">
-            Use the Wireless Setup Wizard or manual IP input to add devices
+            {t("devices.no_saved_desc")}
           </p>
         </div>
       ) : (
@@ -237,7 +239,9 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
                             : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300"
                         }`}
                       >
-                        {isWireless ? "Wireless" : "USB"}
+                        {isWireless
+                          ? t("devices.connection.wireless")
+                          : t("devices.connection.usb")}
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 mt-1">{device.model}</p>
@@ -274,16 +278,16 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
                               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                             />
                           </svg>
-                          Connecting
+                          {t("devices.status.connecting")}
                         </span>
                       ) : (
-                        "Connect"
+                        t("devices.actions.connect")
                       )}
                     </button>
                     <button
                       onClick={() => handleRemove(device.id, device.name)}
                       className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50 transition-colors"
-                      title="Forget device"
+                      title={t("devices.actions.forget_device")}
                     >
                       <svg
                         className="h-4 w-4"

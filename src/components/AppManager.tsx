@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useToast } from "./ToastProvider";
 import { useConfirmDialog } from "./ConfirmDialog";
+import { useTranslation } from "react-i18next";
 
 interface AppManagerProps {
   deviceId: string;
@@ -36,6 +37,7 @@ function displayName(pkg: string): string {
 }
 
 export function AppManager({ deviceId }: AppManagerProps) {
+  const { t } = useTranslation();
   const [apps, setApps] = useState<AppInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -52,7 +54,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
       const list = await appService.listApps(deviceId);
       setApps(list);
     } catch (err: any) {
-      toast.error(`Failed to load apps: ${err}`);
+      toast.error(`${t("apps.failed_load")}: ${err}`);
     } finally {
       setIsLoading(false);
     }
@@ -76,7 +78,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
       setIsInstalling(true);
       const success = await appService.installApp(deviceId);
       if (success) {
-        toast.success("Successfully installed APK.");
+        toast.success(t("apps.install_success"));
         loadApps();
       }
     } catch (err: any) {
@@ -87,15 +89,14 @@ export function AppManager({ deviceId }: AppManagerProps) {
         errorMsg.includes("verify")
       ) {
         confirm({
-          title: "Install Failed",
-          message:
-            "Could not install APK. Please ensure 'Install via USB' is enabled in Developer Options on your device. Also, try disabling 'Verify apps over USB'.",
-          confirmText: "OK",
+          title: t("apps.install_failed"),
+          message: t("apps.install_help"),
+          confirmText: t("confirm"),
           variant: "warning",
           hideCancel: true,
         });
       } else {
-        toast.error(`Install failed: ${err}`);
+        toast.error(`${t("apps.install_failed_toast")}: ${err}`);
       }
     } finally {
       setIsInstalling(false);
@@ -107,40 +108,40 @@ export function AppManager({ deviceId }: AppManagerProps) {
     pkg: string,
   ) => {
     if (!pkg.trim()) {
-      toast.error("Package name is empty");
+      toast.error(t("apps.package_empty"));
       return;
     }
     try {
       if (action === "launch") {
         await appService.launchApp(deviceId, pkg);
-        toast.success(`Launched ${displayName(pkg)}`);
+        toast.success(t("apps.launched", { name: displayName(pkg) }));
       } else if (action === "stop") {
         await appService.stopApp(deviceId, pkg);
-        toast.success(`Force-stopped ${displayName(pkg)}`);
+        toast.success(t("apps.stopped", { name: displayName(pkg) }));
       } else if (action === "clear") {
         const confirmed = await confirm({
-          title: "Clear App Data",
-          message: `Clear all data for ${pkg}? This cannot be undone.`,
-          confirmText: "Clear Data",
+          title: t("apps.clear_data_title"),
+          message: t("apps.clear_data_desc", { pkg }),
+          confirmText: t("apps.clear_data_btn"),
           variant: "danger",
         });
         if (!confirmed) return;
         await appService.clearAppData(deviceId, pkg);
-        toast.success(`Cleared data for ${displayName(pkg)}`);
+        toast.success(t("apps.cleared", { name: displayName(pkg) }));
       } else if (action === "uninstall") {
         const confirmed = await confirm({
-          title: "Uninstall App",
-          message: `Are you sure you want to uninstall ${pkg}?`,
-          confirmText: "Uninstall",
+          title: t("apps.uninstall_title"),
+          message: t("apps.uninstall_desc", { pkg }),
+          confirmText: t("apps.uninstall_btn"),
           variant: "danger",
         });
         if (!confirmed) return;
         await appService.uninstallApp(deviceId, pkg);
-        toast.success(`Uninstalled ${displayName(pkg)}`);
+        toast.success(t("apps.uninstalled", { name: displayName(pkg) }));
         loadApps();
       }
     } catch (err: any) {
-      toast.error(`Action Failed: ${err}`);
+      toast.error(`${t("apps.action_failed")}: ${err}`);
     }
   };
 
@@ -159,7 +160,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
             ? "p-2 text-cyan-600 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-900/30 rounded-lg hover:scale-110 transition-transform"
             : "p-2 text-gray-500 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg transition-colors"
         }
-        title="Launch App"
+        title={t("apps.launch_tooltip")}
       >
         <Play size={16} />
       </button>
@@ -170,7 +171,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
             ? "p-2 text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/30 rounded-lg hover:scale-110 transition-transform"
             : "p-2 text-gray-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
         }
-        title="Force Stop"
+        title={t("apps.stop_tooltip")}
       >
         <Square size={16} />
       </button>
@@ -181,7 +182,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
             ? "p-2 text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/30 rounded-lg hover:scale-110 transition-transform"
             : "p-2 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
         }
-        title="Clear App Data"
+        title={t("apps.clear_tooltip")}
       >
         <Eraser size={16} />
       </button>
@@ -197,7 +198,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
                 ? "p-2 text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/30 rounded-lg hover:scale-110 transition-transform"
                 : "p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
             }
-            title="Uninstall"
+            title={t("apps.uninstall_tooltip")}
           >
             <Trash2 size={16} />
           </button>
@@ -212,13 +213,13 @@ export function AppManager({ deviceId }: AppManagerProps) {
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-[#222629]">
         <h2 className="text-lg font-bold text-gray-900 dark:text-slate-100 flex items-center gap-2 ml-12">
           <Package className="text-cyan-600 dark:text-cyan-400" />
-          App Manager
+          {t("apps.title")}
         </h2>
         <div className="flex items-center gap-3">
           <button
             onClick={loadApps}
             className="p-2 text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-gray-100 dark:hover:bg-[#1d2327] rounded-lg transition-colors"
-            title="Refresh"
+            title={t("apps.refresh_tooltip")}
           >
             <RefreshCw size={18} className={isLoading ? "animate-spin" : ""} />
           </button>
@@ -228,7 +229,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
             className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
           >
             <Download size={16} />
-            {isInstalling ? "Installing..." : "Install APK"}
+            {isInstalling ? t("apps.installing") : t("apps.install_apk")}
           </button>
         </div>
       </div>
@@ -242,7 +243,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
           />
           <input
             type="text"
-            placeholder="Search packages..."
+            placeholder={t("apps.search_placeholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-white dark:bg-[#0e1012] border border-gray-200 dark:border-[#2a3036] rounded-lg text-sm text-gray-900 dark:text-slate-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 dark:focus:border-cyan-500 transition-colors"
@@ -256,26 +257,26 @@ export function AppManager({ deviceId }: AppManagerProps) {
               onChange={(e) => setShowSystem(e.target.checked)}
               className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
             />
-            System apps
+            {t("apps.system_apps")}
           </label>
           <div className="flex bg-gray-200 dark:bg-[#1d2327] rounded-lg p-1">
             <button
               onClick={() => setViewMode("grid")}
               className={`p-1.5 rounded-md transition-colors ${viewMode === "grid" ? "bg-white dark:bg-[#252b30] text-cyan-600 dark:text-cyan-400 shadow-sm" : "text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-200"}`}
-              title="Grid View"
+              title={t("apps.grid_view")}
             >
               <LayoutGrid size={16} />
             </button>
             <button
               onClick={() => setViewMode("list")}
               className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-white dark:bg-[#252b30] text-cyan-600 dark:text-cyan-400 shadow-sm" : "text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-200"}`}
-              title="List View"
+              title={t("apps.list_view")}
             >
               <List size={16} />
             </button>
           </div>
           <div className="text-sm text-gray-500 dark:text-slate-400 font-medium whitespace-nowrap">
-            {filteredApps.length} Apps
+            {filteredApps.length} {t("sidebar.apps")}
           </div>
         </div>
       </div>
@@ -285,12 +286,12 @@ export function AppManager({ deviceId }: AppManagerProps) {
         {isLoading && apps.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 gap-3 text-gray-500">
             <RefreshCw className="animate-spin text-cyan-500" />
-            <p>Loading apps...</p>
+            <p>{t("apps.loading")}</p>
           </div>
         ) : filteredApps.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 gap-3 text-gray-500">
             <AlertCircle size={32} className="opacity-50" />
-            <p>No apps found.</p>
+            <p>{t("apps.no_apps")}</p>
           </div>
         ) : (
           <div
@@ -317,7 +318,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
                   </h4>
                   {app.is_system && (
                     <span className="mt-1 text-[10px] uppercase tracking-wide text-gray-400 dark:text-slate-500">
-                      System
+                      {t("apps.system")}
                     </span>
                   )}
 
@@ -345,7 +346,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
                         {displayName(app.package_name)}
                         {app.is_system && (
                           <span className="ml-2 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-slate-500">
-                            System
+                            {t("apps.system")}
                           </span>
                         )}
                       </h4>

@@ -7,6 +7,7 @@ import {
   ArrowRight,
   RefreshCw,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useDeviceConnector } from "../hooks/useDeviceConnector";
 
 interface ConnectDeviceModalProps {
@@ -20,6 +21,7 @@ export function ConnectDeviceModal({
   onClose,
   onDeviceConnected,
 }: ConnectDeviceModalProps) {
+  const { t } = useTranslation();
   const {
     step,
     setStep,
@@ -62,7 +64,7 @@ export function ConnectDeviceModal({
             data-tauri-drag-region
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-base font-bold text-app-text pointer-events-none"
           >
-            Connect Device
+            {t("connect_wizard.title")}
           </h2>
           <button
             onClick={onClose}
@@ -79,7 +81,7 @@ export function ConnectDeviceModal({
           {step === "instructions" && (
             <div className="flex flex-col justify-center h-full">
               <p className="text-gray-500 mb-5 text-center text-sm">
-                Choose how you want to connect your Android device.
+                {t("connect_wizard.choose_method")}
               </p>
 
               <div className="flex flex-col bg-white dark:bg-[#1d2327] rounded-2xl shadow-md overflow-hidden border border-gray-100 dark:border-[#2a3036]">
@@ -97,10 +99,10 @@ export function ConnectDeviceModal({
                   </div>
                   <div>
                     <h4 className="font-bold text-app-text text-base mb-0.5 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors">
-                      Wireless
+                      {t("connect_wizard.wireless")}
                     </h4>
                     <p className="text-xs text-app-muted">
-                      Connect over Wi-Fi without a physical cable
+                      {t("connect_wizard.wireless_desc")}
                     </p>
                   </div>
                   <div className="ml-auto text-gray-300 dark:text-gray-600 group-hover:text-cyan-500 group-hover:translate-x-1 transition-all">
@@ -122,10 +124,10 @@ export function ConnectDeviceModal({
                   </div>
                   <div>
                     <h4 className="font-bold text-gray-900 dark:text-slate-100 text-base mb-0.5 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition-colors">
-                      Wired (USB)
+                      {t("connect_wizard.wired")}
                     </h4>
                     <p className="text-xs text-gray-500 dark:text-slate-400">
-                      Connect using a fast and stable USB connection
+                      {t("connect_wizard.wired_desc")}
                     </p>
                   </div>
                   <div className="ml-auto text-gray-300 dark:text-gray-600 group-hover:text-cyan-500 group-hover:translate-x-1 transition-all">
@@ -148,14 +150,14 @@ export function ConnectDeviceModal({
                     <ChevronLeft size={20} />
                   </button>
                   <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">
-                    Searching Wi-Fi...
+                    {t("connect_wizard.searching_wifi")}
                   </h3>
                 </div>
                 <button
                   onClick={() => setShowInstructions(!showInstructions)}
                   className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 px-3 py-1.5 rounded-lg transition-colors border dark:border-cyan-900/40"
                 >
-                  {showInstructions ? "Hide Instructions" : "How to connect?"}
+                  {showInstructions ? t("connect_wizard.hide_instructions") : t("connect_wizard.how_to_connect")}
                 </button>
               </div>
 
@@ -166,19 +168,19 @@ export function ConnectDeviceModal({
                       <span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">
                         1
                       </span>{" "}
-                      Open <strong>Settings &gt; Developer Options</strong>
+                      {t("connect_wizard.wireless_tips.step1")}
                     </p>
                     <p className="flex items-center gap-2">
                       <span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">
                         2
                       </span>{" "}
-                      Turn on <strong>Wireless Debugging</strong>
+                      {t("connect_wizard.wireless_tips.step2")}
                     </p>
                     <p className="flex items-center gap-2">
                       <span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">
                         3
                       </span>{" "}
-                      Tap <strong>"Pair device with pairing code"</strong>
+                      {t("connect_wizard.wireless_tips.step3")}
                     </p>
                   </div>
                 </div>
@@ -220,8 +222,8 @@ export function ConnectDeviceModal({
                           className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                         >
                           {device.connect_port && !device.pairing_port
-                            ? "Connect"
-                            : "Pair"}
+                            ? t("connect_wizard.connect")
+                            : t("connect_wizard.pair")}
                         </button>
                       </div>
                     ))
@@ -236,8 +238,8 @@ export function ConnectDeviceModal({
                       </div>
                       <p className="text-sm text-gray-500 dark:text-slate-400">
                         {isSearching
-                          ? "Scanning network..."
-                          : "No devices found."}
+                          ? t("connect_wizard.scanning_network")
+                          : t("connect_wizard.no_devices")}
                       </p>
                     </div>
                   )}
@@ -249,7 +251,7 @@ export function ConnectDeviceModal({
                   onClick={() => setStep("manual-wireless")}
                   className="w-full py-2.5 rounded-xl font-medium border border-app-border text-app-muted hover:bg-app-hover transition-colors text-sm"
                 >
-                  Pair Manually (IP Address)
+                  {t("connect_wizard.pair_manually")}
                 </button>
               </div>
             </div>
@@ -267,14 +269,14 @@ export function ConnectDeviceModal({
                     <ChevronLeft size={20} />
                   </button>
                   <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">
-                    Searching USB...
+                    {t("connect_wizard.searching_usb")}
                   </h3>
                 </div>
                 <button
                   onClick={() => setShowInstructions(!showInstructions)}
                   className="text-xs font-medium text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/30 px-3 py-1.5 rounded-lg transition-colors border dark:border-cyan-900/40"
                 >
-                  {showInstructions ? "Hide Instructions" : "How to connect?"}
+                  {showInstructions ? t("connect_wizard.hide_instructions") : t("connect_wizard.how_to_connect")}
                 </button>
               </div>
 
@@ -285,19 +287,19 @@ export function ConnectDeviceModal({
                       <span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">
                         1
                       </span>{" "}
-                      Connect phone via <strong>USB cable</strong>
+                      {t("connect_wizard.usb_tips.step1")}
                     </p>
                     <p className="flex items-center gap-2">
                       <span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">
                         2
                       </span>{" "}
-                      Enable <strong>USB Debugging</strong>
+                      {t("connect_wizard.usb_tips.step2")}
                     </p>
                     <p className="flex items-center gap-2">
                       <span className="w-4 h-4 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center font-bold">
                         3
                       </span>{" "}
-                      Tap <strong>"Allow"</strong> on phone prompt
+                      {t("connect_wizard.usb_tips.step3")}
                     </p>
                   </div>
                 </div>
@@ -332,10 +334,10 @@ export function ConnectDeviceModal({
                           {connectingUsbId === device.id ? (
                             <>
                               <RefreshCw className="animate-spin" size={14} />
-                              Connecting...
+                              {t("connect_wizard.connecting")}
                             </>
                           ) : (
-                            "Connect"
+                            t("connect_wizard.connect")
                           )}
                         </button>
                       </div>
@@ -351,8 +353,8 @@ export function ConnectDeviceModal({
                       </div>
                       <p className="text-sm text-gray-500 dark:text-slate-400">
                         {isSearching
-                          ? "Scanning USB ports..."
-                          : "No devices found."}
+                          ? t("connect_wizard.scanning_usb")
+                          : t("connect_wizard.no_devices")}
                       </p>
                     </div>
                   )}
@@ -361,7 +363,7 @@ export function ConnectDeviceModal({
 
               {error && (
                 <div className="w-full mt-4 p-3 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 text-xs rounded-xl border border-red-100 dark:border-red-900/30 flex flex-col gap-1 text-left">
-                  <div className="font-bold">ADB Error:</div>
+                  <div className="font-bold">{t("connect_wizard.adb_error")}</div>
                   <div className="font-mono break-all">{error}</div>
                 </div>
               )}
@@ -379,14 +381,14 @@ export function ConnectDeviceModal({
                   <ChevronLeft size={20} />
                 </button>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">
-                  Pairing Details
+                  {t("connect_wizard.pairing_details")}
                 </h3>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">
-                    IP Address
+                    {t("connect_wizard.ip_address")}
                   </label>
                   <input
                     type="text"
@@ -398,7 +400,7 @@ export function ConnectDeviceModal({
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-app-muted mb-1">
-                    Pairing Port
+                    {t("connect_wizard.pairing_port")}
                   </label>
                   <input
                     type="text"
@@ -412,7 +414,7 @@ export function ConnectDeviceModal({
 
               <div className="mb-4">
                 <label className="block text-xs font-medium text-app-muted mb-1">
-                  6-Digit Pairing Code
+                  {t("connect_wizard.pairing_code")}
                 </label>
                 <input
                   type="text"
@@ -434,7 +436,7 @@ export function ConnectDeviceModal({
                   onClick={onClose}
                   className="px-5 py-2.5 rounded-xl font-medium text-app-muted hover:bg-app-hover transition-colors text-sm"
                 >
-                  Cancel
+                  {t("connect_wizard.cancel")}
                 </button>
                 <button
                   onClick={handlePair}
@@ -442,7 +444,7 @@ export function ConnectDeviceModal({
                   className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {loading && <RefreshCw className="animate-spin" size={16} />}
-                  Pair Device
+                  {t("connect_wizard.pair_device")}
                 </button>
               </div>
             </div>
@@ -459,21 +461,16 @@ export function ConnectDeviceModal({
                   <ChevronLeft size={20} />
                 </button>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100">
-                  Final Step: Connect
+                  {t("connect_wizard.final_step")}
                 </h3>
               </div>
 
               <div className="mb-4">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Successfully paired! Now close the pairing popup on your phone
-                  to see the{" "}
-                  <strong className="text-gray-900 dark:text-white">
-                    Connect Port
-                  </strong>{" "}
-                  on the main Wireless Debugging screen.
+                  {t("connect_wizard.pairing_success")}
                 </p>
                 <label className="block text-xs font-medium text-app-muted mb-1">
-                  Connect Port
+                  {t("connect_wizard.connect_port")}
                 </label>
                 <input
                   type="text"
@@ -495,7 +492,7 @@ export function ConnectDeviceModal({
                   onClick={onClose}
                   className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                 >
-                  Cancel
+                  {t("connect_wizard.cancel")}
                 </button>
                 <button
                   onClick={handleConnect}
@@ -503,7 +500,7 @@ export function ConnectDeviceModal({
                   className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
                   {loading && <RefreshCw className="animate-spin" size={16} />}
-                  Connect Device
+                  {t("connect_wizard.connect_device")}
                 </button>
               </div>
             </div>

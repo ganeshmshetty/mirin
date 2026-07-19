@@ -8,6 +8,8 @@ import {
   useEffect,
 } from "react";
 
+import { useTranslation } from "react-i18next";
+
 interface InputDialogOptions {
   title: string;
   message?: string;
@@ -41,14 +43,15 @@ interface DialogState extends InputDialogOptions {
 }
 
 export function InputDialogProvider({ children }: InputDialogProviderProps) {
+  const { t } = useTranslation();
   const [dialogState, setDialogState] = useState<DialogState>({
     isOpen: false,
     title: "",
     message: "",
     defaultValue: "",
     placeholder: "",
-    confirmText: "Save",
-    cancelText: "Cancel",
+    confirmText: "",
+    cancelText: "",
     resolve: null,
   });
 
@@ -62,13 +65,13 @@ export function InputDialogProvider({ children }: InputDialogProviderProps) {
         setDialogState({
           isOpen: true,
           ...options,
-          confirmText: options.confirmText || "Save",
-          cancelText: options.cancelText || "Cancel",
+          confirmText: options.confirmText || t("save"),
+          cancelText: options.cancelText || t("cancel"),
           resolve,
         });
       });
     },
-    [],
+    [t],
   );
 
   // Focus input on open

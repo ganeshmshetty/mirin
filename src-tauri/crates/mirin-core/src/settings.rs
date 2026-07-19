@@ -2,6 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+fn default_language() -> String {
+    "en".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     pub resolution: String,
@@ -15,6 +19,7 @@ pub struct Settings {
     #[serde(rename = "turnScreenOff")]
     pub turn_screen_off: bool,
     pub theme: String,
+    #[serde(default = "default_language")]
     pub language: String,
 
     // MCP Settings

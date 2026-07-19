@@ -1,6 +1,8 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useTranslation } from "react-i18next";
 
 export const HelpButton: React.FC = () => {
+  const { t } = useTranslation();
   const openDocs = async () => {
     try {
       await openUrl("https://github.com/ganeshmshetty/scrcpygui");
@@ -13,7 +15,7 @@ export const HelpButton: React.FC = () => {
     <button
       onClick={openDocs}
       className="p-2 text-gray-500 hover:text-blue-600 transition-colors rounded-full hover:bg-blue-50"
-      title="Open User Guide"
+      title={t("sidebar.help_tooltip")}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"

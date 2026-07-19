@@ -46,7 +46,7 @@ export function Home({
   const handleRefresh = useCallback(async () => {
     setIsLoading(true);
     await loadData();
-    toast.success("Devices refreshed");
+    toast.success(t("toolbar.refreshed"));
   }, [loadData, toast]);
 
   useEffect(() => {
@@ -71,7 +71,9 @@ export function Home({
     try {
       const wirelessDevice = await deviceService.switchToWireless(deviceId);
       await deviceService.saveDevice(wirelessDevice);
-      toast.success(`Switched to wireless — ${wirelessDevice.ip_address}:5555`);
+      toast.success(
+        `${t("toolbar.switched_wireless")} — ${wirelessDevice.ip_address}:5555`,
+      );
       loadData();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -89,7 +91,7 @@ export function Home({
       await deviceService.forgetDevice(deviceId);
       loadData();
     } catch (err) {
-      toast.error("Failed to forget device");
+      toast.error(t("toolbar.forget_failed"));
     }
   };
 
@@ -106,7 +108,7 @@ export function Home({
           className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-[#1d2327] rounded-md transition-colors disabled:opacity-50"
         >
           <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
-          Refresh
+          {t("toolbar.refresh")}
         </button>
       </header>
 
@@ -130,10 +132,12 @@ export function Home({
               // Save to persistent storage
               deviceService
                 .saveDevice(updatedDevice)
-                .then(() => toast.success(`Renamed to ${newName}`))
+                .then(() =>
+                  toast.success(t("toolbar.renamed", { name: newName })),
+                )
                 .catch((err) => {
                   console.error("Failed to rename:", err);
-                  toast.error("Failed to rename device");
+                  toast.error(t("toolbar.rename_failed"));
                 });
             }
           }}

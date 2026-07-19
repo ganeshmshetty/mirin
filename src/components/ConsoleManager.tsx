@@ -9,6 +9,7 @@ import {
   ArrowDownToLine,
 } from "lucide-react";
 import { useToast } from "./ToastProvider";
+import { useTranslation } from "react-i18next";
 
 interface ConsoleManagerProps {
   deviceId: string;
@@ -17,6 +18,7 @@ interface ConsoleManagerProps {
 const MAX_LOG_LINES = 2000;
 
 export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
+  const { t } = useTranslation();
   const [logs, setLogs] = useState<string[]>([]);
   const [isLogcatRunning, setIsLogcatRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -83,7 +85,7 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
         setIsPaused(false);
       }
     } catch (err: any) {
-      toast.error(`Failed to toggle logcat: ${err}`);
+      toast.error(`${t("console.failed_toggle")}: ${err}`);
     }
   };
 
@@ -125,7 +127,7 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100 flex items-center gap-2 ml-12">
           <Terminal className="text-cyan-600 dark:text-cyan-400" />
-          ADB Console
+          {t("console.title")}
         </h3>
         <div className="flex gap-2 flex-wrap justify-end">
           <button
@@ -138,7 +140,7 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
           >
             {isLogcatRunning ? <Square size={16} /> : <Play size={16} />}
             <span className="hidden sm:inline">
-              {isLogcatRunning ? "Stop Logcat" : "Start Logcat"}
+              {isLogcatRunning ? t("console.stop_logcat") : t("console.start_logcat")}
             </span>
           </button>
           {isLogcatRunning && (
@@ -151,11 +153,11 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
               }`}
               title={
                 isPaused
-                  ? "Resume appending log lines"
-                  : "Pause display (drops new lines)"
+                  ? t("console.resume_tooltip")
+                  : t("console.pause_tooltip")
               }
             >
-              {isPaused ? "Resume" : "Pause"}
+              {isPaused ? t("console.resume") : t("console.pause")}
             </button>
           )}
           <button
@@ -165,17 +167,17 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
                 ? "bg-white text-cyan-700 border-cyan-200 dark:bg-[#16191b] dark:text-cyan-400 dark:border-cyan-900/40"
                 : "bg-white text-gray-500 border-gray-200 dark:bg-[#16191b] dark:text-slate-500 dark:border-[#222629]"
             }`}
-            title="Auto-scroll to newest lines"
+            title={t("console.auto_scroll_tooltip")}
           >
             <ArrowDownToLine size={16} />
-            <span className="hidden sm:inline">Auto-scroll</span>
+            <span className="hidden sm:inline">{t("console.auto_scroll")}</span>
           </button>
           <button
             onClick={clearLogs}
             className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#16191b] hover:bg-gray-50 dark:hover:bg-[#1d2327] border border-gray-200 dark:border-[#222629] rounded-xl text-sm font-medium text-gray-700 dark:text-slate-300 transition-colors shadow-sm"
           >
             <Trash2 size={16} />
-            <span className="hidden sm:inline">Clear</span>
+            <span className="hidden sm:inline">{t("console.clear")}</span>
           </button>
         </div>
       </div>
@@ -183,11 +185,11 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
       <div className="flex flex-col flex-1 bg-[#1e1e1e] rounded-xl border border-gray-800 dark:border-black/50 overflow-hidden shadow-lg shadow-black/10 min-h-0">
         <div className="h-10 bg-[#2d2d2d] flex items-center justify-between px-4 border-b border-black/20">
           <span className="text-xs text-gray-400 font-mono">
-            adb shell / logcat output
+            {t("console.output_header")}
           </span>
           <span className="text-[10px] text-gray-500 font-mono">
             {logs.length}/{MAX_LOG_LINES}
-            {isPaused ? " · paused" : ""}
+            {isPaused ? t("console.paused") : ""}
           </span>
         </div>
 
@@ -195,7 +197,7 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
           {logs.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-500 italic gap-2">
               <Terminal size={32} className="opacity-30" />
-              No output yet. Run a command or start logcat.
+              {t("console.no_output")}
             </div>
           ) : (
             <div className="flex flex-col min-h-full">
@@ -229,7 +231,7 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
               onChange={(e) => setCommand(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isExecuting}
-              placeholder="shell command…"
+              placeholder={t("console.placeholder")}
               className="flex-1 bg-transparent text-gray-200 font-mono text-sm outline-none placeholder-gray-600"
               autoComplete="off"
               spellCheck={false}
@@ -238,7 +240,7 @@ export function ConsoleManager({ deviceId }: ConsoleManagerProps) {
               onClick={executeCommand}
               disabled={isExecuting || !command.trim()}
               className="p-2 text-gray-400 hover:text-cyan-400 disabled:opacity-40 transition-colors"
-              title="Run command"
+              title={t("console.run_tooltip")}
             >
               <CornerDownLeft size={16} />
             </button>
