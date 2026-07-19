@@ -348,6 +348,7 @@ export function SettingsPanel({ onSettingsChange }: SettingsPanelProps) {
                       options={[
                         { value: "en", label: "English (US)" },
                         { value: "es", label: "Español (ES)" },
+                        { value: "zh", label: "中文 (ZH)" },
                       ]}
                       onChange={(val) => {
                         updateSetting("language", val as any);
