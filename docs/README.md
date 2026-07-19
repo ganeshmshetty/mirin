@@ -1,28 +1,35 @@
-# Gemini CLI documentation
+# Mirin documentation
 
-Gemini CLI provides tools to manage, control, and mirror Android devices. This
-index lets you navigate the available documentation to understand the
-architecture, command-line interface, Model Context Protocol integration, and
-design decisions.
+`docs/` is the canonical documentation source for Mirin. Start here when the
+application, a release note, or another source disagrees with older guidance.
 
-## Documentation sections
+## Choose a path
 
-We organize the documentation into several modules to help you locate
-information quickly.
+### Users
 
-- [Command-line reference](cli.md) explains how to run CLI tools.
-- [Model context protocol guide](mcp.md) describes the agent-accessible tools
-  and resources.
-- [Architecture details](architecture.md) covers the Rust and React codebase
-  structure.
-- [Native mirror design](superpowers/specs/2026-07-19-native-mirror-port-design.md)
-  outlines the experimental direct GPU rendering design spec.
+1. [Install Mirin](getting-started/installation.md) on macOS or Windows and
+   prepare an Android device.
+2. [Mirror your first device](getting-started/first-mirror.md) over USB.
+3. Use [troubleshooting](guides/troubleshooting.md) when discovery, pairing,
+   bundled resources, or a mirror session does not work.
 
-## Next steps
+### AI-tool integrators
 
-You can start exploring by checking the command-line interface or learning how
-to contribute to the codebase.
+Begin with the user onboarding path above. It establishes the device
+connection and mirror session that an integration works with. Treat device
+availability and authorization as runtime state: an integration should not
+assume that a saved device is connected or authorized.
 
-- Read [contributing guidelines](../CONTRIBUTING.md) to understand coding
-  standards and development workflows.
-- Browse the [command-line interface guide](cli.md) to run commands.
+### Contributors
+
+Use the same onboarding path to verify a local app build against a real
+Android device. The implementation uses React/TypeScript with Tauri/Rust, and
+bundles ADB and scrcpy resources for supported platforms; see
+[installation](getting-started/installation.md#development-setup) for local
+development prerequisites.
+
+## Available guides
+
+- [Installation](getting-started/installation.md)
+- [First USB mirror](getting-started/first-mirror.md)
+- [Troubleshooting](guides/troubleshooting.md)
