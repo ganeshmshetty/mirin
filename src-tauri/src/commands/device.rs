@@ -26,6 +26,10 @@ pub async fn connect_wireless_device(
     ip: String,
     port: Option<u16>,
 ) -> Result<bool, String> {
+    let ip = ip.trim();
+    if ip.is_empty() {
+        return Err("Device IP address must not be empty".to_string());
+    }
     let port = port.unwrap_or(5555);
     let adb_path = utils::get_adb_path(&app)?;
     let adb = Adb::new(adb_path);
@@ -178,6 +182,7 @@ pub async fn switch_to_wireless(
         connection_type: ConnectionType::Wireless,
         status: DeviceStatus::Connected,
         ip_address: Some(ip.clone()),
+        port: Some(5555),
     };
 
     Ok(Device {

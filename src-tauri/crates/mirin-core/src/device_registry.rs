@@ -23,6 +23,8 @@ pub struct DeviceConnection {
     pub connection_type: ConnectionType,
     pub status: DeviceStatus,
     pub ip_address: Option<String>,
+    #[serde(default)]
+    pub port: Option<u16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -59,7 +61,7 @@ fn format_brand(brand: &str) -> String {
         .join(" ")
 }
 
-fn tls_service_ip(serial: &str, services: &[MdnsService]) -> Option<String> {
+fn tls_service_endpoint(serial: &str, services: &[MdnsService]) -> Option<(String, u16)> {
     services.iter().find_map(|service| {
         if !service.service_type.contains("tls-connect") {
             return None;
@@ -79,7 +81,7 @@ fn tls_service_ip(serial: &str, services: &[MdnsService]) -> Option<String> {
             service
                 .address
                 .rsplit_once(':')
-                .map(|(ip, _)| ip.to_string())
+                .and_then(|(ip, port)| Some((ip.to_string(), port.parse::<u16>().ok()?)))
         } else {
             None
         }
@@ -156,15 +158,22 @@ pub async fn get_connected_devices_impl(adb_path: PathBuf) -> Result<Vec<Device>
             };
         }
 
-        let ip_address = if is_tls {
-            tls_service_ip(&adb_device.serial, &mdns_services)
+        let (ip_address, port) = if is_tls {
+            tls_service_endpoint(&adb_device.serial, &mdns_services)
+                .map(|(ip, port)| (Some(ip), Some(port)))
+                .unwrap_or((None, None))
         } else if connection_type == ConnectionType::Wireless {
             adb_device
                 .serial
                 .rsplit_once(':')
-                .map(|(ip, _)| ip.to_string())
+                .and_then(|(ip, port)| {
+                    port.parse::<u16>()
+                        .ok()
+                        .map(|port| (Some(ip.to_string()), Some(port)))
+                })
+                .unwrap_or((None, None))
         } else {
-            None
+            (None, None)
         };
 
         let hardware_id = if (connection_type == ConnectionType::Wireless || is_tls)
@@ -182,6 +191,7 @@ pub async fn get_connected_devices_impl(adb_path: PathBuf) -> Result<Vec<Device>
             connection_type: connection_type.clone(),
             status: status.clone(),
             ip_address: ip_address.clone(),
+            port,
         };
 
         devices.push(Device {
@@ -508,6 +518,10 @@ impl DeviceRegistry {
                     if let Some(existing_conn) = conn_map.get_mut(&conn.id) {
                         if conn.status == DeviceStatus::Connected {
                             existing_conn.status = DeviceStatus::Connected;
+                            existing_conn.ip_address = conn.ip_address.clone();
+                            if conn.port.is_some() {
+                                existing_conn.port = conn.port;
+                            }
                         }
                     } else {
                         conn_map.insert(conn.id.clone(), conn.clone());

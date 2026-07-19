@@ -33,6 +33,7 @@ async fn test_device_registry_file_integration() {
             connection_type: ConnectionType::Usb,
             status: DeviceStatus::Connected,
             ip_address: None,
+            port: None,
         }],
     };
 

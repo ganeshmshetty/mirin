@@ -37,6 +37,7 @@ fn make_device(id: &str, hw_id: &str, name: &str, conn_type: ConnectionType) -> 
             connection_type: conn_type,
             status: DeviceStatus::Connected,
             ip_address: None,
+            port: None,
         }],
     }
 }
@@ -174,7 +175,10 @@ async fn test_save_multiple_devices() {
 // ---------------------------------------------------------------------------
 #[tokio::test]
 async fn test_device_registry_mark_and_forget() {
-    // No env var mutation needed – DeviceRegistry is in-memory only
+    let _lock = ENV_LOCK.lock().unwrap();
+    let dir = tempdir().unwrap();
+    redirect_config(dir.path());
+
     let registry = DeviceRegistry::new();
 
     assert!(!registry.is_forgotten("hw_A"));
@@ -394,6 +398,10 @@ async fn test_device_registry_clone_shares_state() {
 // ---------------------------------------------------------------------------
 #[test]
 fn test_forgotten_device_tracks_and_clears_all_identifiers() {
+    let _lock = ENV_LOCK.lock().unwrap();
+    let dir = tempdir().unwrap();
+    redirect_config(dir.path());
+
     let registry = DeviceRegistry::new();
     let mut device = make_device(
         "USB_SERIAL_001",
@@ -406,6 +414,7 @@ fn test_forgotten_device_tracks_and_clears_all_identifiers() {
         connection_type: ConnectionType::Wireless,
         status: DeviceStatus::Connected,
         ip_address: Some("192.168.1.10".to_string()),
+        port: Some(5555),
     });
 
     registry.mark_device_forgotten(&device);

@@ -57,6 +57,13 @@ export function WirelessSetupWizard({ devices, onComplete, onCancel }: WirelessS
           connection_type: "Wireless",
           status: "Connected",
           ip_address: deviceIP,
+          connections: [{
+            id: `${deviceIP}:5555`,
+            connection_type: "Wireless",
+            status: "Connected",
+            ip_address: deviceIP,
+            port: 5555,
+          }],
         };
         try {
           await deviceService.saveDevice(wirelessDevice);

@@ -80,13 +80,6 @@ struct SelectorParams {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-struct TapElementParams {
-    serial: Option<String>,
-    #[schemars(description = "Text, content description, resource ID, or numeric UI element ID.")]
-    selector: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 enum CoordinateMode {
     Absolute,
@@ -100,13 +93,28 @@ impl Default for CoordinateMode {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
-struct TapParams {
-    serial: Option<String>,
+struct TapTarget {
+    #[schemars(
+        description = "Snapshot-bound handle returned by get_screen; preferred for normal UI controls."
+    )]
+    handle: Option<String>,
+    #[schemars(
+        description = "Text, content description, or resource ID. Use only when no handle is available."
+    )]
     selector: Option<String>,
     x: Option<f32>,
     y: Option<f32>,
     #[serde(default)]
     coordinate_mode: CoordinateMode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+struct TapParams {
+    serial: Option<String>,
+    #[schemars(
+        description = "Preferred target object. Use a handle from get_screen for normal Android controls."
+    )]
+    target: TapTarget,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
@@ -373,7 +381,7 @@ impl McpServer {
 
     #[tool(
         name = "get_screen",
-        description = "Inspect the current Android UI tree. Use this before choosing a semantic target when the target is unclear; then prefer tap_element for normal labeled controls."
+        description = "Inspect the current Android UI tree. Each element includes a snapshot-bound handle; pass that handle as tap.target.handle to tap normal Android controls."
     )]
     async fn get_screen(
         &self,
@@ -395,7 +403,7 @@ impl McpServer {
 
     #[tool(
         name = "find_element",
-        description = "Inspect one UI element by numeric ID, exact or substring text, content description, or resource ID. Use this when you need bounds/details; for actually tapping a labeled control, prefer tap_element."
+        description = "Inspect one UI element by numeric ID, exact or substring text, content description, or resource ID. For tapping, prefer the element handle returned by get_screen."
     )]
     async fn find_element(
         &self,
@@ -406,21 +414,10 @@ impl McpServer {
 
     #[tool(
         name = "tap",
-        description = "Tap by selector or coordinates. Prefer tap_element for normal labeled Android controls because Mirin resolves clickable parents and coordinates internally. Use tap coordinates only for games, canvases, images, or custom-rendered UI without a usable UI tree."
+        description = "Tap a target. Prefer target.handle from get_screen for normal Android controls; use target.selector only when no handle is available, and coordinates for games, canvases, images, or custom-rendered UI. Mirin resolves clickable parents and scales coordinates internally."
     )]
     async fn tap(&self, Parameters(params): Parameters<TapParams>) -> Result<String, String> {
         self.invoke("tap", params).await
-    }
-
-    #[tool(
-        name = "tap_element",
-        description = "Preferred way to tap a normal Android UI control. Provide text, content description, resource ID, or numeric UI ID; Mirin resolves the element or clickable parent and calculates/scales coordinates internally. Do not calculate coordinates in the model."
-    )]
-    async fn tap_element(
-        &self,
-        Parameters(params): Parameters<TapElementParams>,
-    ) -> Result<String, String> {
-        self.invoke("tap_element", params).await
     }
 
     #[tool(
@@ -436,7 +433,7 @@ impl McpServer {
 
     #[tool(
         name = "swipe",
-        description = "Swipe from start coordinates to end coordinates, or from a selector's center. Requires an active scrcpy mirror session."
+        description = "Swipe from start coordinates to end coordinates, or from a selector's center, then return the refreshed UI tree. Requires an active scrcpy mirror session."
     )]
     async fn swipe(&self, Parameters(params): Parameters<GestureParams>) -> Result<String, String> {
         self.invoke("swipe", params).await
@@ -444,7 +441,7 @@ impl McpServer {
 
     #[tool(
         name = "drag",
-        description = "Drag from start coordinates to end coordinates, or from a selector's center. Requires an active scrcpy mirror session."
+        description = "Drag from start coordinates to end coordinates, or from a selector's center, then return the refreshed UI tree. Requires an active scrcpy mirror session."
     )]
     async fn drag(
         &self,
@@ -458,7 +455,7 @@ impl McpServer {
 
     #[tool(
         name = "scroll_to",
-        description = "Scroll until a semantic selector becomes visible, re-checking after every swipe. Use this before tap_element when the target is not currently in the UI tree."
+        description = "Scroll until a semantic selector becomes visible, re-checking after every swipe. Use this before tap when the target is not currently in the UI tree."
     )]
     async fn scroll_to(
         &self,
@@ -469,7 +466,7 @@ impl McpServer {
 
     #[tool(
         name = "type_text",
-        description = "Type UTF-8 text into the currently focused input field. First tap the field semantically with tap_element; this tool does not choose or focus a field by itself."
+        description = "Type UTF-8 text into the currently focused input field, then return the refreshed UI tree. First use tap with a target handle to focus the field; this tool does not choose or focus a field by itself."
     )]
     async fn type_text(
         &self,
@@ -480,7 +477,7 @@ impl McpServer {
 
     #[tool(
         name = "press_key",
-        description = "Press an Android keycode, such as 3 for HOME, 4 for BACK, or 66 for ENTER."
+        description = "Press an Android keycode, such as 3 for HOME, 4 for BACK, or 66 for ENTER, then return the refreshed UI tree."
     )]
     async fn press_key(
         &self,
@@ -596,7 +593,7 @@ impl ServerHandler for McpServer {
                 .build(),
         )
         .with_instructions(
-            "Mirin controls Android devices through ADB and an embedded scrcpy mirror session. Workflow: list_devices only to inspect; when the user asks to connect, call connect_device (even when ADB already says Connected); then use get_screen/find_element for inspection, tap_element for normal labeled controls, scroll_to before tapping off-screen targets, and coordinate tap only for canvas/game/custom-rendered UI. After focusing a text field with tap_element, use type_text.",
+            "Mirin controls Android devices through ADB and an embedded scrcpy mirror session. Call connect_device when the user asks to connect. Use get_screen, then tap with the returned target.handle for normal Android controls; use target.selector only when no handle is available, and coordinates for custom-rendered UI. Use scroll_to before tapping off-screen targets. After focusing a text field with tap, use type_text.",
         )
         .with_server_info(Implementation::new("mirin-mcp", env!("CARGO_PKG_VERSION")))
     }
@@ -659,10 +656,12 @@ mod tests {
     use super::McpServer;
 
     #[test]
-    fn native_router_exposes_every_legacy_tool() {
+    fn native_router_exposes_unified_tool_surface() {
         let tools = McpServer::tool_router().list_all();
-        assert_eq!(tools.len(), 23);
+        assert_eq!(tools.len(), 22);
         assert!(tools.iter().any(|tool| tool.name == "list_devices"));
+        assert!(tools.iter().any(|tool| tool.name == "tap"));
+        assert!(!tools.iter().any(|tool| tool.name == "tap_element"));
         assert!(tools.iter().any(|tool| tool.name == "run_script"));
     }
 }

@@ -278,7 +278,7 @@ export function DeviceTable({
                 <>
                     <div className="flex-1" />
                     <div className="border-t border-dashed border-gray-300 dark:border-[#2f353a]" />
-                    <div className="flex items-center justify-center pt-6">
+                    <div className="flex-1 flex items-center justify-center min-h-0">
                         <button
                             onClick={onQuickMirrorClick}
                             className="px-6 py-3 bg-cyan-50 dark:bg-cyan-900/20 hover:bg-cyan-100 dark:hover:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400 font-semibold rounded-xl transition-all shadow-sm active:scale-95 text-sm flex items-center gap-2 border border-cyan-200 dark:border-cyan-800"

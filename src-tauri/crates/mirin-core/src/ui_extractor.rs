@@ -4,12 +4,16 @@ use quick_xml::events::Event;
 use quick_xml::Reader;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex as TokioMutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UiElement {
     pub id: u32,
+    /// Snapshot-bound target handle. Numeric IDs are only retained for display
+    /// and legacy callers; automation should use this handle instead.
+    pub handle: String,
     pub bounds: (i32, i32, i32, i32), // (x1, y1, x2, y2)
     pub text: Option<String>,
     pub content_desc: Option<String>,
@@ -23,6 +27,7 @@ pub struct UiElement {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UiTreeResult {
+    pub snapshot_id: String,
     pub timestamp: u64,
     pub screen_width: u32,
     pub screen_height: u32,
@@ -34,12 +39,14 @@ pub struct UiTreeResult {
 #[derive(Clone)]
 pub struct UiExtractor {
     cache: Arc<TokioMutex<HashMap<String, UiTreeResult>>>,
+    handles: Arc<TokioMutex<HashMap<String, (String, UiElement)>>>,
 }
 
 impl UiExtractor {
     pub fn new() -> Self {
         Self {
             cache: Arc::new(TokioMutex::new(HashMap::new())),
+            handles: Arc::new(TokioMutex::new(HashMap::new())),
         }
     }
 
@@ -129,6 +136,7 @@ impl UiExtractor {
                                     let id = (elements.len() + 1) as u32;
                                     elements.push(UiElement {
                                         id,
+                                        handle: String::new(),
                                         bounds: (x1, y1, x2, y2),
                                         text,
                                         content_desc,
@@ -219,7 +227,7 @@ impl UiExtractor {
             }
         };
 
-        let elements = Self::parse_xml(&xml_output)?;
+        let mut elements = Self::parse_xml(&xml_output)?;
 
         let size_out = adb
             .execute(&["shell", "wm", "size"])
@@ -252,7 +260,22 @@ impl UiExtractor {
             }
         }
 
+        static SNAPSHOT_COUNTER: AtomicU64 = AtomicU64::new(1);
+        static TARGET_COUNTER: AtomicU64 = AtomicU64::new(1);
+        let snapshot_id = format!(
+            "s{}-{}",
+            now,
+            SNAPSHOT_COUNTER.fetch_add(1, Ordering::Relaxed)
+        );
+        for element in &mut elements {
+            element.handle = format!(
+                "mirin-target-{}",
+                TARGET_COUNTER.fetch_add(1, Ordering::Relaxed)
+            );
+        }
+
         let result = UiTreeResult {
+            snapshot_id,
             timestamp: now,
             screen_width: max_w,
             screen_height: max_h,
@@ -262,6 +285,17 @@ impl UiExtractor {
 
         let mut cache_lock = self.cache.lock().await;
         cache_lock.insert(serial.to_string(), result.clone());
+
+        let mut handles = self.handles.lock().await;
+        for element in &result.elements {
+            handles.insert(
+                element.handle.clone(),
+                (serial.to_string(), element.clone()),
+            );
+        }
+        if handles.len() > 2048 {
+            handles.retain(|_, (handle_serial, _)| handle_serial == serial);
+        }
 
         let mut ret = result;
         if !raw {
@@ -307,7 +341,15 @@ impl UiExtractor {
             return Err("Selector must not be empty".to_string());
         }
 
-        // 1. Try numeric ID (supports both "18" and "[18]" formats)
+        // 1. Resolve a snapshot-bound handle. Handles are validated against
+        // the current tree before coordinates are returned.
+        if sel.starts_with("mirin:") {
+            return self.resolve_handle(adb, serial, sel).await;
+        }
+
+        // 2. Try numeric ID (supports both "18" and "[18]" formats). This is
+        // retained for compatibility but is resolved only against this fresh
+        // snapshot and should not be treated as a stable target identity.
         let stripped = sel
             .strip_prefix('[')
             .and_then(|s| s.strip_suffix(']'))
@@ -328,7 +370,7 @@ impl UiExtractor {
             )
         };
 
-        // Prefer exact matches so a selector such as "Settings" does not
+        // 3. Prefer exact matches so a selector such as "Settings" does not
         // unexpectedly resolve to "Settings and privacy" first.
         let sel_lower = sel.to_lowercase();
         for el in &tree.elements {
@@ -340,7 +382,7 @@ impl UiExtractor {
             }
         }
 
-        // Fall back to case-insensitive substring matching.
+        // 4. Fall back to case-insensitive substring matching.
         for el in &tree.elements {
             let matches = el
                 .text
@@ -365,6 +407,64 @@ impl UiExtractor {
         ))
     }
 
+    async fn resolve_handle(
+        &self,
+        adb: &Adb,
+        serial: &str,
+        handle: &str,
+    ) -> Result<(i32, i32, UiElement), String> {
+        let (handle_serial, original) = {
+            let handles = self.handles.lock().await;
+            handles.get(handle).cloned().ok_or_else(|| {
+                format!(
+                    "Unknown or expired UI target handle '{}'. Call get_screen again.",
+                    handle
+                )
+            })?
+        };
+        if handle_serial != serial {
+            return Err("UI target handle belongs to a different device".to_string());
+        }
+
+        let tree = self.get_tree(adb, serial, false, true).await?;
+        let same_identity = |candidate: &&UiElement| {
+            candidate.class == original.class
+                && candidate.text == original.text
+                && candidate.content_desc == original.content_desc
+                && candidate.resource_id == original.resource_id
+        };
+
+        let mut candidates: Vec<UiElement> = tree
+            .elements
+            .iter()
+            .filter(same_identity)
+            .cloned()
+            .collect();
+
+        if let Some(exact_id) = candidates.iter().find(|element| element.id == original.id) {
+            candidates = vec![exact_id.clone()];
+        }
+
+        if candidates.len() != 1 {
+            return Err(if candidates.is_empty() {
+                format!(
+                    "UI target '{}' is stale or no longer visible. Call get_screen again.",
+                    handle
+                )
+            } else {
+                format!(
+                    "UI target '{}' is ambiguous after the screen changed; call get_screen again.",
+                    handle
+                )
+            });
+        }
+
+        let element = candidates.remove(0);
+        let center_x = (element.bounds.0 + element.bounds.2) / 2;
+        let center_y = (element.bounds.1 + element.bounds.3) / 2;
+        Ok((center_x, center_y, element))
+    }
+
     /// Resolve a semantic selector to the best node to tap. If the matched
     /// node is not clickable, choose the smallest clickable node whose bounds
     /// contain it (the usual Android text-view inside clickable-row shape).
@@ -374,6 +474,65 @@ impl UiExtractor {
         serial: &str,
         selector: &str,
     ) -> Result<(i32, i32, UiElement), String> {
+        let trimmed = selector.trim();
+        let is_handle = trimmed.starts_with("mirin:");
+        let is_numeric = trimmed
+            .strip_prefix('[')
+            .and_then(|value| value.strip_suffix(']'))
+            .unwrap_or(trimmed)
+            .parse::<u32>()
+            .is_ok();
+        if !is_handle && !is_numeric {
+            let tree = self.get_tree(adb, serial, false, true).await?;
+            let needle = trimmed.to_lowercase();
+            let exact_matches: Vec<&UiElement> = tree
+                .elements
+                .iter()
+                .filter(|element| {
+                    element
+                        .text
+                        .as_deref()
+                        .is_some_and(|value| value.eq_ignore_ascii_case(&needle))
+                        || element
+                            .content_desc
+                            .as_deref()
+                            .is_some_and(|value| value.eq_ignore_ascii_case(&needle))
+                        || element
+                            .resource_id
+                            .as_deref()
+                            .is_some_and(|value| value.eq_ignore_ascii_case(&needle))
+                })
+                .collect();
+            let mut clickable_ids = Vec::new();
+            for matched in exact_matches {
+                let (x1, y1, x2, y2) = matched.bounds;
+                let target = tree
+                    .elements
+                    .iter()
+                    .filter(|candidate| {
+                        candidate.clickable
+                            && candidate.bounds.0 <= x1
+                            && candidate.bounds.1 <= y1
+                            && candidate.bounds.2 >= x2
+                            && candidate.bounds.3 >= y2
+                    })
+                    .min_by_key(|candidate| {
+                        let (cx1, cy1, cx2, cy2) = candidate.bounds;
+                        (cx2 - cx1).max(0) as i64 * (cy2 - cy1).max(0) as i64
+                    })
+                    .unwrap_or(matched);
+                if !clickable_ids.contains(&target.id) {
+                    clickable_ids.push(target.id);
+                }
+            }
+            if clickable_ids.len() > 1 {
+                return Err(format!(
+                    "Selector '{}' matches multiple clickable elements; use the element handle from get_screen",
+                    selector
+                ));
+            }
+        }
+
         let (matched_x, matched_y, matched) = self.resolve_selector(adb, serial, selector).await?;
         if matched.clickable {
             return Ok((matched_x, matched_y, matched));
@@ -381,7 +540,7 @@ impl UiExtractor {
 
         let tree = self.get_tree(adb, serial, false, true).await?;
         let (x1, y1, x2, y2) = matched.bounds;
-        let target = tree
+        let targets: Vec<UiElement> = tree
             .elements
             .iter()
             .filter(|candidate| {
@@ -391,13 +550,30 @@ impl UiExtractor {
                     && candidate.bounds.2 >= x2
                     && candidate.bounds.3 >= y2
             })
-            .min_by_key(|candidate| {
-                let (cx1, cy1, cx2, cy2) = candidate.bounds;
-                (cx2 - cx1).max(0) as i64 * (cy2 - cy1).max(0) as i64
-            });
+            .cloned()
+            .collect();
+
+        let target = targets.iter().min_by_key(|candidate| {
+            let (cx1, cy1, cx2, cy2) = candidate.bounds;
+            (cx2 - cx1).max(0) as i64 * (cy2 - cy1).max(0) as i64
+        });
 
         if let Some(target) = target {
             let (tx1, ty1, tx2, ty2) = target.bounds;
+            let smallest_area = (tx2 - tx1).max(0) as i64 * (ty2 - ty1).max(0) as i64;
+            let equally_small = targets
+                .iter()
+                .filter(|candidate| {
+                    let (cx1, cy1, cx2, cy2) = candidate.bounds;
+                    (cx2 - cx1).max(0) as i64 * (cy2 - cy1).max(0) as i64 == smallest_area
+                })
+                .count();
+            if equally_small > 1 {
+                return Err(format!(
+                    "Selector '{}' matches multiple clickable elements; use the element handle from get_screen",
+                    selector
+                ));
+            }
             return Ok(((tx1 + tx2) / 2, (ty1 + ty2) / 2, target.clone()));
         }
 

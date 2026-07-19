@@ -201,6 +201,19 @@ export function useDeviceConnector({
     const cleanIp = ipAddress.trim();
     const cleanPort = connectPort.trim();
 
+    if (!cleanIp) {
+      setError("Please enter the device IP address.");
+      return;
+    }
+    const ipParts = cleanIp.split(".");
+    if (
+      ipParts.length !== 4
+      || ipParts.some((part) => !/^\d+$/.test(part) || Number(part) > 255)
+    ) {
+      setError("Invalid IP address format.");
+      return;
+    }
+
     if (!cleanPort) {
       setError("Please enter the connect port.");
       return;

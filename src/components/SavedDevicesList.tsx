@@ -97,7 +97,14 @@ export function SavedDevicesList({ onDeviceConnected }: SavedDevicesListProps) {
     setError(null);
 
     try {
-      const port = device.id.includes(":") ? parseInt(device.id.split(":")[1], 10) : 5555;
+      const wirelessConnection = device.connections?.find(
+        (connection) => connection.connection_type === "Wireless"
+      );
+      const port = wirelessConnection?.port
+        || (device.id.includes(":") ? parseInt(device.id.split(":").pop() || "", 10) : 5555);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        throw new Error("Saved wireless device has no valid connect port. Reconnect it manually.");
+      }
       await deviceService.connectWireless(ip, port);
       await emit("device-connected");
       if (isMountedRef.current) {

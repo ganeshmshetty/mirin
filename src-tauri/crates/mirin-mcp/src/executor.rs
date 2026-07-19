@@ -11,7 +11,7 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::Mutex as TokioMutex;
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 
 pub trait RuntimeHost: Send + Sync {
     fn adb_path(&self) -> Result<PathBuf, String>;
@@ -36,6 +36,8 @@ pub trait RuntimeHost: Send + Sync {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScriptStep {
     pub action: String, // "tap", "long_press", "swipe", "type_text", "press_key", "sleep"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target: Option<Value>,
     pub selector: Option<String>,
     #[serde(default)]
     pub coordinate_mode: Option<String>,
@@ -119,7 +121,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "get_screen",
-                "description": "Inspect the current UI tree. After inspection, prefer tap_element for normal labeled controls.",
+                "description": "Inspect the current UI tree. After inspection, use tap with the returned target.handle for normal labeled controls.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -141,7 +143,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "find_element",
-                "description": "Inspect one UI element by ID, text, content description, or resource ID. Use tap_element to actually tap a normal labeled control.",
+                "description": "Inspect one UI element by ID, text, content description, or resource ID. For tapping, prefer the handle returned by get_screen.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -153,28 +155,24 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "tap",
-                "description": "Tap by selector or coordinates. Prefer tap_element for normal labeled controls; use coordinates for games, canvases, images, or custom-rendered UI.",
+                "description": "Tap a target. Prefer target.handle from get_screen for normal labeled controls; use target.selector when no handle is available, and coordinates for custom-rendered UI.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "serial": { "type": "string" },
-                        "selector": { "type": "string" },
-                        "x": { "type": "number" },
-                        "y": { "type": "number" },
-                        "coordinate_mode": { "type": "string", "enum": ["absolute", "normalized"], "default": "absolute", "description": "When 'normalized', x/y are 0.0-1.0 fractions of the display" }
-                    }
-                }
-            }),
-            json!({
-                "name": "tap_element",
-                "description": "Preferred semantic tap for normal Android controls. Mirin resolves the element or clickable parent and calculates/scales coordinates internally; the model should not calculate coordinates.",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "serial": { "type": "string" },
-                        "selector": { "type": "string", "description": "Text, content description, resource ID, or numeric UI element ID" }
+                        "target": {
+                            "type": "object",
+                            "description": "Preferred target from get_screen or an explicit coordinate target",
+                            "properties": {
+                                "handle": { "type": "string" },
+                                "selector": { "type": "string" },
+                                "x": { "type": "number" },
+                                "y": { "type": "number" },
+                                "coordinate_mode": { "type": "string", "enum": ["absolute", "normalized"], "default": "absolute" }
+                            }
+                        }
                     },
-                    "required": ["selector"]
+                    "required": ["target"]
                 }
             }),
             json!({
@@ -194,7 +192,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "swipe",
-                "description": "Swipe across the screen from start coordinates to end coordinates. Requires an active scrcpy mirror session. Supports 'selector' (ignores start_x/start_y) or raw coordinates (start_x/start_y → end_x/end_y).",
+                "description": "Swipe across the screen from start coordinates to end coordinates, then return the refreshed UI tree. Requires an active scrcpy mirror session.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -211,7 +209,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "drag",
-                "description": "Drag from start coordinates to end coordinates (slower than swipe with initial 200ms hold). Requires an active scrcpy mirror session. Supports 'selector' or raw start_x/start_y.",
+                "description": "Drag from start coordinates to end coordinates (slower than swipe with initial 200ms hold), then return the refreshed UI tree. Requires an active scrcpy mirror session.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -228,7 +226,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "scroll_to",
-                "description": "Scroll until a semantic selector is visible, re-checking after each swipe. Use before tap_element when the target is off-screen.",
+                "description": "Scroll until a semantic selector is visible, re-checking after each swipe. Use before tap when the target is off-screen.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -242,7 +240,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "type_text",
-                "description": "Type UTF-8 text into the focused field. First use tap_element to focus the field; this tool does not choose a field.",
+                "description": "Type UTF-8 text into the focused field, then return the refreshed UI tree. First use tap with a target handle to focus the field; this tool does not choose a field.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -254,7 +252,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
             }),
             json!({
                 "name": "press_key",
-                "description": "Press an Android keycode (e.g. 3 for HOME, 4 for BACK, 66 for ENTER).",
+                "description": "Press an Android keycode (e.g. 3 for HOME, 4 for BACK, 66 for ENTER), then return the refreshed UI tree.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -548,59 +546,24 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                 }
                 "tap" => {
                     let serial = self.get_serial(&args)?;
-                    let (socket, _w, _h) = self.state.get_session_info(&serial).map_err(|_| {
-                        "No mirror session for this device. Call connect_device first.".to_string()
-                    })?;
-                    let (abs_x, abs_y, dsp_w, dsp_h) = self
-                        .resolve_abs_coords(&adb, &serial, &args, _w, _h)
-                        .await?;
-                    control::inject_touch(
-                        &socket,
-                        "down",
-                        abs_x,
-                        abs_y,
-                        dsp_w as u16,
-                        dsp_h as u16,
-                    )
-                    .await
-                    .map_err(|e| format!("Touch down failed: {}", e))?;
-                    sleep(Duration::from_millis(50)).await;
-                    let _ = control::inject_touch(
-                        &socket,
-                        "up",
-                        abs_x,
-                        abs_y,
-                        dsp_w as u16,
-                        dsp_h as u16,
-                    )
-                    .await;
-                    Ok(json!({ "success": true, "x": abs_x, "y": abs_y }))
-                }
-                "tap_element" => {
-                    let serial = self.get_serial(&args)?;
-                    let selector = args["selector"].as_str().ok_or("Missing selector")?;
                     let (socket, session_w, session_h) =
                         self.state.get_session_info(&serial).map_err(|_| {
                             "No mirror session for this device. Call connect_device first."
                                 .to_string()
                         })?;
-                    let (cx, cy, element) = self
-                        .ui_extractor
-                        .resolve_click_target(&adb, &serial, selector)
+
+                    let target_args = Self::normalize_tap_args(&args)?;
+                    let (x, y, source_w, source_h, element) = self
+                        .resolve_tap_target(&adb, &serial, &target_args, session_w, session_h)
                         .await?;
-                    let tree = self
-                        .ui_extractor
-                        .get_tree(&adb, &serial, false, false)
-                        .await?;
-                    let source_w = tree.screen_width.max(1);
-                    let source_h = tree.screen_height.max(1);
-                    let x = ((cx.max(0) as f64 / source_w as f64)
+                    let x = ((x.max(0) as f64 / source_w.max(1) as f64)
                         * session_w.saturating_sub(1) as f64)
                         .round() as u32;
-                    let y = ((cy.max(0) as f64 / source_h as f64)
+                    let y = ((y.max(0) as f64 / source_h.max(1) as f64)
                         * session_h.saturating_sub(1) as f64)
                         .round() as u32;
-                    control::inject_touch(
+
+                    if let Err(error) = control::inject_touch(
                         &socket,
                         "down",
                         x,
@@ -609,18 +572,41 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                         session_h as u16,
                     )
                     .await
-                    .map_err(|e| format!("Touch down failed: {}", e))?;
+                    .map_err(|e| format!("Touch down failed: {}", e))
+                    {
+                        self.invalidate_session(&adb, &serial).await;
+                        return Err(error);
+                    }
                     sleep(Duration::from_millis(50)).await;
-                    control::inject_touch(&socket, "up", x, y, session_w as u16, session_h as u16)
-                        .await
-                        .map_err(|e| format!("Touch up failed: {}", e))?;
-                    Ok(json!({
-                        "success": true,
-                        "selector": selector,
-                        "x": x,
-                        "y": y,
-                        "element": element
-                    }))
+                    if let Err(error) = control::inject_touch(
+                        &socket,
+                        "up",
+                        x,
+                        y,
+                        session_w as u16,
+                        session_h as u16,
+                    )
+                    .await
+                    .map_err(|e| format!("Touch up failed: {}", e))
+                    {
+                        self.invalidate_session(&adb, &serial).await;
+                        return Err(error);
+                    }
+                    Ok(self
+                        .with_screen_after(
+                            &adb,
+                            &serial,
+                            json!({
+                                "success": true,
+                                "target": target_args.get("target").cloned().unwrap_or_else(|| {
+                                    target_args.get("selector").cloned().unwrap_or(Value::Null)
+                                }),
+                                "x": x,
+                                "y": y,
+                                "element": element
+                            }),
+                        )
+                        .await)
                 }
                 "long_press" => {
                     let serial = self.get_serial(&args)?;
@@ -651,7 +637,9 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                         dsp_h as u16,
                     )
                     .await;
-                    Ok(json!({ "success": true }))
+                    Ok(self
+                        .with_screen_after(&adb, &serial, json!({ "success": true }))
+                        .await)
                 }
                 "swipe" | "drag" => {
                     let serial = self.get_serial(&args)?;
@@ -731,7 +719,9 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                     let _ =
                         control::inject_touch(&socket, "up", ex, ey, dsp_w as u16, dsp_h as u16)
                             .await;
-                    Ok(json!({ "success": true }))
+                    Ok(self
+                        .with_screen_after(&adb, &serial, json!({ "success": true }))
+                        .await)
                 }
                 "scroll_to" => {
                     let serial = self.get_serial(&args)?;
@@ -764,9 +754,13 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                             .resolve_selector(&adb, &serial, selector)
                             .await
                         {
-                            return Ok(
-                                json!({ "success": true, "found": true, "x": x, "y": y, "attempts": attempt }),
-                            );
+                            return Ok(self
+                                .with_screen_after(
+                                    &adb,
+                                    &serial,
+                                    json!({ "success": true, "found": true, "x": x, "y": y, "attempts": attempt }),
+                                )
+                                .await);
                         }
                         if attempt == max_swipes {
                             break;
@@ -793,20 +787,30 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                             .map_err(|e| format!("Touch up failed: {}", e))?;
                         sleep(Duration::from_millis(500)).await;
                     }
-                    Ok(json!({
-                        "success": true,
-                        "found": false,
-                        "attempts": max_swipes,
-                        "note": "Selector not found after scrolling. Try increasing max_swipes or check the selector text."
-                    }))
+                    Ok(self
+                        .with_screen_after(
+                            &adb,
+                            &serial,
+                            json!({
+                                "success": true,
+                                "found": false,
+                                "attempts": max_swipes,
+                                "note": "Selector not found after scrolling. Try increasing max_swipes or check the selector text."
+                            }),
+                        )
+                        .await)
                 }
                 "type_text" => {
                     let serial = self.get_serial(&args)?;
                     let text = args["text"].as_str().ok_or("Missing text")?;
                     if text.is_empty() {
-                        return Ok(
-                            json!({ "success": true, "note": "Empty text — nothing to type" }),
-                        );
+                        return Ok(self
+                            .with_screen_after(
+                                &adb,
+                                &serial,
+                                json!({ "success": true, "note": "Empty text — nothing to type" }),
+                            )
+                            .await);
                     }
                     if text.len() > 10000 {
                         return Err("Text too long (max 10000 characters)".to_string());
@@ -817,7 +821,9 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                     control::inject_text_chunked(&socket, text)
                         .await
                         .map_err(|e| format!("Text injection failed: {}", e))?;
-                    Ok(json!({ "success": true }))
+                    Ok(self
+                        .with_screen_after(&adb, &serial, json!({ "success": true }))
+                        .await)
                 }
                 "press_key" => {
                     let serial = self.get_serial(&args)?;
@@ -835,7 +841,9 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                     control::inject_keycode(&socket, "up", keycode, 0, 0)
                         .await
                         .map_err(|e| format!("Key up failed: {}", e))?;
-                    Ok(json!({ "success": true }))
+                    Ok(self
+                        .with_screen_after(&adb, &serial, json!({ "success": true }))
+                        .await)
                 }
                 "clipboard" => {
                     let serial = self.get_serial(&args)?;
@@ -1160,16 +1168,29 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                         match step.action.as_str() {
                             "tap" | "long_press" | "swipe" | "drag" | "type_text" | "press_key" => {
                                 match self.call_tool(step.action.as_str(), step_args).await {
-                                    Ok(_) => results.push(json!({ "step": i + 1, "action": step.action, "success": true })),
+                                    Ok(result) => results.push(json!({
+                                        "step": i + 1,
+                                        "action": step.action,
+                                        "success": true,
+                                        "result": result
+                                    })),
                                     Err(e) => return Err(format!("Step {} failed: {}", i + 1, e)),
                                 }
                             }
                             "sleep" => {
                                 let dur = step.duration_ms.unwrap_or(1000).min(10000);
                                 sleep(Duration::from_millis(dur)).await;
-                                results.push(json!({ "step": i + 1, "action": "sleep", "duration_ms": dur }));
+                                results.push(
+                                    json!({ "step": i + 1, "action": "sleep", "duration_ms": dur }),
+                                );
                             }
-                            _ => return Err(format!("Step {}: unsupported action '{}'", i + 1, step.action)),
+                            _ => {
+                                return Err(format!(
+                                    "Step {}: unsupported action '{}'",
+                                    i + 1,
+                                    step.action
+                                ))
+                            }
                         }
                         sleep(Duration::from_millis(150)).await;
                     }
@@ -1178,6 +1199,139 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                 _ => Err(format!("Unknown tool: {}", name)),
             }
         })
+    }
+
+    async fn with_screen_after(&self, adb: &Adb, serial: &str, result: Value) -> Value {
+        // Give Android a short moment to commit the resulting UI transition,
+        // then expose the fresh tree in the same response as the action.
+        sleep(Duration::from_millis(75)).await;
+        let screen = match timeout(
+            Duration::from_millis(1200),
+            self.ui_extractor.get_tree(adb, serial, false, true),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => Err("Timed out refreshing the UI tree after the action".to_string()),
+        };
+
+        match result {
+            Value::Object(mut object) => {
+                match screen {
+                    Ok(tree) => {
+                        object.insert(
+                            "screen_after".to_string(),
+                            serde_json::to_value(tree).unwrap_or(Value::Null),
+                        );
+                    }
+                    Err(error) => {
+                        object.insert("screen_after_error".to_string(), Value::String(error));
+                    }
+                }
+                Value::Object(object)
+            }
+            result => json!({
+                "result": result,
+                "screen_after": screen.ok().and_then(|tree| serde_json::to_value(tree).ok())
+            }),
+        }
+    }
+
+    async fn invalidate_session(&self, adb: &Adb, serial: &str) {
+        if let Ok(Some(mut session)) = self.state.remove_session(serial) {
+            session.shutdown_notify.notify_one();
+            let _ = session.server_process.kill().await;
+            mirin_core::scrcpy::stream::stop_server(adb, serial, session.port).await;
+            if let Ok(mut current) = self.current_device.lock() {
+                if current.as_deref() == Some(serial) {
+                    *current = None;
+                }
+            }
+        }
+    }
+
+    fn normalize_tap_args(args: &Value) -> Result<Value, String> {
+        let mut normalized = args.clone();
+        let target = args
+            .get("target")
+            .and_then(Value::as_object)
+            .ok_or("Tap requires a target object")?;
+        if let Some(handle) = target.get("handle").and_then(Value::as_str) {
+            normalized["selector"] = Value::String(handle.to_string());
+        } else if let Some(selector) = target.get("selector").and_then(Value::as_str) {
+            normalized["selector"] = Value::String(selector.to_string());
+        } else {
+            for field in ["x", "y", "coordinate_mode"] {
+                if let Some(value) = target.get(field) {
+                    normalized[field] = value.clone();
+                }
+            }
+        }
+
+        let has_selector = normalized.get("selector").and_then(Value::as_str).is_some();
+        let has_coordinates = normalized.get("x").and_then(Value::as_f64).is_some()
+            && normalized.get("y").and_then(Value::as_f64).is_some();
+        if !has_selector && !has_coordinates {
+            return Err("Tap target requires handle, selector, or both x and y".to_string());
+        }
+        Ok(normalized)
+    }
+
+    async fn resolve_tap_target(
+        &self,
+        adb: &Adb,
+        serial: &str,
+        args: &Value,
+        session_w: u32,
+        session_h: u32,
+    ) -> Result<(i32, i32, u32, u32, Value), String> {
+        if let Some(selector) = args.get("selector").and_then(Value::as_str) {
+            let (x, y, element) = self
+                .ui_extractor
+                .resolve_click_target(adb, serial, selector)
+                .await?;
+            let tree = self
+                .ui_extractor
+                .get_tree(adb, serial, false, false)
+                .await?;
+            return Ok((
+                x,
+                y,
+                tree.screen_width.max(1),
+                tree.screen_height.max(1),
+                serde_json::to_value(element).map_err(|e| e.to_string())?,
+            ));
+        }
+
+        let x = args
+            .get("x")
+            .and_then(Value::as_f64)
+            .ok_or("Missing target x coordinate")?;
+        let y = args
+            .get("y")
+            .and_then(Value::as_f64)
+            .ok_or("Missing target y coordinate")?;
+        let (device_w, device_h) = self
+            .ui_extractor
+            .get_device_size(adb, serial)
+            .await
+            .unwrap_or((session_w.max(1), session_h.max(1)));
+        let normalized = args
+            .get("coordinate_mode")
+            .and_then(Value::as_str)
+            .is_some_and(|mode| mode == "normalized");
+        let (x, y) = if normalized {
+            (x * device_w as f64, y * device_h as f64)
+        } else {
+            (x, y)
+        };
+        Ok((
+            x.round() as i32,
+            y.round() as i32,
+            device_w.max(1),
+            device_h.max(1),
+            Value::Null,
+        ))
     }
 
     async fn resolve_abs_coords(

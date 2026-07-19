@@ -10,6 +10,7 @@ export interface DeviceConnection {
   connection_type: ConnectionType;
   status: DeviceStatus;
   ip_address?: string;
+  port?: number;
 }
 
 export interface Device {
