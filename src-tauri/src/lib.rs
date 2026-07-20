@@ -62,79 +62,7 @@ fn test_scrcpy_execution(app: tauri::AppHandle) -> Result<String, String> {
     scrcpy::get_version(&scrcpy_path, &scrcpy_dir)
 }
 
-#[tauri::command]
-async fn open_connect_window(app: tauri::AppHandle, mode: Option<String>) -> Result<(), String> {
-    use tauri::Manager;
 
-    let mut url = String::from("index.html#/connect");
-    if let Some(m) = mode {
-        url = format!("index.html#/connect?mode={}", urlencoding::encode(&m));
-    }
-
-    if let Some(window) = app.get_webview_window("connect_device") {
-        if let Some(main_win) = app.get_webview_window("main") {
-            if let (Ok(main_pos), Ok(main_size), Ok(scale)) = (
-                main_win.outer_position(),
-                main_win.outer_size(),
-                main_win.scale_factor(),
-            ) {
-                let main_logical_pos = main_pos.to_logical::<f64>(scale);
-                let main_logical_size = main_size.to_logical::<f64>(scale);
-                let center_x = main_logical_pos.x + (main_logical_size.width - 548.0) / 2.0;
-                let center_y = main_logical_pos.y + (main_logical_size.height - 410.0) / 2.0;
-                let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(
-                    center_x, center_y,
-                )));
-            }
-        }
-        window.set_focus().map_err(|e| e.to_string())?;
-        // If the window already exists, we could emit an event to change its mode,
-        // but for now, just focusing it is fine as per original logic.
-        return Ok(());
-    }
-
-    let mut builder = tauri::WebviewWindowBuilder::new(
-        &app,
-        "connect_device",
-        tauri::WebviewUrl::App(url.into()),
-    )
-    .title("Connect Device")
-    .inner_size(548.0, 410.0)
-    .resizable(false)
-    .decorations(false)
-    .transparent(true)
-    .shadow(false);
-
-    if let Some(main_win) = app.get_webview_window("main") {
-        if let (Ok(main_pos), Ok(main_size), Ok(scale)) = (
-            main_win.outer_position(),
-            main_win.outer_size(),
-            main_win.scale_factor(),
-        ) {
-            let main_logical_pos = main_pos.to_logical::<f64>(scale);
-            let main_logical_size = main_size.to_logical::<f64>(scale);
-
-            let center_x = main_logical_pos.x + (main_logical_size.width - 548.0) / 2.0;
-            let center_y = main_logical_pos.y + (main_logical_size.height - 410.0) / 2.0;
-
-            builder = builder.position(center_x, center_y);
-        } else {
-            builder = builder.center();
-        }
-    } else {
-        builder = builder.center();
-    }
-
-    if let Err(e) = builder.build() {
-        if let Some(window) = app.get_webview_window("connect_device") {
-            let _ = window.set_focus();
-        } else {
-            return Err(e.to_string());
-        }
-    }
-
-    Ok(())
-}
 
 #[tauri::command]
 async fn open_mirror_window(
@@ -274,7 +202,6 @@ pub fn run() {
             get_scrcpy_path,
             verify_bundled_resources,
             test_scrcpy_execution,
-            open_connect_window,
             open_mirror_window,
             close_current_window,
             // Device commands

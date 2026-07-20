@@ -2,7 +2,7 @@ import logo from "../assets/logo.svg";
 import {
   Settings,
   Smartphone,
-  Plus,
+  Home,
   Github,
   ArrowLeft,
   Package,
@@ -37,7 +37,6 @@ const deviceTools: { id: string; label: string; icon: LucideIcon }[] = [
 ];
 
 export function Sidebar({
-  onConnectClick,
   deviceRail,
   activeTool = "screen",
   onToolChange,
@@ -66,43 +65,19 @@ export function Sidebar({
           alt="Mirin"
           className="w-8 h-8 object-contain flex-shrink-0"
         />
+      </div>
 
-        {/* Floating Back Button (outside sidebar) */}
-        {showBack && (
+      {/* Top Navigation Action: Home icon when on home / Back icon when inside an individual device or settings */}
+      <div className="mb-2 flex-shrink-0 mt-2 flex justify-center">
+        {showBack ? (
           <button
             onClick={() => navigate(-1)}
-            className="absolute left-full ml-4 w-8 h-8 flex items-center justify-center bg-white dark:bg-[#1d2327] text-gray-700 dark:text-slate-200 rounded-lg hover:bg-gray-100 dark:hover:bg-[#252c31] transition-all shadow-sm border border-gray-200 dark:border-[#222629] z-50"
             title="Back"
+            className="flex items-center justify-center h-10 w-10 rounded-xl transition-all outline-none text-gray-600 dark:text-slate-400 hover:bg-gray-200/50 dark:hover:bg-[#1d2327] hover:text-gray-900 dark:hover:text-slate-100"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={20} />
           </button>
-        )}
-      </div>
-
-      {/* Action Button: Add Device */}
-      <div className="mb-2 flex-shrink-0 mt-2 flex justify-center relative z-[100]">
-        <div className="relative w-10 h-10">
-          <button
-            onClick={onConnectClick}
-            className="absolute top-0 left-0 flex items-center bg-cyan-600 text-white rounded-xl hover:bg-cyan-700 transition-all duration-300 shadow-sm active:scale-[0.98] h-10 w-10 hover:w-[130px] overflow-hidden group"
-          >
-            <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
-              <Plus
-                size={20}
-                className="transition-transform group-hover:rotate-90 duration-300"
-              />
-            </div>
-            <span className="whitespace-nowrap font-medium text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
-              {t("sidebar.add_device")}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Primary Nav */}
-      <nav className="flex-1 py-2 px-1.5 space-y-1.5 overflow-y-auto overflow-x-hidden flex flex-col items-center">
-        {!isDeviceMode ? (
-          /* Devices Button (Home) */
+        ) : (
           <button
             onClick={() => navigate("/")}
             title={t("sidebar.home")}
@@ -112,10 +87,14 @@ export function Sidebar({
                 : "text-gray-600 dark:text-slate-400 hover:bg-gray-200/50 dark:hover:bg-[#1d2327] hover:text-gray-900 dark:hover:text-slate-100"
             }`}
           >
-            <Smartphone size={20} />
+            <Home size={20} />
           </button>
-        ) : (
-          /* Device Tools (Replaces Devices button) */
+        )}
+      </div>
+
+      {/* Primary Nav */}
+      <nav className="flex-1 py-2 px-1.5 space-y-1.5 overflow-y-auto overflow-x-hidden flex flex-col items-center">
+        {isDeviceMode && (
           <div className="flex flex-col items-center space-y-1.5 w-[40px]">
             {deviceTools.map((tool) => {
               const Icon = tool.icon;
@@ -138,6 +117,7 @@ export function Sidebar({
           </div>
         )}
       </nav>
+
 
       {/* Footer */}
       <div className="border-t border-gray-200/60 dark:border-[#222629]/60 flex-shrink-0 p-2 flex flex-col items-center gap-2">

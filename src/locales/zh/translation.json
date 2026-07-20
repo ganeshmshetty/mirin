@@ -42,7 +42,9 @@
       "enter_new_name": "输入新名称",
       "forget": "遗忘",
       "forget_device": "遗忘设备",
-      "connect": "连接"
+      "connect": "连接",
+      "quick_mirror": "一键镜像",
+      "quick_mirror_desc": "一键镜像 — 跳过设备详情"
     },
     "no_devices": "未连接任何设备",
     "connect_device": "连接设备",
@@ -62,6 +64,8 @@
     "popout_failed": "无法打开镜像窗口。",
     "popout_title": "在独立窗口中打开",
     "stop_mirroring": "停止镜像",
+    "start_mirroring": "开启镜像",
+    "mirror": "镜像",
     "close": "关闭",
     "invalid_id": "无效的镜像窗口设备 ID。",
     "reconnecting": "正在重新连接…",
@@ -94,7 +98,7 @@
     "auto_scroll": "自动滚动",
     "auto_scroll_tooltip": "自动滚动到最新日志",
     "clear": "清除",
-    "output_header": "adb shell / logcat输出",
+    "output_header": "adb shell / logcat 输出",
     "paused": " · 已暂停",
     "no_output": "尚无输出。请执行命令或启动 logcat。",
     "placeholder": "输入 shell 命令…",
@@ -234,7 +238,7 @@
     "subtitles": {
       "general": "窗口行为、设备电源和本地缓存设置。",
       "interface": "自定义应用程序的外观。",
-      "performance": "调整画面流传输质量和资源消耗。",
+      "performance": "调整画面流传输质量 and 资源消耗。",
       "mcp": "配置 Model Context Protocol 服务端以进行 AI 集成。"
     },
     "general": {

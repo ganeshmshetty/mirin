@@ -42,7 +42,9 @@
       "enter_new_name": "Enter new name",
       "forget": "Forget",
       "forget_device": "Forget device",
-      "connect": "Connect"
+      "connect": "Connect",
+      "quick_mirror": "Quick Mirror",
+      "quick_mirror_desc": "Quick mirror — skip device details"
     },
     "no_devices": "No devices connected",
     "connect_device": "Connect Device",
@@ -62,6 +64,8 @@
     "popout_failed": "Failed to open mirror window.",
     "popout_title": "Pop out in separate window",
     "stop_mirroring": "Stop Mirroring",
+    "start_mirroring": "Start Mirroring",
+    "mirror": "Mirror",
     "close": "Close",
     "invalid_id": "Invalid device ID for mirror popup.",
     "reconnecting": "Reconnecting…",

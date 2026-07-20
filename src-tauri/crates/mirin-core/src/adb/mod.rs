@@ -388,9 +388,23 @@ impl Adb {
         Ok(result.trim().to_string())
     }
 
-    /// Get device model name
+    /// Get device model name or market name
     pub async fn get_model(&self, device_serial: Option<&str>) -> Result<String, String> {
-        self.get_prop(device_serial, "ro.product.model").await
+        for prop in &[
+            "ro.product.marketname",
+            "ro.product.vendor.marketname",
+            "ro.product.odm.marketname",
+            "ro.config.marketing_name",
+            "ro.product.model",
+        ] {
+            if let Ok(val) = self.get_prop(device_serial, prop).await {
+                let trimmed = val.trim();
+                if !trimmed.is_empty() && trimmed != "unknown" {
+                    return Ok(trimmed.to_string());
+                }
+            }
+        }
+        Ok(String::new())
     }
 
     /// Get device manufacturer

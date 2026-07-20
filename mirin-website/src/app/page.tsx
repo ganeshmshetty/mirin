@@ -5,6 +5,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import { Download, MonitorSmartphone, Settings2, Command, ShieldCheck, Zap, Copy, Check, TerminalSquare, Smartphone, MousePointer2, Settings, Wifi, FileInput, Laptop, Search } from "lucide-react";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
@@ -67,6 +68,35 @@ export default function LandingPage() {
   }, []);
 
   useGSAP(() => {
+    // Immediately snap navbar to the correct state based on current scroll
+    // position — prevents the flash/collapse glitch on reload.
+    const isScrolled = window.scrollY > 50;
+    const navbarScrolledBg = getComputedStyle(document.documentElement).getPropertyValue("--page-bg").trim();
+    const scrolledBgRgba = `color-mix(in srgb, ${navbarScrolledBg || "#ffffff"} 90%, transparent)`;
+    gsap.set(".navbar", isScrolled ? {
+      width: "calc(100% - 32px)",
+      maxWidth: "1024px",
+      top: "16px",
+      borderRadius: "9999px",
+      backgroundColor: "var(--page-bg)",
+      borderColor: "var(--border)",
+      boxShadow: "0 8px 30px rgba(0, 0, 0, 0.08)",
+      paddingLeft: "32px",
+      paddingRight: "32px",
+      height: "56px",
+    } : {
+      width: "100%",
+      maxWidth: "100%",
+      top: "0px",
+      borderRadius: "0px",
+      backgroundColor: "transparent",
+      borderColor: "transparent",
+      boxShadow: "none",
+      paddingLeft: "24px",
+      paddingRight: "24px",
+      height: "64px",
+    });
+
     // Nav transition into a detached floating rounded pill
     ScrollTrigger.create({
       trigger: "body",
@@ -77,9 +107,9 @@ export default function LandingPage() {
           maxWidth: "1024px",
           top: "16px",
           borderRadius: "9999px",
-          backgroundColor: "rgba(255, 255, 255, 0.9)",
-          borderColor: "var(--color-border)",
-          boxShadow: "0 8px 30px rgba(0, 0, 0, 0.04)",
+          backgroundColor: "var(--page-bg)",
+          borderColor: "var(--border)",
+          boxShadow: "0 8px 30px rgba(0, 0, 0, 0.08)",
           paddingLeft: "32px",
           paddingRight: "32px",
           height: "56px",
@@ -203,20 +233,17 @@ export default function LandingPage() {
       {/* 1. NAV */}
       <nav className="navbar fixed top-0 left-1/2 -translate-x-1/2 w-full z-50 px-6 h-16 flex items-center justify-between border-b border-transparent transition-all duration-300">
         <div className="flex items-center gap-2">
-          {/* Brand Logo Lockup (Transparent Light) */}
-          <img 
-            src="/brand/icon-svg/full-lockup/Light-transparent.svg" 
-            alt="Mirin Logo" 
-            className="h-7 w-auto object-contain"
-          />
+          <img src="/brand/icon-svg/full-lockup/Light-transparent.svg" alt="Mirin" className="h-7 w-auto object-contain dark:hidden" />
+          <img src="/brand/icon-svg/full-lockup/Dark-transparent.svg" alt="Mirin" className="h-7 w-auto object-contain hidden dark:block" />
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-text-muted">
-          <Link href="/#setup-config" className="hover:text-text-primary transition-colors">Setup & Config</Link>
+          <Link href="/#setup-config" className="hover:text-text-primary transition-colors">Setup &amp; Config</Link>
           <Link href="/#automation" className="hover:text-text-primary transition-colors">Automation</Link>
           <Link href="/#workspace" className="hover:text-text-primary transition-colors">Workspace</Link>
           <Link href="/docs" className="hover:text-text-primary transition-colors">Docs</Link>
         </div>
-        <div>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
           {detectedOS === "mac" ? (
             <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-accent hover:bg-accent/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
               <AppleIcon className="w-4 h-4" /> Download for macOS
@@ -246,7 +273,7 @@ export default function LandingPage() {
           <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-accent hover:bg-accent/90 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
             <AppleIcon className="w-5 h-5" /> Download for macOS
           </a>
-          <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-white border border-border hover:bg-page-bg-alt text-text-primary px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
+          <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-page-bg border border-border hover:bg-page-bg-alt text-text-primary px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
             <WindowsIcon className="w-5 h-5" /> Download for Windows
           </a>
         </div>
@@ -341,28 +368,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="max-w-3xl mx-auto px-6">
-           <AppMockup className="h-[260px] tool-call-mockup">
-             <div className="w-full p-4 flex flex-col gap-2 font-mono text-xs text-left">
-                <div className="text-app-text-muted mb-2">// Available MCP Tools exposed by Mirin</div>
-                
-                <div className="bg-app-card border border-app-border rounded p-3 flex flex-col gap-1">
-                  <div className="text-app-primary">list_devices()</div>
-                  <div className="text-app-text-muted">Returns connected devices and statuses</div>
-                </div>
-                
-                <div className="tool-call-active bg-app-card border border-app-border rounded p-3 flex flex-col gap-1 transition-colors">
-                  <div className="text-app-text">take_screenshot(deviceId)</div>
-                  <div className="text-app-text-muted">Captures frame buffer as base64 PNG</div>
-                </div>
-                
-                <div className="bg-app-card border border-app-border rounded p-3 flex flex-col gap-1">
-                  <div className="text-app-primary">send_input(deviceId, type, value)</div>
-                  <div className="text-app-text-muted">Injects taps, swipes, and text events</div>
-                </div>
-             </div>
-           </AppMockup>
-        </div>
+
       </section>
 
       {/* 6. FEATURE: FILE SHARING */}
@@ -376,19 +382,7 @@ export default function LandingPage() {
             Drag a file onto the mirrored screen to send it across—no cables, no emailing yourself. Plus, capture full-resolution screenshots straight to your desktop with a single click.
           </p>
         </div>
-        <div className="feature-mockup flex-1 w-full">
-          <AppMockup className="h-[320px]">
-            <div className="flex-1 bg-app-bg flex items-center justify-center relative p-8">
-               {/* Drag and drop overlay mock */}
-               <div className="absolute inset-4 border-2 border-dashed border-app-primary rounded-xl bg-app-primary/5 flex flex-col items-center justify-center gap-3">
-                  <div className="w-12 h-12 bg-app-primary rounded-lg flex items-center justify-center text-black">
-                    <FileInput size={24} />
-                  </div>
-                  <div className="text-app-primary font-medium text-sm">Drop files to push to device</div>
-               </div>
-            </div>
-          </AppMockup>
-        </div>
+
       </section>
 
       {/* 7. CTA BAND */}
@@ -401,7 +395,7 @@ export default function LandingPage() {
             <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-accent hover:bg-accent/90 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
               <AppleIcon className="w-5 h-5" /> Download for macOS
             </a>
-            <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-white border border-border hover:bg-page-bg text-text-primary px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
+            <a href="https://github.com/ganeshmshetty/mirin/releases/latest" target="_blank" rel="noopener noreferrer" className="bg-page-bg border border-border hover:bg-page-bg-alt text-text-primary px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2.5 w-full sm:w-auto justify-center">
               <WindowsIcon className="w-5 h-5" /> Download for Windows
             </a>
           </div>
@@ -411,12 +405,8 @@ export default function LandingPage() {
       {/* 8. FOOTER */}
       <footer className="py-12 px-6 max-w-6xl mx-auto border-t border-border flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-2">
-          {/* Brand Logo Lockup (Transparent Light) */}
-          <img 
-            src="/brand/icon-svg/full-lockup/Light-transparent.svg" 
-            alt="Mirin Logo" 
-            className="h-6 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity"
-          />
+          <img src="/brand/icon-svg/full-lockup/Light-transparent.svg" alt="Mirin" className="h-6 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity dark:hidden" />
+          <img src="/brand/icon-svg/full-lockup/Dark-transparent.svg" alt="Mirin" className="h-6 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity hidden dark:block" />
         </div>
         <div className="flex gap-8 text-sm font-medium text-text-muted">
           <a href="https://github.com/ganeshmshetty/mirin" target="_blank" rel="noopener noreferrer" className="hover:text-text-primary transition-colors">GitHub</a>

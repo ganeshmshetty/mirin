@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Device {
@@ -15,6 +14,8 @@ pub struct Device {
     pub status: DeviceStatus,
     pub ip_address: Option<String>,
     pub connections: Vec<DeviceConnection>,
+    #[serde(default)]
+    pub favorite: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,7 +127,7 @@ pub async fn get_connected_devices_impl(adb_path: PathBuf) -> Result<Vec<Device>
                 .await
                 .unwrap_or_default();
             let model_raw = adb
-                .get_prop(Some(&adb_device.serial), "ro.product.model")
+                .get_model(Some(&adb_device.serial))
                 .await
                 .unwrap_or_default();
 
@@ -203,6 +204,7 @@ pub async fn get_connected_devices_impl(adb_path: PathBuf) -> Result<Vec<Device>
             status,
             ip_address,
             connections: vec![connection],
+            favorite: false,
         });
     }
 
@@ -294,39 +296,8 @@ pub async fn disconnect_device_impl(adb_path: PathBuf, device_id: String) -> Res
     }
 }
 
-fn forgotten_devices_path() -> Result<PathBuf, String> {
-    let config_dir =
-        dirs::config_dir().ok_or_else(|| "Failed to get config directory".to_string())?;
-    let app_dir = config_dir.join("mirin");
-    if !app_dir.exists() {
-        fs::create_dir_all(&app_dir)
-            .map_err(|e| format!("Failed to create config directory: {}", e))?;
-    }
-    Ok(app_dir.join("forgotten_devices.json"))
-}
-
-fn load_forgotten_set() -> HashSet<String> {
-    match forgotten_devices_path() {
-        Ok(path) if path.exists() => fs::read_to_string(&path)
-            .ok()
-            .and_then(|c| serde_json::from_str(&c).ok())
-            .unwrap_or_default(),
-        _ => HashSet::new(),
-    }
-}
-
-fn persist_forgotten_set(identifiers: &HashSet<String>) {
-    if let Ok(path) = forgotten_devices_path() {
-        if let Ok(json) = serde_json::to_string(identifiers) {
-            let _ = fs::write(&path, json);
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct DeviceRegistry {
-    forgotten_identifiers: Arc<Mutex<HashSet<String>>>,
-}
+#[derive(Clone, Default)]
+pub struct DeviceRegistry {}
 
 #[cfg(test)]
 mod tests {
@@ -340,85 +311,13 @@ mod tests {
         assert_eq!(format_brand(""), "");
         assert_eq!(format_brand("oneplus co"), "Oneplus Co");
     }
-
-    #[test]
-    fn test_device_registry_forgotten_state() {
-        let registry = DeviceRegistry::new();
-        let hw_id = "hw_serial_123".to_string();
-
-        assert!(!registry.is_forgotten(&hw_id));
-
-        registry.mark_forgotten(hw_id.clone());
-        assert!(registry.is_forgotten(&hw_id));
-
-        registry.clear_forgotten(&hw_id);
-        assert!(!registry.is_forgotten(&hw_id));
-    }
 }
 
 impl DeviceRegistry {
     pub fn new() -> Self {
-        Self {
-            forgotten_identifiers: Arc::new(Mutex::new(load_forgotten_set())),
-        }
+        Self {}
     }
 
-    pub fn mark_forgotten(&self, identifier: String) {
-        if let Ok(mut forgotten) = self.forgotten_identifiers.lock() {
-            forgotten.insert(identifier);
-            persist_forgotten_set(&forgotten);
-        }
-    }
-
-    pub fn is_forgotten(&self, identifier: &str) -> bool {
-        if let Ok(forgotten) = self.forgotten_identifiers.lock() {
-            forgotten.contains(identifier)
-        } else {
-            false
-        }
-    }
-
-    pub fn clear_forgotten(&self, identifier: &str) {
-        if let Ok(mut forgotten) = self.forgotten_identifiers.lock() {
-            forgotten.remove(identifier);
-            persist_forgotten_set(&forgotten);
-        }
-    }
-
-    fn device_identifiers(device: &Device) -> Vec<&str> {
-        let mut identifiers = vec![device.id.as_str(), device.hardware_id.as_str()];
-        if let Some(ip_address) = device.ip_address.as_deref() {
-            identifiers.push(ip_address);
-        }
-        for connection in &device.connections {
-            identifiers.push(connection.id.as_str());
-            if let Some(ip_address) = connection.ip_address.as_deref() {
-                identifiers.push(ip_address);
-            }
-        }
-        identifiers
-            .into_iter()
-            .filter(|identifier| !identifier.is_empty())
-            .collect()
-    }
-
-    pub fn mark_device_forgotten(&self, device: &Device) {
-        for identifier in Self::device_identifiers(device) {
-            self.mark_forgotten(identifier.to_string());
-        }
-    }
-
-    pub fn is_device_forgotten(&self, device: &Device) -> bool {
-        Self::device_identifiers(device)
-            .into_iter()
-            .any(|identifier| self.is_forgotten(identifier))
-    }
-
-    pub fn clear_device_forgotten(&self, device: &Device) {
-        for identifier in Self::device_identifiers(device) {
-            self.clear_forgotten(identifier);
-        }
-    }
 
     pub async fn get_resolved_devices(&self, adb_path: PathBuf) -> Result<Vec<Device>, String> {
         let connected_devices = get_connected_devices_impl(adb_path)
@@ -489,15 +388,27 @@ impl DeviceRegistry {
                 } else {
                     existing.connection_type.clone()
                 };
-                let active_name = if !existing.name.is_empty() {
-                    existing.name.clone()
-                } else {
-                    device.name.clone()
-                };
-                let active_model = if !existing.model.is_empty() {
+                let active_model = if device_connected
+                    && !device.model.is_empty()
+                    && device.model != "Unknown Device"
+                {
+                    device.model.clone()
+                } else if !existing.model.is_empty() {
                     existing.model.clone()
                 } else {
                     device.model.clone()
+                };
+                let active_name = if device_connected && !device.name.is_empty() && (
+                    existing.name.is_empty()
+                    || existing.name == existing.model
+                    || existing.name.ends_with(&existing.model)
+                    || existing.name == existing.id
+                ) {
+                    device.name.clone()
+                } else if !existing.name.is_empty() {
+                    existing.name.clone()
+                } else {
+                    device.name.clone()
                 };
                 let active_status = if device_connected {
                     device.status.clone()
@@ -542,6 +453,12 @@ impl DeviceRegistry {
                 existing.connection_type = active_conn_type;
                 existing.ip_address = active_ip;
                 existing.connections = merged_connections;
+                // Preserve favorite from either record
+                existing.favorite = existing.favorite || device.favorite;
+
+                if device_connected {
+                    let _ = save_device_impl(existing.clone()).await;
+                }
             } else {
                 hw_map.insert(key, device);
             }
@@ -549,10 +466,9 @@ impl DeviceRegistry {
 
         // Persistence is explicit: the connect flow saves devices after the user selects
         // them. Resolving live ADB state must not make a device disappear from that flow.
-        Ok(hw_map
-            .into_values()
-            .filter(|device| !self.is_device_forgotten(device))
-            .collect())
+        let mut result: Vec<Device> = hw_map.into_values().collect();
+        result.retain(|d| d.status != DeviceStatus::Offline || d.favorite);
+        Ok(result)
     }
 
     pub async fn forget_device(
@@ -561,13 +477,14 @@ impl DeviceRegistry {
         device_id: String,
     ) -> Result<bool, String> {
         let devices = self.get_resolved_devices(adb_path.clone()).await?;
+        let saved = get_saved_devices_impl().await.unwrap_or_default();
         let device_opt = devices
             .iter()
+            .chain(saved.iter())
             .find(|d| d.id == device_id || d.hardware_id == device_id);
 
-        if let Some(device) = device_opt {
-            self.mark_device_forgotten(device);
 
+        if let Some(device) = device_opt {
             for conn in &device.connections {
                 if conn.connection_type == ConnectionType::Wireless {
                     let _ = disconnect_device_impl(adb_path.clone(), conn.id.clone()).await;

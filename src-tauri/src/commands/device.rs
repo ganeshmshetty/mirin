@@ -123,7 +123,7 @@ pub async fn switch_to_wireless(
         .await
         .unwrap_or_default();
     let model_raw = adb
-        .get_prop(Some(&device_id), "ro.product.model")
+        .get_model(Some(&device_id))
         .await
         .unwrap_or_default();
 
@@ -194,6 +194,7 @@ pub async fn switch_to_wireless(
         status: DeviceStatus::Connected,
         ip_address: Some(ip),
         connections: vec![connection],
+        favorite: false,
     })
 }
 
@@ -207,12 +208,12 @@ pub async fn refresh_devices(app: tauri::AppHandle) -> Result<Vec<Device>, Strin
 #[tauri::command]
 pub async fn save_device(
     device: Device,
-    registry: tauri::State<'_, mirin_core::device_registry::DeviceRegistry>,
+    _registry: tauri::State<'_, mirin_core::device_registry::DeviceRegistry>,
 ) -> Result<bool, String> {
     let saved = mirin_core::device_registry::save_device_impl(device.clone()).await?;
-    registry.clear_device_forgotten(&device);
     Ok(saved)
 }
+
 
 /// Get all saved devices
 #[tauri::command]

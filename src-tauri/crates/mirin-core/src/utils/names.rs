@@ -1,6 +1,3 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-
 const ADJECTIVES: &[&str] = &[
     "Sleek", "Zippy", "Swift", "Radiant", "Dashing", "Bold", "Bright", "Snappy", "Polite",
     "Mellow", "Friendly", "Nimble", "Gentle", "Happy", "Chippy", "Plucky", "Clever", "Jolly",
@@ -19,12 +16,16 @@ const ANIMALS: &[&str] = &[
 ];
 
 pub fn get_deterministic_name(serial: &str) -> String {
-    let mut hasher = DefaultHasher::new();
-    serial.hash(&mut hasher);
-    let hash_value = hasher.finish();
+    // Stable FNV-1a 32-bit hash so the name is permanent and matches frontend
+    let mut hash: u32 = 2166136261;
+    for byte in serial.bytes() {
+        hash ^= byte as u32;
+        hash = hash.wrapping_mul(16777619);
+    }
 
-    let adj_idx = (hash_value as usize) % ADJECTIVES.len();
-    let animal_idx = ((hash_value >> 8) as usize) % ANIMALS.len();
+    let adj_idx = (hash as usize) % ADJECTIVES.len();
+    let animal_idx = ((hash >> 8) as usize) % ANIMALS.len();
 
     format!("{} {}", ADJECTIVES[adj_idx], ANIMALS[animal_idx])
 }
+

@@ -19,7 +19,7 @@
     "switched_wireless": "Cambiado a inalámbrico",
     "forget_failed": "Error al olvidar el dispositivo",
     "renamed": "Renombrado a {{name}}",
-    "rename_failed": "Error al renombrar el dispositivo"
+    "rename_failed": "Error al renbrar el dispositivo"
   },
   "devices": {
     "status": {
@@ -42,7 +42,9 @@
       "enter_new_name": "Ingrese el nuevo nombre",
       "forget": "Olvidar",
       "forget_device": "Olvidar dispositivo",
-      "connect": "Conectar"
+      "connect": "Conectar",
+      "quick_mirror": "Espejo Rápido",
+      "quick_mirror_desc": "Espejo rápido — omitir detalles del dispositivo"
     },
     "no_devices": "No hay dispositivos conectados",
     "connect_device": "Conectar dispositivo",
@@ -62,6 +64,8 @@
     "popout_failed": "Error al abrir la ventana de espejo.",
     "popout_title": "Mostrar en una ventana flotante",
     "stop_mirroring": "Detener espejo",
+    "start_mirroring": "Iniciar Espejo",
+    "mirror": "Espejo",
     "close": "Cerrar",
     "invalid_id": "ID de dispositivo no válido para la ventana emergente de espejo.",
     "reconnecting": "Reconectando…",
@@ -298,7 +302,7 @@
       "port_config": "Configuración de puerto",
       "port_config_desc": "El puerto local en el que escuchará el servidor MCP.",
       "restart_server": "Reiniciar servidor",
-      "security_logs": "Seguridad y registros",
+      "security_logs": "Security & Logs",
       "require_auth": "Requirir autorización",
       "require_auth_desc": "Permitir que solo los clientes con una clave API se conecten al servidor MCP.",
       "logging_level": "Nivel de registro",

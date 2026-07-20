@@ -23,6 +23,7 @@ export interface Device {
   status: DeviceStatus;
   ip_address?: string;
   connections: DeviceConnection[];
+  favorite?: boolean;
 }
 
 export interface MdnsService {

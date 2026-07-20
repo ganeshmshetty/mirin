@@ -72,7 +72,7 @@ impl Settings {
             _ => self.theme = "system".to_string(),
         }
         match self.language.as_str() {
-            "en" | "es" => {}
+            "en" | "es" | "zh" => {}
             _ => self.language = "en".to_string(),
         }
         match self.mcp_log_level.as_str() {

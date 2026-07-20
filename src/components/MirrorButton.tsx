@@ -1,4 +1,5 @@
 import { Play } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface MirrorButtonProps {
   size: "sm" | "md" | "lg";
@@ -13,6 +14,7 @@ export function MirrorButton({
   title,
   className = "",
 }: MirrorButtonProps) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
@@ -28,11 +30,11 @@ export function MirrorButton({
       {size === "lg" || size === "md" ? (
         <>
           <Play size={size === "lg" ? 16 : 14} fill="currentColor" />
-          <span>Start Mirroring</span>
+          <span>{t("mirror.start_mirroring")}</span>
         </>
       ) : (
         <>
-          <span>Mirror</span>
+          <span>{t("mirror.mirror")}</span>
           <Play size={12} fill="currentColor" />
         </>
       )}

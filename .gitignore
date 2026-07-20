@@ -34,3 +34,4 @@ research/
 # Ignored spec documentation
 docs/superpowers/
 todo/
+.superpowers/

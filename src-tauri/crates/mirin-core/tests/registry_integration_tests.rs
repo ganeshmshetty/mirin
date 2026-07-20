@@ -35,7 +35,9 @@ async fn test_device_registry_file_integration() {
             ip_address: None,
             port: None,
         }],
+        favorite: false,
     };
+
 
     let saved = save_device_impl(dev.clone()).await.unwrap();
     assert!(saved);

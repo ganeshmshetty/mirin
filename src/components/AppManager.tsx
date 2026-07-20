@@ -152,12 +152,18 @@ export function AppManager({ deviceId }: AppManagerProps) {
     app: AppInfo;
     compact?: boolean;
   }) => (
-    <div className={`flex items-center gap-1 ${compact ? "gap-2" : ""}`}>
+    <div
+      className={
+        compact
+          ? "grid grid-cols-2 gap-1.5 justify-center items-center"
+          : "flex items-center gap-1"
+      }
+    >
       <button
         onClick={() => handleAction("launch", app.package_name)}
         className={
           compact
-            ? "p-2 text-cyan-600 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-900/30 rounded-lg hover:scale-110 transition-transform"
+            ? "p-2 text-cyan-600 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-900/30 rounded-lg hover:scale-105 transition-transform flex items-center justify-center"
             : "p-2 text-gray-500 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg transition-colors"
         }
         title={t("apps.launch_tooltip")}
@@ -168,7 +174,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
         onClick={() => handleAction("stop", app.package_name)}
         className={
           compact
-            ? "p-2 text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/30 rounded-lg hover:scale-110 transition-transform"
+            ? "p-2 text-orange-600 bg-orange-50 dark:text-orange-400 dark:bg-orange-900/30 rounded-lg hover:scale-105 transition-transform flex items-center justify-center"
             : "p-2 text-gray-500 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
         }
         title={t("apps.stop_tooltip")}
@@ -179,7 +185,9 @@ export function AppManager({ deviceId }: AppManagerProps) {
         onClick={() => handleAction("clear", app.package_name)}
         className={
           compact
-            ? "p-2 text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/30 rounded-lg hover:scale-110 transition-transform"
+            ? `p-2 text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/30 rounded-lg hover:scale-105 transition-transform flex items-center justify-center ${
+                app.is_system ? "col-span-2 justify-self-center" : ""
+              }`
             : "p-2 text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
         }
         title={t("apps.clear_tooltip")}
@@ -187,22 +195,17 @@ export function AppManager({ deviceId }: AppManagerProps) {
         <Eraser size={16} />
       </button>
       {!app.is_system && (
-        <>
-          {!compact && (
-            <div className="w-px h-4 bg-gray-200 dark:bg-[#2a3036] mx-1" />
-          )}
-          <button
-            onClick={() => handleAction("uninstall", app.package_name)}
-            className={
-              compact
-                ? "p-2 text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/30 rounded-lg hover:scale-110 transition-transform"
-                : "p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-            }
-            title={t("apps.uninstall_tooltip")}
-          >
-            <Trash2 size={16} />
-          </button>
-        </>
+        <button
+          onClick={() => handleAction("uninstall", app.package_name)}
+          className={
+            compact
+              ? "p-2 text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/30 rounded-lg hover:scale-105 transition-transform flex items-center justify-center"
+              : "p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+          }
+          title={t("apps.uninstall_tooltip")}
+        >
+          <Trash2 size={16} />
+        </button>
       )}
     </div>
   );
@@ -305,7 +308,7 @@ export function AppManager({ deviceId }: AppManagerProps) {
               viewMode === "grid" ? (
                 <div
                   key={app.package_name}
-                  className="flex flex-col items-center justify-center p-4 bg-white dark:bg-[#16191b] border border-gray-200 dark:border-[#222629] rounded-xl hover:border-cyan-500/50 transition-all shadow-sm shadow-black/5 dark:shadow-none group relative overflow-hidden text-center h-36"
+                  className="flex flex-col items-center justify-center p-3 bg-white dark:bg-[#16191b] border border-gray-200 dark:border-[#222629] rounded-xl hover:border-cyan-500/50 transition-all shadow-sm shadow-black/5 dark:shadow-none group relative overflow-hidden text-center h-40"
                 >
                   <div className="w-12 h-12 bg-gray-100 dark:bg-[#1d2327] rounded-2xl flex items-center justify-center text-gray-500 mb-2 transition-transform group-hover:-translate-y-1 group-hover:scale-105">
                     <Package size={24} />

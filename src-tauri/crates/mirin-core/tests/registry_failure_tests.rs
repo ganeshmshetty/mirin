@@ -10,9 +10,10 @@ use mirin_core::device_registry::{
 use std::env;
 use std::fs;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tempfile::tempdir;
+
 
 // ---------------------------------------------------------------------------
 // Global lock – serialises every test that mutates env vars / filesystem
@@ -39,8 +40,10 @@ fn make_device(id: &str, hw_id: &str, name: &str, conn_type: ConnectionType) -> 
             ip_address: None,
             port: None,
         }],
+        favorite: false,
     }
 }
+
 
 /// On macOS, dirs::config_dir() uses $HOME/Library/Application Support.
 /// On Linux it uses $XDG_CONFIG_HOME or $HOME/.config.
@@ -168,47 +171,6 @@ async fn test_save_multiple_devices() {
             i
         );
     }
-}
-
-// ---------------------------------------------------------------------------
-// Test 5 – DeviceRegistry: mark/clear forgotten, multiple hw_ids
-// ---------------------------------------------------------------------------
-#[tokio::test]
-async fn test_device_registry_mark_and_forget() {
-    let _lock = ENV_LOCK.lock().unwrap();
-    let dir = tempdir().unwrap();
-    redirect_config(dir.path());
-
-    let registry = DeviceRegistry::new();
-
-    assert!(!registry.is_forgotten("hw_A"));
-    assert!(!registry.is_forgotten("hw_B"));
-    assert!(!registry.is_forgotten("hw_C"));
-
-    registry.mark_forgotten("hw_A".to_string());
-    registry.mark_forgotten("hw_B".to_string());
-    registry.mark_forgotten("hw_C".to_string());
-
-    assert!(registry.is_forgotten("hw_A"));
-    assert!(registry.is_forgotten("hw_B"));
-    assert!(registry.is_forgotten("hw_C"));
-
-    // Clear just hw_B; others must remain
-    registry.clear_forgotten("hw_B");
-    assert!(
-        registry.is_forgotten("hw_A"),
-        "hw_A should still be forgotten"
-    );
-    assert!(!registry.is_forgotten("hw_B"), "hw_B should be cleared");
-    assert!(
-        registry.is_forgotten("hw_C"),
-        "hw_C should still be forgotten"
-    );
-
-    registry.clear_forgotten("hw_A");
-    registry.clear_forgotten("hw_C");
-    assert!(!registry.is_forgotten("hw_A"));
-    assert!(!registry.is_forgotten("hw_C"));
 }
 
 // ---------------------------------------------------------------------------
@@ -373,100 +335,33 @@ async fn test_remove_from_empty_registry_no_file() {
 }
 
 // ---------------------------------------------------------------------------
-// Test 12 – DeviceRegistry clone shares the Arc<Mutex<HashSet>>
+// Test 12 – offline non-favorite devices are filtered out from get_resolved_devices
 // ---------------------------------------------------------------------------
 #[tokio::test]
-async fn test_device_registry_clone_shares_state() {
-    let registry = DeviceRegistry::new();
-    let clone = registry.clone();
-
-    registry.mark_forgotten("hw_shared".to_string());
-    assert!(
-        clone.is_forgotten("hw_shared"),
-        "Clone must see changes from original"
-    );
-
-    clone.clear_forgotten("hw_shared");
-    assert!(
-        !registry.is_forgotten("hw_shared"),
-        "Original must see clearance from clone"
-    );
-}
-
-// ---------------------------------------------------------------------------
-// Test 13 - forgetting tracks every transport identifier and explicit save clears it
-// ---------------------------------------------------------------------------
-#[test]
-fn test_forgotten_device_tracks_and_clears_all_identifiers() {
+async fn test_get_resolved_devices_filters_offline_non_favorites() {
     let _lock = ENV_LOCK.lock().unwrap();
     let dir = tempdir().unwrap();
     redirect_config(dir.path());
 
+    let mut dev_normal = make_device("dev_normal", "hw_norm", "Normal Phone", ConnectionType::Usb);
+    dev_normal.favorite = false;
+    save_device_impl(dev_normal).await.unwrap();
+
+    let mut dev_fav = make_device("dev_fav", "hw_fav", "Favorite Phone", ConnectionType::Usb);
+    dev_fav.favorite = true;
+    save_device_impl(dev_fav).await.unwrap();
+
+    let saved = get_saved_devices_impl().await.unwrap();
+    assert_eq!(saved.len(), 2);
+
     let registry = DeviceRegistry::new();
-    let mut device = make_device(
-        "USB_SERIAL_001",
-        "hardware_001",
-        "Phone",
-        ConnectionType::Usb,
-    );
-    device.connections.push(DeviceConnection {
-        id: "192.168.1.10:5555".to_string(),
-        connection_type: ConnectionType::Wireless,
-        status: DeviceStatus::Connected,
-        ip_address: Some("192.168.1.10".to_string()),
-        port: Some(5555),
-    });
+    let resolved = registry
+        .get_resolved_devices(PathBuf::from("/nonexistent/adb"))
+        .await
+        .unwrap();
 
-    registry.mark_device_forgotten(&device);
-
-    assert!(registry.is_device_forgotten(&device));
-    assert!(registry.is_forgotten("USB_SERIAL_001"));
-    assert!(registry.is_forgotten("hardware_001"));
-    assert!(registry.is_forgotten("192.168.1.10:5555"));
-    assert!(registry.is_forgotten("192.168.1.10"));
-
-    registry.clear_device_forgotten(&device);
-
-    assert!(!registry.is_device_forgotten(&device));
-    assert!(!registry.is_forgotten("192.168.1.10"));
+    assert_eq!(resolved.len(), 1, "Expected only the favorite device when offline");
+    assert_eq!(resolved[0].id, "dev_fav");
+    assert!(resolved[0].favorite);
 }
 
-// ---------------------------------------------------------------------------
-// Test 14 - forgotten identifiers persist to disk across registry instances
-// ---------------------------------------------------------------------------
-#[tokio::test]
-async fn test_forgotten_persists_across_registry_instances() {
-    let _lock = ENV_LOCK.lock().unwrap();
-    let dir = tempdir().unwrap();
-    redirect_config(dir.path());
-
-    let id = "persisted_hw_id".to_string();
-
-    {
-        let registry = DeviceRegistry::new();
-        registry.mark_forgotten(id.clone());
-        assert!(registry.is_forgotten(&id));
-        // registry drops here; file persists
-    }
-
-    {
-        let registry = DeviceRegistry::new();
-        assert!(
-            registry.is_forgotten(&id),
-            "Forgotten identifier must survive across registry instances"
-        );
-    }
-
-    {
-        let registry = DeviceRegistry::new();
-        registry.clear_forgotten(&id);
-    }
-
-    {
-        let registry = DeviceRegistry::new();
-        assert!(
-            !registry.is_forgotten(&id),
-            "Clear must also persist across registry instances"
-        );
-    }
-}

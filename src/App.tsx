@@ -14,15 +14,15 @@ import { DeviceDashboard } from "./pages/DeviceDashboard";
 import { ToastProvider } from "./components/ToastProvider";
 import { ConfirmDialogProvider } from "./components/ConfirmDialog";
 import { InputDialogProvider } from "./components/InputDialog";
-import { ConnectDeviceModal } from "./components/ConnectDeviceModal";
 import { EmbeddedMirrorPopup } from "./components/EmbeddedMirrorPopup";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { settingsService, windowService } from "./services";
+import { settingsService } from "./services";
 import i18n from "./i18n";
 
 function AppContent() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showWifiPanel, setShowWifiPanel] = useState(false);
   const [deviceRail, setDeviceRail] = useState<DeviceRailInfo | null>(null);
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -122,34 +122,7 @@ function AppContent() {
     [setSearchParams],
   );
 
-  const handleConnectClick = async () => {
-    try {
-      await windowService.openConnectWindow();
-    } catch (err) {
-      console.error("Failed to open connect window:", err);
-    }
-  };
-
-  const handleQuickMirrorClick = async () => {
-    try {
-      await windowService.openConnectWindow("quick-mirror");
-    } catch (err) {
-      console.error("Failed to open quick mirror window:", err);
-    }
-  };
-
-  if (location.pathname === "/connect") {
-    const mode = searchParams.get("mode") || "connect";
-    return (
-      <ConnectDeviceModal
-        mode={mode}
-        onClose={() => getCurrentWindow().close()}
-        onDeviceConnected={() => {
-          getCurrentWindow().close();
-        }}
-      />
-    );
-  }
+  const handleConnectClick = () => setShowWifiPanel(true);
 
   if (location.pathname.startsWith("/mirror/")) {
     return (
@@ -175,8 +148,9 @@ function AppContent() {
               element={
                 <Home
                   refreshTrigger={refreshTrigger}
-                  onConnectClick={handleConnectClick}
-                  onQuickMirrorClick={handleQuickMirrorClick}
+                  onShowWifiPanel={handleConnectClick}
+                  showWifiPanel={showWifiPanel}
+                  onCloseWifiPanel={() => setShowWifiPanel(false)}
                 />
               }
             />

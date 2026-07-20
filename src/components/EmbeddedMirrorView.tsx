@@ -503,11 +503,13 @@ export function EmbeddedMirrorView({
   const connectionSummary =
     [
       ...new Set(
-        connectedConnections.map((connection) => connection.connection_type),
+        connectedConnections.map((connection) => {
+          const type = connection.connection_type.toLowerCase();
+          return t(`devices.connection.${type}`);
+        }),
       ),
     ].join(" + ") ||
-    connectionType ||
-    "—";
+    (connectionType ? t(`devices.connection.${connectionType.toLowerCase()}`) : "—");
   const ipSummary =
     connectedConnections
       .filter((connection) => connection.connection_type === "Wireless")
@@ -594,10 +596,89 @@ export function EmbeddedMirrorView({
                         <p className="text-sm text-app-muted font-medium mt-1">
                           {t(
                             `devices.status.${(deviceStatus || "Connected").toLowerCase()}`,
-                          )}{" "}
-                          • {connectionSummary}
+                          )}
                         </p>
                       </div>
+
+                      {/* Transport toggle or badge above mirror button */}
+                      {(() => {
+                        const usbConn = availableConnections?.find(
+                          (c) =>
+                            c.connection_type === "USB" &&
+                            c.status === "Connected",
+                        );
+                        const wifiConn = availableConnections?.find(
+                          (c) =>
+                            c.connection_type === "Wireless" &&
+                            c.status === "Connected",
+                        );
+
+                        const isUsbConnected =
+                          !!usbConn ||
+                          (!availableConnections?.length && connectionType === "USB");
+                        const isWifiConnected =
+                          !!wifiConn ||
+                          (!availableConnections?.length && connectionType === "Wireless");
+
+                        if (usbConn && wifiConn) {
+                          const isUsb = effectiveTransportId === usbConn.id;
+                          return (
+                            <div>
+                              <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-[#2a3036] bg-white dark:bg-[#1d2327] w-fit">
+                                <button
+                                  onClick={() => {
+                                    if (!isUsb) void switchTransport(usbConn.id);
+                                  }}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                                    isUsb
+                                      ? "bg-cyan-600 text-white"
+                                      : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]"
+                                  }`}
+                                >
+                                  <Usb size={13} />
+                                  {t("devices.connection.usb")}
+                                </button>
+                                <div className="w-px bg-gray-200 dark:bg-[#2a3036]" />
+                                <button
+                                  onClick={() => {
+                                    if (isUsb) void switchTransport(wifiConn.id);
+                                  }}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                                    isUsb
+                                      ? "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]"
+                                      : "bg-cyan-600 text-white"
+                                  }`}
+                                >
+                                  <Wifi size={13} />
+                                  {t("devices.connection.wireless")}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (isUsbConnected) {
+                          return (
+                            <div>
+                              <div className="rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 px-3 py-1 text-xs font-medium w-fit">
+                                USB
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        if (isWifiConnected) {
+                          return (
+                            <div>
+                              <div className="rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 px-3 py-1 text-xs font-medium w-fit">
+                                WiFi
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return null;
+                      })()}
 
                       <div className="flex items-center gap-3">
                         {!isPoppedOut ? (
@@ -631,55 +712,6 @@ export function EmbeddedMirrorView({
                           </>
                         )}
                       </div>
-
-                      {/* Transport toggle when both USB + WiFi available */}
-                      {(() => {
-                        const usbConn = availableConnections?.find(
-                          (c) =>
-                            c.connection_type === "USB" &&
-                            c.status === "Connected",
-                        );
-                        const wifiConn = availableConnections?.find(
-                          (c) =>
-                            c.connection_type === "Wireless" &&
-                            c.status === "Connected",
-                        );
-                        if (!usbConn || !wifiConn) return null;
-                        const isUsb = effectiveTransportId === usbConn.id;
-                        return (
-                          <div className="mt-4">
-                            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-[#2a3036] bg-white dark:bg-[#1d2327] w-fit">
-                              <button
-                                onClick={() => {
-                                  if (!isUsb) void switchTransport(usbConn.id);
-                                }}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
-                                  isUsb
-                                    ? "bg-cyan-500 text-white"
-                                    : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]"
-                                }`}
-                              >
-                                <Usb size={13} />
-                                {t("devices.connection.usb")}
-                              </button>
-                              <div className="w-px bg-gray-200 dark:bg-[#2a3036]" />
-                              <button
-                                onClick={() => {
-                                  if (isUsb) void switchTransport(wifiConn.id);
-                                }}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
-                                  isUsb
-                                    ? "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]"
-                                    : "bg-cyan-500 text-white"
-                                }`}
-                              >
-                                <Wifi size={13} />
-                                {t("devices.connection.wireless")}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })()}
 
                       {/* Stats Cards */}
                       <div className="grid grid-cols-2 gap-4 mt-2 max-w-xs">
