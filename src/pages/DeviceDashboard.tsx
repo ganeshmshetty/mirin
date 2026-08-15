@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { deviceService } from "../services";
 import { useToast } from "../components/ToastProvider";
-import { EmbeddedMirrorView } from "../components/EmbeddedMirrorView";
+import { DeviceManager } from "../components/DeviceManager";
 import { AppManager } from "../components/AppManager";
 import { FileManager } from "../components/FileManager";
 import { ConsoleManager } from "../components/ConsoleManager";
@@ -105,7 +105,7 @@ export function DeviceDashboard({
       <main className="flex-1 min-h-0 overflow-hidden">
         {(activeTab === "screen" || activeTab === "overview") && (
           <div className="h-full min-h-0 animate-fade-in">
-            <EmbeddedMirrorView
+            <DeviceManager
               deviceId={device.id}
               deviceName={device.name}
               connectionType={device.connection_type}

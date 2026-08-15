@@ -53,16 +53,10 @@ pub async fn connect_embedded_mirror(
     // If an embedded session is already active for this device, stop it cleanly first.
     // Shutdown notify returns from stream_video without emitting a "disconnected"
     // event so the frontend does not stack a second reconnect on top of this one.
-    if let Some(mut session) = state.remove_session(&device_id)? {
-        session.shutdown_notify.notify_one();
-        let _ = session.server_process.kill();
-        stream::stop_server(&adb, &device_id, session.port).await;
-        // Brief settle so pkill + reverse cleanup finish before the next reverse bind
-        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
-    }
+    let _ = state.stop(&adb, &device_id).await;
 
     let streams = tokio::time::timeout(
-        std::time::Duration::from_secs(10),
+        std::time::Duration::from_secs(15),
         stream::start_server(
             &adb,
             &device_id,
@@ -77,22 +71,54 @@ pub async fn connect_embedded_mirror(
     let (width, height) = (streams.screen_width, streams.screen_height);
     let shutdown = Arc::new(Notify::new());
     let shutdown_clone = shutdown.clone();
+    let session_id = state.next_session_id();
 
     let codec = VideoCodec::from_str(&opts.video_codec);
     let video_socket = streams.video_socket;
+
+    let state_inner = state.inner().clone();
+    let adb_clone = adb.clone();
+    let device_id_clone = device_id.clone();
+
     tokio::spawn(async move {
-        video::stream_video(
+        let exit_reason = video::stream_video(
             video_socket,
-            move |event| {
-                let _ = on_frame.send(event);
-            },
+            move |event| on_frame.send(event),
             shutdown_clone,
             codec,
         )
         .await;
+
+        match exit_reason {
+            video::StreamExitReason::Shutdown => {
+                eprintln!(
+                    "[scrcpy] Stream session {} for {} stopped via shutdown signal",
+                    session_id, device_id_clone
+                );
+            }
+            video::StreamExitReason::ChannelClosed => {
+                eprintln!(
+                    "[scrcpy] Channel receiver dropped for {} (session {}), tearing down session",
+                    device_id_clone, session_id
+                );
+                let _ = state_inner
+                    .stop_if_match(&adb_clone, &device_id_clone, session_id)
+                    .await;
+            }
+            video::StreamExitReason::Disconnected(reason) => {
+                eprintln!(
+                    "[scrcpy] Stream disconnected for {} (session {}): {}, tearing down session",
+                    device_id_clone, session_id, reason
+                );
+                let _ = state_inner
+                    .stop_if_match(&adb_clone, &device_id_clone, session_id)
+                    .await;
+            }
+        }
     });
 
     let session = EmbeddedSessionInfo {
+        session_id,
         control_socket: Arc::new(TokioMutex::new(streams.control_socket)),
         shutdown_notify: shutdown,
         screen_width: width,
@@ -114,13 +140,9 @@ pub async fn disconnect_embedded_mirror(
     let device_lock = state.lock_device_connect(&device_id).await;
     let _guard = device_lock.lock().await;
 
-    if let Some(mut session) = state.remove_session(&device_id)? {
-        session.shutdown_notify.notify_one();
-        let _ = session.server_process.kill();
-        let adb_path = utils::get_adb_path(&app)?;
-        let adb = Adb::new(adb_path);
-        stream::stop_server(&adb, &device_id, session.port).await;
-    }
+    let adb_path = utils::get_adb_path(&app)?;
+    let adb = Adb::new(adb_path);
+    state.stop(&adb, &device_id).await?;
     Ok(())
 }
 
@@ -200,8 +222,7 @@ pub async fn send_touch(
     y: f32,
 ) -> Result<(), String> {
     let (control_socket, width, height) = state.get_session_info(&device_id)?;
-    let abs_x = (x.clamp(0.0, 1.0) * width as f32).round() as u32;
-    let abs_y = (y.clamp(0.0, 1.0) * height as f32).round() as u32;
+    let (abs_x, abs_y) = control::normalized_point(x, y, width, height);
     control::inject_touch(
         &control_socket,
         &action,
@@ -233,8 +254,11 @@ pub async fn send_text(
     device_id: String,
     text: String,
 ) -> Result<(), String> {
+    if text.is_empty() {
+        return Ok(());
+    }
     let socket = state.get_control_socket(&device_id)?;
-    control::inject_text(&socket, &text)
+    control::inject_text_chunked(&socket, &text)
         .await
         .map_err(|e| e.to_string())
 }
@@ -249,8 +273,7 @@ pub async fn send_scroll(
     dy: i16,
 ) -> Result<(), String> {
     let (control_socket, width, height) = state.get_session_info(&device_id)?;
-    let abs_x = (x.clamp(0.0, 1.0) * width as f32).round() as u32;
-    let abs_y = (y.clamp(0.0, 1.0) * height as f32).round() as u32;
+    let (abs_x, abs_y) = control::normalized_point(x, y, width, height);
     control::inject_scroll(
         &control_socket,
         abs_x,

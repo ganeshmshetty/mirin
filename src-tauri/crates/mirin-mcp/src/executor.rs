@@ -433,8 +433,11 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                                 json!({ "status": "already_connected", "width": w, "height": h }),
                             );
                         }
-                        let _ = self.state.remove_session(&serial);
+                        let _ = self.state.stop(&adb, &serial).await;
                     }
+
+                    let device_lock = self.state.lock_device_connect(&serial).await;
+                    let _guard = device_lock.lock().await;
 
                     let scrcpy_server_path = self.host.scrcpy_server_path()?;
                     let scrcpy_path = self.host.scrcpy_path()?;
@@ -473,6 +476,7 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                     });
 
                     let session = mirin_core::scrcpy::EmbeddedSessionInfo {
+                        session_id: self.state.next_session_id(),
                         control_socket: Arc::new(TokioMutex::new(streams.control_socket)),
                         shutdown_notify: shutdown,
                         screen_width: width,
@@ -502,14 +506,10 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                 }
                 "disconnect_device" => {
                     let serial = self.get_serial(&args)?;
-                    let mut session = self
-                        .state
-                        .remove_session(&serial)
-                        .map_err(|_| format!("No active session for device {}", serial))?
-                        .ok_or_else(|| format!("No active session for device {}", serial))?;
-                    session.shutdown_notify.notify_one();
-                    let _ = session.server_process.kill().await;
-                    mirin_core::scrcpy::stream::stop_server(&adb, &serial, session.port).await;
+                    let device_lock = self.state.lock_device_connect(&serial).await;
+                    let _guard = device_lock.lock().await;
+
+                    self.state.stop(&adb, &serial).await?;
                     if let Ok(mut cur) = self.current_device.lock() {
                         *cur = None;
                     }
@@ -1133,10 +1133,9 @@ impl<H: RuntimeHost> ToolDispatcher<H> {
                 "run_script" => {
                     let serial = self.get_serial(&args)?;
                     let steps_val = args["steps"].clone();
-                    if !steps_val.is_array() {
+                    let Some(steps_arr) = steps_val.as_array() else {
                         return Err("'steps' must be an array".to_string());
-                    }
-                    let steps_arr = steps_val.as_array().unwrap();
+                    };
                     if steps_arr.is_empty() {
                         return Err("'steps' array must not be empty".to_string());
                     }

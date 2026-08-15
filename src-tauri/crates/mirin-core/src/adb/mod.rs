@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// The complete 8-byte PNG file signature.
+const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdbDevice {
     pub serial: String,
@@ -580,21 +583,16 @@ impl Adb {
 
     /// Kill any running scrcpy server on the remote device
     pub async fn kill_scrcpy_server(&self, device_serial: &str) {
+        // Android shell command that handles pkill, killall, and fallback procfs pid extraction
+        let kill_cmd = "pkill -9 -f com.genymobile.scrcpy.Server 2>/dev/null; pkill -9 -f scrcpy-server.jar 2>/dev/null; for pid in $(grep -l 'com.genymobile.scrcpy.Server' /proc/[0-9]*/cmdline 2>/dev/null | tr -cd '0-9\\n'); do kill -9 $pid 2>/dev/null; done";
         if self.transport_id.is_some() {
-            let _ = self
-                .execute_raw(&["shell", "pkill -f com.genymobile.scrcpy.Server"])
-                .await;
+            let _ = self.execute_raw(&["shell", kill_cmd]).await;
         } else {
             let _ = self
-                .execute_raw(&[
-                    "-s",
-                    device_serial,
-                    "shell",
-                    "pkill -f com.genymobile.scrcpy.Server",
-                ])
+                .execute_raw(&["-s", device_serial, "shell", kill_cmd])
                 .await;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
 
     /// Spawn a continuous shell command (returning child process without waiting)
@@ -621,11 +619,72 @@ impl Adb {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
 
-        tokio::process::Command::from(std_cmd)
+        let mut tokio_cmd = tokio::process::Command::from(std_cmd);
+        tokio_cmd.kill_on_drop(true);
+
+        tokio_cmd
             .spawn()
             .map_err(|e| format!("Failed to spawn shell child: {}", e))
     }
+
+    /// Fetch device wallpaper or screen background image as PNG bytes (with fallback tiers)
+    pub async fn fetch_wallpaper(&self) -> Result<Vec<u8>, String> {
+        // Tier 1: Try reading /data/system/users/0/wallpaper directly (works on rooted / older / custom ROMs)
+        if let Ok(bytes) = self.execute_bytes(&["exec-out", "cat", "/data/system/users/0/wallpaper"]).await {
+            if !bytes.is_empty() && (bytes.starts_with(&PNG_SIGNATURE) || bytes.starts_with(&[0xFF, 0xD8, 0xFF])) {
+                if let Ok(img) = image::load_from_memory(&bytes) {
+                    let thumb = img.thumbnail(400, 800);
+                    let mut out = Vec::new();
+                    if thumb.write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png).is_ok() {
+                        return Ok(out);
+                    }
+                }
+                return Ok(bytes);
+            }
+        }
+
+        // Tier 2: Try pulling /data/system/users/0/wallpaper_orig if wallpaper wasn't found
+        if let Ok(bytes) = self.execute_bytes(&["exec-out", "cat", "/data/system/users/0/wallpaper_orig"]).await {
+            if !bytes.is_empty() && (bytes.starts_with(&PNG_SIGNATURE) || bytes.starts_with(&[0xFF, 0xD8, 0xFF])) {
+                if let Ok(img) = image::load_from_memory(&bytes) {
+                    let thumb = img.thumbnail(400, 800);
+                    let mut out = Vec::new();
+                    if thumb.write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png).is_ok() {
+                        return Ok(out);
+                    }
+                }
+                return Ok(bytes);
+            }
+        }
+
+        // Tier 2.5: Try checking unrooted backup folders (e.g., com.android.systemui backupwallpapers)
+        if let Ok(bytes) = self.execute_bytes(&["exec-out", "cat", "/sdcard/Android/data/com.android.systemui/files/backupwallpapers/original_file_home.jpg"]).await {
+            if !bytes.is_empty() && (bytes.starts_with(&PNG_SIGNATURE) || bytes.starts_with(&[0xFF, 0xD8, 0xFF])) {
+                if let Ok(img) = image::load_from_memory(&bytes) {
+                    let thumb = img.thumbnail(400, 800);
+                    let mut out = Vec::new();
+                    if thumb.write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png).is_ok() {
+                        return Ok(out);
+                    }
+                }
+                return Ok(bytes);
+            }
+        }
+
+        // Tier 3: Screencap fallback (capture screen and thumbnail it)
+        let png_bytes = self.execute_bytes(&["exec-out", "screencap", "-p"]).await?;
+        let img = image::load_from_memory(&png_bytes)
+            .map_err(|e| format!("Failed to decode screencap PNG for wallpaper: {}", e))?;
+        
+        let thumb = img.thumbnail(400, 800);
+        let mut out = Vec::new();
+        thumb.write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)
+            .map_err(|e| format!("Failed to encode thumbnail PNG: {}", e))?;
+        
+        Ok(out)
+    }
 }
+
 
 #[cfg(test)]
 mod tests {

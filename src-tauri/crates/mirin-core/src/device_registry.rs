@@ -1,4 +1,5 @@
 use crate::adb::{Adb, MdnsService};
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -222,6 +223,107 @@ fn get_saved_devices_path() -> Result<PathBuf, String> {
     Ok(app_dir.join("saved_devices.json"))
 }
 
+pub fn get_wallpapers_dir_path() -> Result<PathBuf, String> {
+    let config_dir =
+        dirs::config_dir().ok_or_else(|| "Failed to get config directory".to_string())?;
+    let wallpapers_dir = config_dir.join("mirin").join("wallpapers");
+    if !wallpapers_dir.exists() {
+        fs::create_dir_all(&wallpapers_dir)
+            .map_err(|e| format!("Failed to create wallpapers directory: {}", e))?;
+    }
+    Ok(wallpapers_dir)
+}
+
+/// Build a filesystem-safe wallpaper cache key (filename stem) from a device or
+/// hardware id, so it can never escape `wallpapers_dir`.
+///
+/// Path separators (both `/` and `\`), control characters, and other filesystem
+/// unsafe characters (`<>:"|?*` and the like) are replaced with `_`.
+/// `..` traversal sequences are also drained, guaranteeing the result is a single
+/// safe filename component regardless of the raw identifier.
+fn wallpaper_cache_key(id: &str) -> String {
+    let mut key = String::with_capacity(id.len());
+    for c in id.chars() {
+        if c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.' {
+            key.push(c);
+        } else {
+            key.push('_');
+        }
+    }
+    // Neutralize path-traversal sequences (e.g. "..", "...") while keeping
+    // single dots used in IP addresses.
+    while key.contains("..") {
+        key = key.replace("..", "");
+    }
+    key
+}
+
+/// Best-effort image MIME type from magic bytes. JPEG is detected via its
+/// signature; everything else (including PNG) is treated as PNG, matching the
+/// cache's default encoding. Falls back to PNG for unknown/empty data so the
+/// caller's base64 data URL stays well-formed.
+fn image_mime_type(bytes: &[u8]) -> &'static str {
+    if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        "image/jpeg"
+    } else {
+        "image/png"
+    }
+}
+
+pub async fn get_device_wallpaper_impl(
+    adb_path: PathBuf,
+    device_id: String,
+    hardware_id: String,
+    fetch_from_adb: bool,
+) -> Result<Option<String>, String> {
+    let wallpapers_dir = get_wallpapers_dir_path()?;
+
+    let key = if !hardware_id.is_empty() {
+        wallpaper_cache_key(&hardware_id)
+    } else {
+        wallpaper_cache_key(&device_id)
+    };
+
+    let wallpaper_file = wallpapers_dir.join(format!("{}.png", key));
+
+    if fetch_from_adb {
+        let adb = Adb::new(adb_path.clone()).with_device(&device_id);
+        if let Ok(png_bytes) = adb.fetch_wallpaper().await {
+            if !png_bytes.is_empty() {
+                let _ = fs::write(&wallpaper_file, &png_bytes);
+                let dev_key = wallpaper_cache_key(&device_id);
+                if dev_key != key {
+                    let _ = fs::write(wallpapers_dir.join(format!("{}.png", dev_key)), &png_bytes);
+                }
+            }
+        }
+    }
+
+    if wallpaper_file.exists() {
+        if let Ok(bytes) = fs::read(&wallpaper_file) {
+            if !bytes.is_empty() {
+                let mime = image_mime_type(&bytes);
+                let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                return Ok(Some(format!("data:{};base64,{}", mime, b64)));
+            }
+        }
+    }
+
+    let dev_key = wallpaper_cache_key(&device_id);
+    let dev_file = wallpapers_dir.join(format!("{}.png", dev_key));
+    if dev_file.exists() {
+        if let Ok(bytes) = fs::read(&dev_file) {
+            if !bytes.is_empty() {
+                let mime = image_mime_type(&bytes);
+                let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                return Ok(Some(format!("data:{};base64,{}", mime, b64)));
+            }
+        }
+    }
+
+    Ok(None)
+}
+
 pub async fn get_saved_devices_impl() -> Result<Vec<Device>, String> {
     let devices_path = get_saved_devices_path()?;
     if !devices_path.exists() {
@@ -283,6 +385,13 @@ pub async fn remove_saved_device_impl(device_id: String) -> Result<bool, String>
     let json = serde_json::to_string_pretty(&saved_devices)
         .map_err(|e| format!("Failed to serialize devices: {}", e))?;
     fs::write(&devices_path, json).map_err(|e| format!("Failed to write saved devices: {}", e))?;
+
+    // Also clean up cached wallpaper
+    if let Ok(w_dir) = get_wallpapers_dir_path() {
+        let key = wallpaper_cache_key(&device_id);
+        let _ = fs::remove_file(w_dir.join(format!("{}.png", key)));
+    }
+
     Ok(true)
 }
 
@@ -310,6 +419,22 @@ mod tests {
         assert_eq!(format_brand("  xiaomi  "), "Xiaomi");
         assert_eq!(format_brand(""), "");
         assert_eq!(format_brand("oneplus co"), "Oneplus Co");
+    }
+
+    #[test]
+    fn test_wallpaper_cache_key_sanitizes_and_preserves() {
+        // Normal wireless id: colon mapped to underscore, dots/IP preserved.
+        assert_eq!(
+            wallpaper_cache_key("192.168.1.10:5555"),
+            "192.168.1.10_5555"
+        );
+        // Forward and backslashes cannot become path separators, and ".." is neutralized.
+        let evil = wallpaper_cache_key(r#"..\..\evil\..\..\etc\.."#);
+        assert!(!evil.contains('/') && !evil.contains('\\') && !evil.contains(".."));
+        assert!(!evil.is_empty());
+        // Other filesystem-unsafe characters are replaced.
+        let key = wallpaper_cache_key("a<:b>\"c?d*|e:f");
+        assert!(!key.contains('<') && !key.matches(['<', '>', '"', '?', '*', '|']).any(|_| true));
     }
 }
 
@@ -502,12 +627,20 @@ impl DeviceRegistry {
             }
 
             for id in ids_to_remove {
-                let _ = remove_saved_device_impl(id).await;
+                let _ = remove_saved_device_impl(id.clone()).await;
+                if let Ok(w_dir) = get_wallpapers_dir_path() {
+                    let key = wallpaper_cache_key(&id);
+                    let _ = fs::remove_file(w_dir.join(format!("{}.png", key)));
+                }
             }
 
             Ok(true)
         } else {
             let _ = remove_saved_device_impl(device_id.clone()).await;
+            if let Ok(w_dir) = get_wallpapers_dir_path() {
+                let key = wallpaper_cache_key(&device_id);
+                let _ = fs::remove_file(w_dir.join(format!("{}.png", key)));
+            }
             if device_id.contains(':') {
                 let _ = disconnect_device_impl(adb_path, device_id).await;
             }

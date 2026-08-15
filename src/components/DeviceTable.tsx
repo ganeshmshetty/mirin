@@ -337,9 +337,9 @@ export function DeviceTable({
                 className="w-full text-left px-3.5 py-2 text-xs font-medium text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-[#1d2327] flex items-center gap-2.5 disabled:opacity-50 transition-colors"
               >
                 {switchingId === activeDevice.id ? (
-                  <RefreshCw size={14} className="animate-spin text-cyan-600 dark:text-cyan-400" />
+                  <RefreshCw size={14} className="animate-spin text-gray-400 dark:text-slate-400" />
                 ) : (
-                  <Wifi size={14} className="text-cyan-600 dark:text-cyan-400" />
+                  <Wifi size={14} className="text-gray-400 dark:text-slate-400" />
                 )}
                 {t("devices.actions.switch_wireless")}
               </button>

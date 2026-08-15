@@ -326,3 +326,21 @@ pub async fn forget_device(
     let adb_path = utils::get_adb_path(&app)?;
     registry.forget_device(adb_path, device_id).await
 }
+
+#[tauri::command]
+pub async fn get_device_wallpaper(
+    app: tauri::AppHandle,
+    device_id: String,
+    hardware_id: String,
+    fetch_from_adb: bool,
+) -> Result<Option<String>, String> {
+    let adb_path = utils::get_adb_path(&app)?;
+    mirin_core::device_registry::get_device_wallpaper_impl(
+        adb_path,
+        device_id,
+        hardware_id,
+        fetch_from_adb,
+    )
+    .await
+}
+

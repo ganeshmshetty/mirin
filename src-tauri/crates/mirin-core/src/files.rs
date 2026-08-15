@@ -100,7 +100,10 @@ pub async fn list_files_impl(
         }
 
         if time_idx == 0 || time_idx + 1 >= parts.len() {
-            let name = parts.last().unwrap().to_string();
+            let Some(name) = parts.last() else {
+                continue;
+            };
+            let name = name.to_string();
             if name == "." || name == ".." {
                 continue;
             }

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   Square,
@@ -17,12 +17,21 @@ import {
   ChevronRight,
   RotateCw,
   Edit2,
-  Bot,
   Wifi,
   Usb,
+  AlertTriangle,
+  HelpCircle,
+  Pin,
+  Minimize2,
 } from "lucide-react";
-import { scrcpyService, deviceService, mcpService } from "../services";
-import { useMirrorDecoder } from "../hooks/useMirrorDecoder";
+import {
+  scrcpyService,
+  deviceService,
+  mcpService,
+  windowService,
+} from "../services";
+import { PhoneMockup } from "./PhoneMockup";
+import { useMirrorDecoder, useMirrorInput } from "../hooks";
 import type {
   Device,
   ConnectionType,
@@ -35,7 +44,7 @@ import { MirrorButton } from "./MirrorButton";
 import { useInputDialog } from "./InputDialog";
 import { useTranslation } from "react-i18next";
 
-interface EmbeddedMirrorViewProps {
+interface DeviceManagerProps {
   deviceId: string;
   deviceName: string;
   onClose?: () => void;
@@ -52,9 +61,10 @@ interface EmbeddedMirrorViewProps {
   autoStart?: boolean;
   onRename?: (newName: string) => void;
   onTransportChange?: (transportId: string) => void;
+  onDimensionsChange?: (dimensions: { width: number; height: number }) => void;
 }
 
-export function EmbeddedMirrorView({
+export function DeviceManager({
   deviceId,
   deviceName,
   onClose,
@@ -68,7 +78,8 @@ export function EmbeddedMirrorView({
   autoStart = false,
   onRename,
   onTransportChange,
-}: EmbeddedMirrorViewProps) {
+  onDimensionsChange,
+}: DeviceManagerProps) {
   const { t } = useTranslation();
   const toast = useToast();
   const { prompt } = useInputDialog();
@@ -76,12 +87,13 @@ export function EmbeddedMirrorView({
   const {
     status,
     errorMsg,
+    classifiedError,
     isAutoRetrying,
-    setIsAutoRetrying,
+    retryCountdown,
+    retryAttempt,
     effectiveTransportId,
     dimensions,
     isPoppedOut,
-    setIsPoppedOut,
     canvasRef,
     transportRef,
     retryCountRef,
@@ -91,6 +103,9 @@ export function EmbeddedMirrorView({
     startMirroring,
     retryMirroring,
     cancelRetry,
+    popOutMirror,
+    bringMirrorBack,
+    focusPopoutWindow,
   } = useMirrorDecoder({
     deviceId,
     autoStart,
@@ -99,31 +114,52 @@ export function EmbeddedMirrorView({
     toast,
   });
 
+  const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
+
   const [isDetailsOpen, setIsDetailsOpen] = useState(true);
   const [details, setDetails] = useState<DeviceDetails | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isChangingOrientation, setIsChangingOrientation] = useState(false);
-  const isMouseDownRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mirrorStageRef = useRef<HTMLDivElement>(null);
+  const actionToolbarRef = useRef<HTMLElement>(null);
+
+  const {
+    canvasProps,
+    containerProps,
+    sendNavigationKey,
+  } = useMirrorInput({
+    transportId: effectiveTransportId,
+    status,
+    dimensions,
+    canvasRef,
+    containerRef,
+    enableShortcuts: true,
+  });
 
   useEffect(() => {
     let active = true;
     const fetchDetails = async () => {
-      if (deviceStatus === "Offline" || deviceStatus === "Disconnected") {
-        setDetails(null);
-        return;
-      }
-      setIsLoadingDetails(true);
-      try {
-        const data = await deviceService.getDeviceDetails(effectiveTransportId);
-        if (active) {
-          setDetails(data);
+      const isOnline =
+        deviceStatus !== "Offline" && deviceStatus !== "Disconnected";
+
+      if (isOnline) {
+        setIsLoadingDetails(true);
+        try {
+          const data =
+            await deviceService.getDeviceDetails(effectiveTransportId);
+          if (active) {
+            setDetails(data);
+          }
+        } catch (err) {
+          console.error("Failed to fetch device details:", err);
+        } finally {
+          if (active) {
+            setIsLoadingDetails(false);
+          }
         }
-      } catch (err) {
-        console.error("Failed to fetch device details:", err);
-      } finally {
-        if (active) {
-          setIsLoadingDetails(false);
-        }
+      } else {
+        if (active) setDetails(null);
       }
     };
     fetchDetails();
@@ -132,12 +168,22 @@ export function EmbeddedMirrorView({
     };
   }, [effectiveTransportId, deviceStatus]);
 
+  // Notify the parent (EmbeddedMirrorPopup) of the device dimensions so it can
+  // size the popout window. Popup sizing is centralized in EmbeddedMirrorPopup's
+  // handleDimensionsChange and its resize listener.
+  useEffect(() => {
+    if (dimensions.width > 0 && dimensions.height > 0) {
+      onDimensionsChange?.(dimensions);
+    }
+  }, [dimensions.width, dimensions.height, onDimensionsChange]);
+
+
   const handleRename = async () => {
     const newName = await prompt({
-      title: "Rename Device",
+      title: t("devices.actions.rename_device"),
       defaultValue: deviceName,
-      confirmText: "Rename",
-      placeholder: "Enter new name",
+      confirmText: t("devices.actions.rename"),
+      placeholder: t("devices.actions.enter_new_name"),
     });
     if (newName && newName !== deviceName) {
       try {
@@ -265,216 +311,6 @@ export function EmbeddedMirrorView({
     };
   }, [deviceId, effectiveTransportId, dimensions.width, dimensions.height]);
 
-  // Touch and Mouse interactions
-  const rafMoveId = useRef<number>(0);
-  const scrollAcc = useRef({ x: 0, y: 0 });
-
-  const getCanvasPoint = (
-    canvas: HTMLCanvasElement,
-    e: React.MouseEvent | React.WheelEvent,
-  ) => {
-    const rect = canvas.getBoundingClientRect();
-    const intrinsicWidth = canvas.width || dimensions.width;
-    const intrinsicHeight = canvas.height || dimensions.height;
-    const scale = Math.min(
-      rect.width / Math.max(1, intrinsicWidth),
-      rect.height / Math.max(1, intrinsicHeight),
-    );
-    const renderedWidth = intrinsicWidth * scale;
-    const renderedHeight = intrinsicHeight * scale;
-    const offsetX = (rect.width - renderedWidth) / 2;
-    const offsetY = (rect.height - renderedHeight) / 2;
-    const contentX = e.clientX - rect.left - offsetX;
-    const contentY = e.clientY - rect.top - offsetY;
-
-    return {
-      x: Math.max(0, Math.min(1, contentX / Math.max(1, renderedWidth))),
-      y: Math.max(0, Math.min(1, contentY / Math.max(1, renderedHeight))),
-      inside:
-        contentX >= 0 &&
-        contentX <= renderedWidth &&
-        contentY >= 0 &&
-        contentY <= renderedHeight,
-    };
-  };
-
-  const handleCanvasMouseEvent = async (
-    e: React.MouseEvent<HTMLCanvasElement>,
-    action: string,
-  ) => {
-    if (status !== "streaming") return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const { x, y, inside } = getCanvasPoint(canvas, e);
-
-    if (action === "down" && !inside) return;
-    if (action === "down") isMouseDownRef.current = true;
-    else if (action === "up") isMouseDownRef.current = false;
-    else if (action === "move" && !isMouseDownRef.current) return;
-
-    if (action === "move") {
-      if (!rafMoveId.current) {
-        rafMoveId.current = requestAnimationFrame(() => {
-          rafMoveId.current = 0;
-          scrcpyService
-            .sendTouch(transportRef.current, action, x, y)
-            .catch(() => {});
-        });
-      }
-    } else {
-      if (rafMoveId.current) {
-        cancelAnimationFrame(rafMoveId.current);
-        rafMoveId.current = 0;
-      }
-      try {
-        await scrcpyService.sendTouch(transportRef.current, action, x, y);
-      } catch {
-        // Ignore transient touch socket errors
-      }
-    }
-  };
-
-  const handleWheel = async (e: React.WheelEvent<HTMLCanvasElement>) => {
-    if (status !== "streaming") return;
-    e.preventDefault();
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const { x, y, inside } = getCanvasPoint(canvas, e);
-    if (!inside) return;
-
-    scrollAcc.current.x += e.deltaX;
-    scrollAcc.current.y += e.deltaY;
-
-    // Threshold for a single "tick" (Mac trackpads generate tiny deltas continuously)
-    const TICK_THRESHOLD = 20;
-
-    let dx = 0;
-    let dy = 0;
-
-    if (Math.abs(scrollAcc.current.x) >= TICK_THRESHOLD) {
-      const ticks = Math.trunc(scrollAcc.current.x / TICK_THRESHOLD);
-      dx = Math.max(-8, Math.min(8, -ticks));
-      scrollAcc.current.x -= ticks * TICK_THRESHOLD;
-    }
-
-    if (Math.abs(scrollAcc.current.y) >= TICK_THRESHOLD) {
-      const ticks = Math.trunc(scrollAcc.current.y / TICK_THRESHOLD);
-      dy = Math.max(-8, Math.min(8, -ticks));
-      scrollAcc.current.y -= ticks * TICK_THRESHOLD;
-    }
-
-    if (dx !== 0 || dy !== 0) {
-      try {
-        await scrcpyService.sendScroll(
-          transportRef.current,
-          Math.max(0, Math.min(1, x)),
-          Math.max(0, Math.min(1, y)),
-          dx,
-          dy,
-        );
-      } catch {}
-    }
-  };
-
-  const composingRef = useRef(false);
-  const handleKeyDown = async (e: React.KeyboardEvent) => {
-    if (e.target !== e.currentTarget) return;
-    if (status !== "streaming" || composingRef.current || e.key === "Dead")
-      return;
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-      e.preventDefault();
-      try {
-        await scrcpyService.sendText(transportRef.current, e.key);
-      } catch {}
-    } else {
-      const keyMap: Record<string, number> = {
-        Enter: 66,
-        Backspace: 67,
-        Delete: 112,
-        ArrowUp: 19,
-        ArrowDown: 20,
-        ArrowLeft: 21,
-        ArrowRight: 22,
-        Escape: 111,
-        Tab: 61,
-      };
-      const keycode = keyMap[e.key];
-      if (keycode) {
-        e.preventDefault();
-        try {
-          await scrcpyService.sendKey(transportRef.current, keycode, "down");
-          await scrcpyService.sendKey(transportRef.current, keycode, "up");
-        } catch {}
-      }
-    }
-  };
-
-  const statusRef = useRef(status);
-  statusRef.current = status;
-
-  const sendNavigationKey = useCallback(async (keycode: number) => {
-    if (statusRef.current !== "streaming") return;
-    try {
-      await scrcpyService.sendKey(transportRef.current, keycode, "down");
-      await scrcpyService.sendKey(transportRef.current, keycode, "up");
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    if (status !== "streaming") return;
-
-    const handleWindowKeyDown = async (e: KeyboardEvent) => {
-      // Ignore if typing in an input/textarea/contenteditable
-      const target = e.target as HTMLElement;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-
-      let keycode: number | null = null;
-
-      // Use Alt (Option on Mac) as modifier to avoid OS-level conflicts
-      // (Cmd+H = hide, Cmd+S = save, Cmd+P = print on macOS)
-      if (e.altKey) {
-        const keyLower = e.key.toLowerCase();
-        if (keyLower === "b" || keyLower === "arrowleft") {
-          keycode = 4; // Back
-        } else if (keyLower === "h") {
-          keycode = 3; // Home
-        } else if (keyLower === "s" || keyLower === "r") {
-          keycode = 187; // Recents / App Switcher
-        } else if (keyLower === "p") {
-          keycode = 26; // Power
-        } else if (e.key === "ArrowUp") {
-          keycode = 24; // Volume Up
-        } else if (e.key === "ArrowDown") {
-          keycode = 25; // Volume Down
-        }
-      } else {
-        if (e.key === "Escape") {
-          keycode = 4; // Back
-        } else if (e.key === "Home") {
-          keycode = 3; // Home
-        }
-      }
-
-      if (keycode !== null) {
-        e.preventDefault();
-        e.stopPropagation();
-        sendNavigationKey(keycode);
-      }
-    };
-
-    window.addEventListener("keydown", handleWindowKeyDown, true);
-    return () => {
-      window.removeEventListener("keydown", handleWindowKeyDown, true);
-    };
-  }, [status, sendNavigationKey]);
-
   const isLandscape = dimensions.width > dimensions.height;
   const targetOrientation = isLandscape ? "portrait" : "landscape";
   const toolbarButtonSize = isLandscape ? "w-10 h-10" : "w-full";
@@ -500,6 +336,16 @@ export function EmbeddedMirrorView({
     availableConnections?.filter(
       (connection) => connection.status === "Connected",
     ) || [];
+  const usbConn = connectedConnections.find(
+    (connection) => connection.connection_type === "USB",
+  );
+  const isCurrentlyWifi =
+    effectiveTransportId.includes(":") ||
+    availableConnections?.find((c) => c.id === effectiveTransportId)
+      ?.connection_type === "Wireless" ||
+    (!availableConnections?.length && connectionType === "Wireless");
+  const canFallbackToUsb =
+    isCurrentlyWifi && !!usbConn && usbConn.id !== effectiveTransportId;
   const connectionSummary =
     [
       ...new Set(
@@ -529,26 +375,16 @@ export function EmbeddedMirrorView({
 
   return (
     <div
+      ref={containerRef}
       className={shellClass}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-      onCompositionStart={() => {
-        composingRef.current = true;
-      }}
-      onCompositionEnd={async (e) => {
-        composingRef.current = false;
-        if (status === "streaming" && e.data) {
-          try {
-            await scrcpyService.sendText(transportRef.current, e.data);
-          } catch {}
-        }
-      }}
+      {...containerProps}
     >
       {/* Mirror stage — fills remaining height/width */}
       <div
-        className={`relative flex-1 min-w-0 min-h-0 flex items-center justify-center bg-gray-100 dark:bg-black overflow-hidden select-none group/mirror ${
-          isLandscape ? "flex-col" : ""
-        }`}
+        ref={mirrorStageRef}
+        className={`relative flex-1 min-w-0 min-h-0 flex items-center justify-center overflow-hidden select-none group/mirror ${
+          isPopup ? "bg-[#0f1012]" : "bg-gray-100 dark:bg-black"
+        } ${isLandscape ? "flex-col" : ""}`}
       >
         {status === "idle" &&
           (isPopup ? (
@@ -564,200 +400,243 @@ export function EmbeddedMirrorView({
           ) : (
             <div className="absolute inset-0 z-10 overflow-y-auto bg-app dark:bg-[#0e1012] p-6 sm:p-8 animate-fade-in flex flex-col justify-between">
               <div className="max-w-2xl mx-auto w-full space-y-6">
-                {/* Device Header */}
-                <div className="flex items-center justify-start gap-8 pb-4">
-                  {/* Phone Placeholder */}
-                  <div className="hidden sm:flex items-center justify-center opacity-20 pointer-events-none relative flex-shrink-0 px-6">
-                    <Bot size={120} className="text-app-text" />
-                  </div>
-
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="flex flex-col gap-3 w-full">
-                      <div>
-                        <div
-                          onClick={handleRename}
-                          className="flex items-center gap-2 group cursor-pointer"
-                          title={t("mirror.click_rename")}
-                        >
-                          <h2 className="text-2xl font-semibold text-app-text tracking-tight group-hover:text-cyan-500 transition-colors">
-                            {deviceName}
-                          </h2>
-                          <Edit2
-                            size={16}
-                            className="text-app-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                          />
-                          {isPoppedOut && (
-                            <span className="ml-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-medium border border-blue-100 dark:border-blue-900/50">
-                              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                              {t("devices.status.mirroring")}
-                            </span>
-                          )}
+                {/* Popped Out State Hero Card or Standard Header */}
+                {isPoppedOut ? (
+                  <div className="bg-white dark:bg-[#16191b] border border-cyan-500/30 dark:border-cyan-500/20 rounded-2xl p-6 sm:p-7 shadow-lg shadow-black/5 relative overflow-hidden">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-500 flex-shrink-0">
+                          <ExternalLink size={22} />
                         </div>
-                        <p className="text-sm text-app-muted font-medium mt-1">
-                          {t(
-                            `devices.status.${(deviceStatus || "Connected").toLowerCase()}`,
-                          )}
-                        </p>
+                        <div>
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <h2 className="text-xl font-bold text-app-text tracking-tight">
+                              {deviceName}
+                            </h2>
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-xs font-semibold border border-cyan-500/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                              {t(
+                                "mirror.popped_out_title",
+                                "Screen popped out to standalone window",
+                              )}
+                            </span>
+                          </div>
+                          <p className="text-xs sm:text-sm text-app-muted mt-1">
+                            {t(
+                              "mirror.popped_out_desc",
+                              "Mirroring is currently active in the floating window.",
+                            )}
+                          </p>
+                        </div>
                       </div>
+                    </div>
 
-                      {/* Transport toggle or badge above mirror button */}
-                      {(() => {
-                        const usbConn = availableConnections?.find(
-                          (c) =>
-                            c.connection_type === "USB" &&
-                            c.status === "Connected",
-                        );
-                        const wifiConn = availableConnections?.find(
-                          (c) =>
-                            c.connection_type === "Wireless" &&
-                            c.status === "Connected",
-                        );
+                    {/* 1-Click Action Buttons */}
+                    <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-gray-200/50 dark:border-[#222629]/50">
+                      <button
+                        onClick={() => void bringMirrorBack()}
+                        className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-md shadow-cyan-600/20 active:scale-[0.98]"
+                      >
+                        <Minimize2 size={16} />
+                        <span>
+                          {t(
+                            "mirror.bring_back",
+                            "Bring mirror back to main window",
+                          )}
+                        </span>
+                      </button>
 
-                        const isUsbConnected =
-                          !!usbConn ||
-                          (!availableConnections?.length && connectionType === "USB");
-                        const isWifiConnected =
-                          !!wifiConn ||
-                          (!availableConnections?.length && connectionType === "Wireless");
+                      <button
+                        onClick={() => void focusPopoutWindow()}
+                        className="flex items-center gap-2 px-4 py-2 bg-app-input hover:bg-app-hover text-app-text text-xs sm:text-sm font-medium rounded-xl border border-app-border transition-all active:scale-[0.98]"
+                      >
+                        <ExternalLink size={15} className="text-cyan-500" />
+                        <span>
+                          {t("mirror.focus_popout", "Focus popout window")}
+                        </span>
+                      </button>
 
-                        if (usbConn && wifiConn) {
-                          const isUsb = effectiveTransportId === usbConn.id;
-                          return (
-                            <div>
-                              <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-[#2a3036] bg-white dark:bg-[#1d2327] w-fit">
-                                <button
-                                  onClick={() => {
-                                    if (!isUsb) void switchTransport(usbConn.id);
-                                  }}
-                                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
-                                    isUsb
-                                      ? "bg-cyan-600 text-white"
-                                      : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]"
-                                  }`}
-                                >
-                                  <Usb size={13} />
-                                  {t("devices.connection.usb")}
-                                </button>
-                                <div className="w-px bg-gray-200 dark:bg-[#2a3036]" />
-                                <button
-                                  onClick={() => {
-                                    if (isUsb) void switchTransport(wifiConn.id);
-                                  }}
-                                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
-                                    isUsb
-                                      ? "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]"
-                                      : "bg-cyan-600 text-white"
-                                  }`}
-                                >
-                                  <Wifi size={13} />
-                                  {t("devices.connection.wireless")}
-                                </button>
-                              </div>
-                            </div>
+                      <button
+                        onClick={() => void handleStop()}
+                        className="flex items-center gap-2 px-3.5 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-600 dark:text-red-400 text-xs sm:text-sm font-medium rounded-xl transition-all active:scale-[0.98]"
+                      >
+                        <Square size={14} fill="currentColor" />
+                        <span>
+                          {t("mirror.stop_mirroring", "Stop Mirroring")}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-start gap-8 pb-4">
+                    {/* Clean Phone Frame Mockup */}
+                    <div className="hidden sm:flex items-center justify-center relative flex-shrink-0 px-3 py-1">
+                      <PhoneMockup
+                        status={deviceStatus || "Connected"}
+                        deviceName={deviceName}
+                      />
+                    </div>
+
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className="flex flex-col gap-3 w-full">
+                        <div>
+                          <div
+                            onClick={handleRename}
+                            className="flex items-center gap-2 group cursor-pointer"
+                            title={t("mirror.click_rename")}
+                          >
+                            <h2 className="text-2xl font-semibold text-app-text tracking-tight group-hover:text-cyan-500 transition-colors">
+                              {deviceName}
+                            </h2>
+                            <Edit2
+                              size={16}
+                              className="text-app-muted opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                            />
+                          </div>
+                          <p className="text-sm text-app-muted font-medium mt-1">
+                            {t(
+                              `devices.status.${(deviceStatus || "Connected").toLowerCase()}`,
+                            )}
+                          </p>
+                        </div>
+
+                        {/* Transport toggle or badge above mirror button */}
+                        {(() => {
+                          const usbConn = availableConnections?.find(
+                            (c) =>
+                              c.connection_type === "USB" &&
+                              c.status === "Connected",
                           );
-                        }
-
-                        if (isUsbConnected) {
-                          return (
-                            <div>
-                              <div className="rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 px-3 py-1 text-xs font-medium w-fit">
-                                USB
-                              </div>
-                            </div>
+                          const wifiConn = availableConnections?.find(
+                            (c) =>
+                              c.connection_type === "Wireless" &&
+                              c.status === "Connected",
                           );
-                        }
 
-                        if (isWifiConnected) {
-                          return (
-                            <div>
-                              <div className="rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 px-3 py-1 text-xs font-medium w-fit">
-                                WiFi
+                          const isUsbConnected =
+                            !!usbConn ||
+                            (!availableConnections?.length &&
+                              connectionType === "USB");
+                          const isWifiConnected =
+                            !!wifiConn ||
+                            (!availableConnections?.length &&
+                              connectionType === "Wireless");
+
+                          if (usbConn && wifiConn) {
+                            const isUsb = effectiveTransportId === usbConn.id;
+                            return (
+                              <div>
+                                <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-[#2a3036] bg-white dark:bg-[#1d2327] w-fit">
+                                  <button
+                                    onClick={() => {
+                                      if (!isUsb)
+                                        void switchTransport(usbConn.id);
+                                    }}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                                      isUsb
+                                        ? "bg-cyan-600 text-white"
+                                        : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]"
+                                    }`}
+                                  >
+                                    <Usb size={13} />
+                                    {t("devices.connection.usb")}
+                                  </button>
+                                  <div className="w-px bg-gray-200 dark:bg-[#2a3036]" />
+                                  <button
+                                    onClick={() => {
+                                      if (isUsb)
+                                        void switchTransport(wifiConn.id);
+                                    }}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                                      isUsb
+                                        ? "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-[#252c31]"
+                                        : "bg-cyan-600 text-white"
+                                    }`}
+                                  >
+                                    <Wifi size={13} />
+                                    {t("devices.connection.wireless")}
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        }
+                            );
+                          }
 
-                        return null;
-                      })()}
+                          if (isUsbConnected) {
+                            return (
+                              <div>
+                                <div className="rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 px-3 py-1 text-xs font-medium w-fit">
+                                  USB
+                                </div>
+                              </div>
+                            );
+                          }
 
-                      <div className="flex items-center gap-3">
-                        {!isPoppedOut ? (
+                          if (isWifiConnected) {
+                            return (
+                              <div>
+                                <div className="rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 px-3 py-1 text-xs font-medium w-fit">
+                                  WiFi
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          return null;
+                        })()}
+
+                        <div className="flex items-center gap-3">
                           <MirrorButton
                             size="md"
                             onClick={() => {
                               startMirroring();
                             }}
                           />
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => {
-                                setIsPoppedOut(false);
-                                startMirroring();
-                              }}
-                              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-app-input border border-app-border hover:bg-app-hover text-app-text font-medium text-sm transition-all shadow-sm active:scale-[0.98]"
-                            >
-                              <span>{t("mirror.attach_window")}</span>
-                            </button>
-                            <button
-                              onClick={async () => {
-                                setIsPoppedOut(false);
-                                await handleStop();
-                              }}
-                              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 font-medium text-sm transition-all shadow-sm active:scale-[0.98]"
-                            >
-                              <Square size={14} fill="currentColor" />
-                              <span>{t("mirror.stop_popout")}</span>
-                            </button>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Stats Cards */}
-                      <div className="grid grid-cols-2 gap-4 mt-2 max-w-xs">
-                        <div className="bg-white dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl p-4 shadow-md shadow-black/5 dark:shadow-none flex flex-col gap-1">
-                          <div className="flex items-center gap-2 text-app-muted mb-1">
-                            <Battery size={16} />
-                            <span className="text-[11px] font-semibold uppercase tracking-wider">
-                              {t("mirror.battery")}
-                            </span>
-                          </div>
-                          <div className="text-xl font-semibold text-app-text">
-                            {details
-                              ? `${details.battery_level}%`
-                              : isLoadingDetails
-                                ? "..."
-                                : "—"}
-                          </div>
-                        </div>
-                        <div className="bg-white dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl p-4 shadow-md shadow-black/5 dark:shadow-none flex flex-col gap-1">
-                          <div className="flex items-center gap-2 text-app-muted mb-1">
-                            <HardDrive size={16} />
-                            <span className="text-[11px] font-semibold uppercase tracking-wider">
-                              {t("mirror.storage")}
-                            </span>
-                          </div>
-                          <div className="text-xl font-semibold text-app-text">
-                            {details && details.storage_total_gb > 0 ? (
-                              <>
-                                {details.storage_used_gb}{" "}
-                                <span className="text-xs text-app-muted font-normal">
-                                  GB / {details.storage_total_gb} GB
-                                </span>
-                              </>
-                            ) : isLoadingDetails ? (
-                              "..."
-                            ) : (
-                              "—"
-                            )}
-                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                {/* Stats Cards moved up */}
+                {/* Stats Cards */}
+                <div className="grid grid-cols-2 gap-4 mt-2 max-w-xs">
+                  <div className="bg-white dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl p-4 shadow-md shadow-black/5 dark:shadow-none flex flex-col gap-1">
+                    <div className="flex items-center gap-2 text-app-muted mb-1">
+                      <Battery size={16} />
+                      <span className="text-[11px] font-semibold uppercase tracking-wider">
+                        {t("mirror.battery")}
+                      </span>
+                    </div>
+                    <div className="text-xl font-semibold text-app-text">
+                      {details
+                        ? `${details.battery_level}%`
+                        : isLoadingDetails
+                          ? "..."
+                          : "—"}
+                    </div>
+                  </div>
+                  <div className="bg-white dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl p-4 shadow-md shadow-black/5 dark:shadow-none flex flex-col gap-1">
+                    <div className="flex items-center gap-2 text-app-muted mb-1">
+                      <HardDrive size={16} />
+                      <span className="text-[11px] font-semibold uppercase tracking-wider">
+                        {t("mirror.storage")}
+                      </span>
+                    </div>
+                    <div className="text-xl font-semibold text-app-text">
+                      {details && details.storage_total_gb > 0 ? (
+                        <>
+                          {details.storage_used_gb}{" "}
+                          <span className="text-xs text-app-muted font-normal">
+                            GB / {details.storage_total_gb} GB
+                          </span>
+                        </>
+                      ) : isLoadingDetails ? (
+                        "..."
+                      ) : (
+                        "—"
+                      )}
+                    </div>
+                  </div>
+                </div>
 
                 {/* Device Details List */}
                 <div className="mt-6 bg-white dark:bg-[#16191b] border border-gray-200/50 dark:border-[#222629]/50 rounded-xl overflow-hidden shadow-md shadow-black/5 dark:shadow-none">
@@ -925,43 +804,80 @@ export function EmbeddedMirrorView({
             </p>
             {isAutoRetrying && (
               <>
-                <p className="text-app-muted text-xs mt-1 max-w-sm">
-                  {t("mirror.auto_retrying", { current: retryCountRef.current, max: MAX_AUTO_RETRIES })}
-                </p>
-                <div className="flex flex-col gap-2 w-full max-w-[220px] mt-4">
+                <div className="flex items-center gap-1.5 text-cyan-400 font-mono text-xs bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 mt-2 mb-1 animate-pulse">
+                  <RotateCw size={12} className="animate-spin" />
+                  <span>
+                    {retryCountdown > 0
+                      ? `Reconnecting in ${retryCountdown}s (Attempt ${retryAttempt || retryCountRef.current}/${MAX_AUTO_RETRIES})`
+                      : `Reconnecting (Attempt ${retryAttempt || retryCountRef.current}/${MAX_AUTO_RETRIES})...`}
+                  </span>
+                </div>
+
+                {/* 1-Click USB Fallback Box if Wi-Fi retry is ongoing and USB is connected */}
+                {canFallbackToUsb && usbConn && (
+                  <div className="w-full max-w-[280px] p-3 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-left mt-3 mb-1">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-cyan-300 mb-1">
+                      <Usb size={14} />
+                      <span>{t("mirror.usb_connection_ready")}</span>
+                    </div>
+                    <p className="text-[11px] text-app-muted leading-tight mb-2.5">
+                      {t("mirror.usb_mirroring_desc")}
+                    </p>
+                    <button
+                      onClick={() => void switchTransport(usbConn.id, true)}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 active:bg-cyan-600 text-black text-xs font-semibold rounded-md shadow-sm transition-colors"
+                    >
+                      <Usb size={13} />
+                      <span>{t("mirror.switch_to_usb_and_connect")}</span>
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2 w-full max-w-[220px] mt-3">
+                  {/* Other connection switch buttons */}
                   {(() => {
                     const otherConns = (availableConnections || []).filter(
                       (c) =>
                         c.id !== effectiveTransportId &&
-                        c.status === "Connected",
+                        c.status === "Connected" &&
+                        (!canFallbackToUsb || c.id !== usbConn?.id),
                     );
                     return otherConns.map((conn) => (
                       <button
                         key={conn.id}
                         onClick={() => {
-                          setIsAutoRetrying(false);
-                          void switchTransport(conn.id);
+                          void switchTransport(conn.id, true);
                         }}
-                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
                       >
                         {conn.connection_type === "USB" ? (
-                          <Usb size={15} />
+                          <Usb size={14} />
                         ) : (
-                          <Wifi size={15} />
+                          <Wifi size={14} />
                         )}
                         {t("mirror.switch_to", {
-                          type: conn.connection_type === "USB"
-                            ? t("devices.connection.usb")
-                            : t("devices.connection.wireless")
+                          type:
+                            conn.connection_type === "USB"
+                              ? t("devices.connection.usb")
+                              : t("devices.connection.wireless"),
                         })}
                       </button>
                     ));
                   })()}
+
+                  <button
+                    onClick={() => retryMirroring()}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-app-input hover:bg-app-hover text-app-text text-xs font-medium rounded-lg transition-colors border border-app-border"
+                  >
+                    <RotateCw size={13} />
+                    <span>{t("mirror.retry_now")}</span>
+                  </button>
+
                   <button
                     onClick={() => {
                       cancelRetry();
                     }}
-                    className="px-4 py-2 text-app-muted hover:text-app-text text-xs rounded-lg transition-colors border border-transparent hover:border-app-border"
+                    className="px-4 py-1.5 text-app-muted hover:text-app-text text-xs rounded-lg transition-colors border border-transparent hover:border-app-border"
                   >
                     {t("mirror.stop_retrying")}
                   </button>
@@ -972,29 +888,69 @@ export function EmbeddedMirrorView({
         )}
 
         {status === "error" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-app-card/95 dark:bg-[#0e1012]/95 z-10 text-center p-6 backdrop-blur-sm">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-app-card/95 dark:bg-[#0e1012]/95 z-10 text-center p-6 backdrop-blur-sm overflow-y-auto">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-500 mb-3 flex-shrink-0">
+              <AlertTriangle size={24} />
+            </div>
+
             <p className="text-app-text font-semibold text-base mb-1">
-              {t("mirror.stream_interrupted")}
+              {classifiedError?.title || t("mirror.stream_interrupted")}
             </p>
-            <p className="text-app-muted text-xs max-w-md mb-4">
-              {errorMsg || t("mirror.connection_lost")}
+            <p className="text-app-muted text-xs max-w-md mb-3 font-mono break-words bg-black/20 dark:bg-white/5 px-3 py-1.5 rounded-md border border-app-border">
+              {classifiedError?.message || errorMsg || t("mirror.connection_lost")}
             </p>
 
-            <div className="flex flex-col gap-2 w-full max-w-[220px]">
-              {/* Switch transport buttons when multiple connections exist */}
+            {/* Resolution Box */}
+            {classifiedError?.resolution && (
+              <div className="bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/30 dark:border-amber-700/50 rounded-lg p-3 text-left max-w-md w-full mb-3 text-xs text-amber-900 dark:text-amber-300">
+                <div className="flex items-center gap-1.5 font-semibold mb-1 text-amber-600 dark:text-amber-400">
+                  <HelpCircle size={14} className="flex-shrink-0" />
+                  <span>{t("mirror.recommended_action")}</span>
+                </div>
+                <p className="leading-relaxed text-[12px] opacity-90">
+                  {classifiedError.resolution}
+                </p>
+              </div>
+            )}
+
+            {/* 1-Click USB Fallback Box if Wi-Fi encountered error and USB is connected */}
+            {canFallbackToUsb && usbConn && (
+              <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3 max-w-md w-full mb-3 flex items-center justify-between gap-3 text-left">
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-cyan-400">
+                    <Usb size={14} />
+                    <span>{t("mirror.usb_connection_ready")}</span>
+                  </div>
+                  <p className="text-[11px] text-app-muted mt-0.5">
+                    {t("mirror.usb_fallback_desc")}
+                  </p>
+                </div>
+                <button
+                  onClick={() => void switchTransport(usbConn.id, true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 active:bg-cyan-600 text-black text-xs font-semibold rounded-md shadow transition-colors flex-shrink-0"
+                >
+                  <Usb size={13} />
+                  <span>{t("mirror.use_usb")}</span>
+                </button>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2 w-full max-w-[240px]">
+              {/* Other transport switch buttons */}
               {(() => {
                 const otherConns = (availableConnections || []).filter(
                   (c) =>
-                    c.id !== effectiveTransportId && c.status === "Connected",
+                    c.id !== effectiveTransportId &&
+                    c.status === "Connected" &&
+                    (!canFallbackToUsb || c.id !== usbConn?.id),
                 );
-                if (otherConns.length === 0) return null;
                 return otherConns.map((conn) => (
                   <button
                     key={conn.id}
                     onClick={() => {
-                      void switchTransport(conn.id);
+                      void switchTransport(conn.id, true);
                     }}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-500 hover:bg-cyan-600 active:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                   >
                     {conn.connection_type === "USB" ? (
                       <Usb size={15} />
@@ -1002,9 +958,10 @@ export function EmbeddedMirrorView({
                       <Wifi size={15} />
                     )}
                     {t("mirror.switch_to", {
-                      type: conn.connection_type === "USB"
-                        ? t("devices.connection.usb")
-                        : t("devices.connection.wireless")
+                      type:
+                        conn.connection_type === "USB"
+                          ? t("devices.connection.usb")
+                          : t("devices.connection.wireless"),
                     })}
                   </button>
                 ));
@@ -1015,9 +972,10 @@ export function EmbeddedMirrorView({
                 onClick={() => {
                   retryMirroring();
                 }}
-                className="px-4 py-2.5 bg-app-input hover:bg-app-hover text-app-text text-sm font-medium rounded-lg transition-colors border border-app-border"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-app-input hover:bg-app-hover text-app-text text-sm font-medium rounded-lg transition-colors border border-app-border"
               >
-                {t("mirror.retry")}
+                <RotateCw size={14} />
+                <span>{t("mirror.retry")}</span>
               </button>
 
               {/* Close */}
@@ -1035,13 +993,7 @@ export function EmbeddedMirrorView({
 
         <canvas
           ref={canvasRef}
-          onMouseDown={(e) => handleCanvasMouseEvent(e, "down")}
-          onMouseMove={(e) => handleCanvasMouseEvent(e, "move")}
-          onMouseUp={(e) => handleCanvasMouseEvent(e, "up")}
-          onMouseLeave={(e) => {
-            if (isMouseDownRef.current) void handleCanvasMouseEvent(e, "up");
-          }}
-          onWheel={handleWheel}
+          {...canvasProps}
           className="max-w-full max-h-full w-auto h-auto object-contain transition-opacity duration-200"
           style={{
             opacity:
@@ -1056,6 +1008,7 @@ export function EmbeddedMirrorView({
       {/* Right Action Toolbar */}
       {status === "streaming" && (
         <aside
+          ref={actionToolbarRef}
           className={`flex-shrink-0 bg-app-sidebar border-app-border flex gap-2 overflow-y-auto ${
             isLandscape
               ? "w-full h-16 border-t flex-row items-center justify-center px-3 py-1.5"
@@ -1117,29 +1070,83 @@ export function EmbeddedMirrorView({
               />
             </button>
 
-            {/* Pop Out */}
+            {/* Pop Out (Inline mode) */}
             {!isPopup && (
               <button
-                onClick={async () => {
-                  const handlePopOut = async () => {
-                    await handleStop();
-                    try {
-                      await scrcpyService.openMirrorWindow(
-                        transportRef.current,
-                        deviceName,
-                      );
-                      setIsPoppedOut(true);
-                    } catch (err) {
-                      console.error("Failed to open mirror window:", err);
-                      toast.error(t("mirror.popout_failed"));
-                    }
-                  };
-                  handlePopOut();
-                }}
-                title={t("mirror.popout_title")}
+                onClick={() => void popOutMirror(deviceName)}
+                title={t("mirror.popout_title", "Pop out in separate window")}
                 className={`${toolbarButtonSize} flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0`}
               >
                 <ExternalLink
+                  size={18}
+                  className="text-app-muted hover:text-app-text transition-colors"
+                />
+              </button>
+            )}
+
+            {/* Always-on-top toggle (Popout mode) */}
+            {isPopup && (
+              <button
+                onClick={async () => {
+                  try {
+                    const { getCurrentWindow } = await import(
+                      "@tauri-apps/api/window"
+                    );
+                    const next = !isAlwaysOnTop;
+                    setIsAlwaysOnTop(next);
+                    await getCurrentWindow().setAlwaysOnTop(next);
+                    toast.success(
+                      next
+                        ? t("mirror.always_on_top", "Always on top enabled")
+                        : t(
+                            "mirror.unpin_always_on_top",
+                            "Always on top disabled",
+                          ),
+                    );
+                  } catch (err) {
+                    console.error("Failed to toggle always-on-top:", err);
+                  }
+                }}
+                title={
+                  isAlwaysOnTop
+                    ? t("mirror.unpin_always_on_top", "Unpin always on top")
+                    : t("mirror.always_on_top", "Always on top")
+                }
+                className={`${toolbarButtonSize} flex items-center justify-center py-2 rounded-lg ${
+                  isAlwaysOnTop
+                    ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-400"
+                    : "bg-app-input border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40"
+                } border transition-colors flex-shrink-0`}
+              >
+                <Pin
+                  size={18}
+                  className={
+                    isAlwaysOnTop
+                      ? "text-cyan-400 rotate-45 fill-current"
+                      : "text-app-muted hover:text-app-text transition-colors"
+                  }
+                />
+              </button>
+            )}
+
+            {/* Return to Main Window (Popout mode) */}
+            {isPopup && (
+              <button
+                onClick={async () => {
+                  try {
+                    await windowService.focusMainWindow();
+                    await windowService.closeCurrentWindow();
+                  } catch {
+                    if (onClose) onClose();
+                  }
+                }}
+                title={t(
+                  "mirror.return_to_main",
+                  "Return to main window (Pop in)",
+                )}
+                className={`${toolbarButtonSize} flex items-center justify-center py-2 rounded-lg bg-app-input border border-app-border text-app-text hover:bg-app-hover hover:border-cyan-500/40 transition-colors flex-shrink-0`}
+              >
+                <Minimize2
                   size={18}
                   className="text-app-muted hover:text-app-text transition-colors"
                 />

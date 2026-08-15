@@ -110,8 +110,8 @@ export function WifiPairPanel({ onClose, onDeviceConnected }: WifiPairPanelProps
         {/* Header */}
         <div className="h-14 flex items-center justify-between px-5 border-b border-gray-100 dark:border-[#222629] flex-shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-cyan-50 dark:bg-cyan-900/30 flex items-center justify-center">
-              <Wifi size={14} className="text-cyan-600 dark:text-cyan-400" />
+            <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-[#1d2327] flex items-center justify-center">
+              <Wifi size={14} className="text-gray-500 dark:text-slate-400" />
             </div>
             <span className="font-semibold text-sm text-gray-900 dark:text-slate-100">
               {step === "pair" ? "Pair via Wi-Fi" : "Connect"}

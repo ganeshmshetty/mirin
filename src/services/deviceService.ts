@@ -139,4 +139,25 @@ export const deviceService = {
     }
     return null;
   },
+
+  /**
+   * Get device wallpaper or screen background image (as data URL or null)
+   */
+  async getDeviceWallpaper(
+    deviceId: string,
+    hardwareId: string = "",
+    fetchFromAdb: boolean = false,
+  ): Promise<string | null> {
+    try {
+      return await invoke<string | null>("get_device_wallpaper", {
+        deviceId,
+        hardwareId,
+        fetchFromAdb,
+      });
+    } catch (e) {
+      console.error("Failed to get device wallpaper:", e);
+      return null;
+    }
+  },
 };
+
